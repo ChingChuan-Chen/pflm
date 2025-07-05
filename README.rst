@@ -20,7 +20,7 @@ You can install **pflm** via `pip` command:
 
 
 Performance vs R and MATLAB packages
-------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This benchmark compares the performance of the **pflm** package with the R package **fdapace** and the MATLAB package **PACE**.
 The benchmark is run on a machine with the following specifications:
@@ -58,4 +58,8 @@ The parameters used for the benchmark are as follows:
     regular_data_with_missing = fdg.make_missing(regular_data, 0.1)
     sparse_data = fdg.generate(300, data_type='sparse')
 
+Reference
+~~~~~~~~~~
 
+1. fdapace: Functional Data Analysis and Empirical Dynamics, https://cran.r-project.org/web/packages/fdapace/index.html.
+2. PACE: Principal Analysis by Conditional Expectation, https://www.stat.ucdavis.edu/PACE/
