@@ -1,0 +1,188 @@
+[project]
+name = "pflm"
+dynamic = ["version"]
+description = "A set of python modules for functional data analysis and partial functional linear modeling"
+readme = "README.rst"
+maintainers = [
+    {name = "Ching-Chuan Chen", email="ccchen0326@outlook.com"},
+]
+dependencies = [
+  "numpy>=1.22.0",
+  "scipy>=1.14.0",
+  "scikit-learn>=1.5.0"
+]
+requires-python = ">=3.10"
+license = {file = 'LICENSE'}
+classifiers=[
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "Programming Language :: C",
+  "Programming Language :: Python",
+  "Topic :: Software Development",
+  "Topic :: Scientific/Engineering",
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX",
+  "Operating System :: Unix",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[project.urls]
+homepage = "https://github.com/ChingChuan-Chen/pflm"
+source = "https://github.com/ChingChuan-Chen/pflm"
+download = "https://github.com/ChingChuan-Chen/pflm/#files"
+tracker = "https://github.com/ChingChuan-Chen/pflm/issues"
+
+[project.optional-dependencies]
+build = ["numpy>=1.22.0", "scipy>=1.14.0", "cython>=3.0.10", "meson-python>=0.17.1"]
+install = ["numpy>=1.22.0", "scipy>=1.14.0"]
+tests = [
+    "pytest>=7.1.2",
+    "pytest-cov>=2.9.0",
+]
+
+[build-system]
+build-backend = "mesonpy"
+# Minimum requirements for the build system to execute.
+requires = [
+    "meson-python>=0.17.1",
+    "Cython>=3.0.10",
+    "numpy>=1.22.0",
+    "scipy>=1.14.0",
+]
+
+[tool.pytest.ini_options]
+doctest_optionflags = "NORMALIZE_WHITESPACE ELLIPSIS"
+testpaths = "pflm"
+addopts = [
+    "--disable-pytest-warnings",
+    "--color=yes",
+    "--import-mode=importlib",
+]
+
+[tool.ruff]
+line-length = 146
+exclude=[
+    ".eggs",
+    ".git",
+    ".vscode",
+    "__pycache__",
+    "build",
+    "dist",
+    "doc/_build",
+    "doc/auto_examples"
+]
+
+[tool.ruff.lint]
+preview = true
+explicit-preview-rules = true
+extend-select = ["E501", "W", "I", "CPY001", "PGH", "RUF"]
+ignore=[
+    # do not assign a lambda expression, use a def
+    "E731",
+    # do not use variables named 'l', 'O', or 'I'
+    "E741",
+    # E721 gives many false positives.
+    # Use `is` and `is not` for type comparisons, or `isinstance()` for
+    # isinstance checks
+    "E721",
+    # We don't care much about F841.
+    # Local variable ... is assigned to but never used
+    "F841",
+    # some RUF rules trigger too many changes
+    "RUF002",
+    "RUF003",
+    "RUF005",
+    "RUF012",
+    "RUF015",
+    "RUF021",
+    # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# It's fine not to put the import at the top of the file in the examples folder.
+"examples/*"=["E402"]
+"doc/conf.py"=["E402"]
+"**/tests/*"=["CPY001"]
+"asv_benchmarks/*"=["CPY001"]
+"benchmarks/*"=["CPY001"]
+"doc/*"=["CPY001"]
+"build_tools/*"=["CPY001"]
+"sklearn/_build_utils/*"=["CPY001"]
+"maint_tools/*"=["CPY001"]
+".spin/*"=["CPY001"]
+".github/*"=["CPY001"]
+# __doc__ is too long (>4096 chars) and therefore false positive on copyright check
+"examples/model_selection/plot_precision_recall.py"=["CPY001"]
+"examples/svm/plot_rbf_parameters.py"=["CPY001"]
+# __all__ has un-imported names
+"sklearn/__init__.py"=["F822"]
+"sklearn/utils/_metadata_requests.py"=["CPY001"]
+
+[tool.cython-lint]
+# Ignore the same error codes as ruff
+# + E501 (line too long) because keeping it < 88 in cython
+# often makes code less readable.
+ignore = [
+    # multiple spaces/tab after comma
+    'E24',
+    # line too long
+    'E501',
+    # do not assign a lambda expression, use a def
+    'E731',
+    # do not use variables named 'l', 'O', or 'I'
+    'E741',
+    # line break before binary operator
+    'W503',
+    # line break after binary operator
+    'W504',
+]
+
+[tool.check-sdist]
+# These settings should match .gitattributes
+sdist-only = []
+git-only = [".*"]
+default-ignore = false
+
+[tool.spin]
+package = "pflm"  # name of your package
+
+[tool.spin.commands]
+"Build" = [
+  "spin.cmds.pip.install",
+  "spin.cmds.meson.test",
+  ".spin/cmds.py:clean",
+]
+"Documentation" = [
+  "spin.cmds.meson.docs"
+]
+
+[tool.changelog-bot]
+    [tool.changelog-bot.towncrier_changelog]
+        enabled = true
+        verify_pr_number = true
+        changelog_noop_label = "No Changelog Needed"
+        whatsnew_pattern = 'doc/whatsnew/upcoming_changes/[^/]+/\d+\.[^.]+\.rst'
+
+[tool.codespell]
+skip = ["./.git", "./build_tools/wheels/LICENSE_windows.txt", "./doc/_build", "./doc/auto_examples", "./doc/modules/generated"]
+ignore-words = "build_tools/codespell_ignore_words.txt"
