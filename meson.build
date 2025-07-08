@@ -1,12 +1,11 @@
 project(
-  'pflm',
-  'cpp', 'cython',
-  version: run_command('pflm/_build_utils/version.py', check: true).stdout().strip(),
-  license: 'MIT',
-  meson_version: '>= 1.1.0',
-  default_options: [
-    'cpp_std=c++14',
-  ],
+    'pflm',
+    'cpp',
+    'cython',
+    version: run_command('pflm/_build_utils/version.py', check: true).stdout().strip(),
+    license: 'MIT',
+    meson_version: '>= 1.1.0',
+    default_options: ['cpp_std=c++14'],
 )
 
 cpp = meson.get_compiler('cpp')

@@ -13,7 +13,8 @@ Functions
 - `interp2d`: Interpolate 2D data using linear or spline interpolation.
 """
 
-def interp1d(x, y, x_new, method='linear'):
+
+def interp1d(x, y, x_new, method="linear"):
     """Interpolate 1D data using linear or spline interpolation.
 
     Parameters
@@ -44,9 +45,9 @@ def interp1d(x, y, x_new, method='linear'):
         raise ValueError("x, y, and x_new must not be empty.")
     if x.size != y.size:
         raise ValueError("x must have the same size as y.")
-    if method not in ['linear', 'spline']:
+    if method not in ["linear", "spline"]:
         raise ValueError("Invalid method. Use 'linear' or 'spline'.")
-    method_mapping = {'linear': 0, 'spline': 1}
+    method_mapping = {"linear": 0, "spline": 1}
     interp_func = interp1d_f32 if x.dtype == np.float32 else interp1d_f64
     input_type = x.dtype
     x_unique, idx = np.unique(x, return_index=True)
@@ -54,7 +55,8 @@ def interp1d(x, y, x_new, method='linear'):
     x_new_typed = x_new.astype(input_type, copy=False)
     return interp_func(x_unique, y_unique, x_new_typed, method_mapping[method])
 
-def interp2d(x, y, v, x_new, y_new, method='linear'):
+
+def interp2d(x, y, v, x_new, y_new, method="linear"):
     """Interpolate 2D data using linear or spline interpolation.
 
     Parameters
@@ -92,9 +94,9 @@ def interp2d(x, y, v, x_new, y_new, method='linear'):
         raise ValueError("x must have the same length as the first dimension of v")
     if y.size != v.shape[0]:
         raise ValueError("y must have the same length as the second dimension of v")
-    if method not in ['linear', 'spline']:
+    if method not in ["linear", "spline"]:
         raise ValueError("Invalid method. Use 'linear' or 'spline'.")
-    method_mapping = {'linear': 0, 'spline': 1}
+    method_mapping = {"linear": 0, "spline": 1}
     interp_func = interp2d_f32 if x.dtype == np.float32 else interp2d_f64
     input_type = x.dtype
     x_unique, idx_x = np.unique(x, return_index=True)

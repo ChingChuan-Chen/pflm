@@ -19,12 +19,11 @@ def trapz(y: np.ndarray, x: np.ndarray) -> np.ndarray:
     """
     if len(y.shape) == 1:
         if y.shape[0] != x.shape[0]:
-            raise ValueError('y and x must have the same length.')
+            raise ValueError("y and x must have the same length.")
         return np.dot((y[:-1] + y[1:]), np.diff(x)) * 0.5
     elif len(y.shape) == 2:
         if y.shape[1] != x.shape[0]:
-            raise ValueError(
-                'The number of columns of y must match the size of x.')
+            raise ValueError("The number of columns of y must match the size of x.")
         return np.matmul((y[:, :-1] + y[:, 1:]), np.diff(x)) * 0.5
     else:
-        raise ValueError('y must be 1D or 2D.')
+        raise ValueError("y must be 1D or 2D.")

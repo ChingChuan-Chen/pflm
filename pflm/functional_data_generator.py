@@ -49,7 +49,7 @@ class FunctionalDataGenerator(object):
         var_func: Callable[[np.ndarray], np.ndarray],
         corr_func: Callable[[np.ndarray], np.ndarray] = scipy.special.j0,
         variation_prop_thresh: float = 0.999999,
-        error_var: float = 1.0
+        error_var: float = 1.0,
     ):
         self.t: np.ndarray = t
         self.mean_func: Callable[[np.ndarray], np.ndarray] = mean_func
@@ -67,7 +67,7 @@ class FunctionalDataGenerator(object):
         corr = self.corr_func(np.abs(self.t))
         corr_mat = np.zeros((nt, nt))
         for i in range(nt):
-            corr_mat[i, i:nt] = corr[0:nt - i]
+            corr_mat[i, i:nt] = corr[0 : nt - i]
         mean_func = self.mean_func(self.t)
         self._num_fpc, _, self._fpca_phi, _ = get_eigen_results(self.t, mean_func, corr_mat, self.variation_prop_thresh)
 
@@ -119,8 +119,11 @@ class FunctionalDataGenerator(object):
             self.__calculate_fpca_phi()
         nt = len(self.t)
         fpc_scores = rng.multivariate_normal(np.zeros(self._num_fpc), np.eye(self._num_fpc), n)
-        y = np.matmul(fpc_scores, self._fpca_phi.T) * np.sqrt(self.var_func(self.t)) + \
-            rng.normal(0, sqrt(self.error_var), (n, nt)) + self.mean_func(self.t)
+        y = (
+            np.matmul(fpc_scores, self._fpca_phi.T) * np.sqrt(self.var_func(self.t))
+            + rng.normal(0, sqrt(self.error_var), (n, nt))
+            + self.mean_func(self.t)
+        )
         return y
 
     @staticmethod

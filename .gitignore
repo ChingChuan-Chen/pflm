@@ -8,7 +8,9 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+.ruff_cache
 build/
+builddir/
 develop-eggs/
 dist/
 downloads/
@@ -50,6 +52,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+coverage_html_report
 
 # Translations
 *.mo
