@@ -7,13 +7,27 @@ def flatten_data_matrix(y: np.ndarray, t: np.ndarray, w: np.ndarray = None) -> T
 
     Parameters
     ----------
-        y (np.ndarray): The response matrix.
-        t (np.ndarray): The time points.
-        w (np.ndarray, optional): The weights. Defaults to None.
+    y : array_like
+        The response matrix of shape (n, nt), where n is the number of samples and
+        nt is the number of time points.
+        Each row corresponds to a sample and each column corresponds to a time point.
+        The values can be NaN, which will be ignored in the flattening process.
+    t : array_like
+        The time points of shape (nt,).
+        It should be a 1D array where each element corresponds to a time point.
+    w : array_like, optional
+        The weights of shape (n,). If provided, it should have the same number of rows as `y`.
+        If not provided, a default weight of 1 will be used for all samples,
+        and NaN values in `y` will result in NaN weights.
 
     Returns
     -------
-        Tuple[np.ndarray, np.ndarray, np.ndarray]: Flattened and sorted arrays of y, t, and w.
+    yy : array_like
+        A 1D array of the flattened response values, sorted by time.
+    tt : array_like
+        A 1D array of the corresponding time points, sorted to match `yy`.
+    ww : array_like
+        A 1D array of the weights corresponding to `yy`, sorted to match `yy`.
     """
     if y.ndim != 2:
         raise ValueError('y must be a 2D array.')
@@ -51,22 +65,42 @@ def get_eigen_results(
 
     Parameters
     ----------
-    t (np.ndarray): The time points at which the functional data is observed. The shape should be (n,).
-    mean_func (np.ndarray): The mean function values at the time points. The shape should be (n,).
-    cov_func (np.ndarray): The covariance function matrix. The shape should be (n, n).
+    y : array_like
+        The response matrix of shape (n, nt), where n is the number of samples and
+        nt is the number of time points.
+        Each row corresponds to a sample and each column corresponds to a time point.
+        The values can be NaN, which will be ignored in the flattening process.
+    t : array_like
+        The time points of shape (nt,).
+        It should be a 1D array where each element corresponds to a time point.
+    mean_func : array_like
+        The mean function values at the time points of shape (nt,).
+        It should be a 1D array where each element corresponds to the mean value at the
+        corresponding time point in `t`.
+    cov_func : array_like
+        The covariance function matrix of shape (nt, nt).
         It should be a square matrix where the (i, j)-th entry represents the covariance
-        between the functional data at time points t[i] and t[j].
+        between the functional data at time points `t[i]` and `t[j]`.
         The covariance function must be positive semi-definite.
-    fve_thresh (float): The threshold for the proportion of variation explained by the functional principal
+    fve_thresh : float
+        The threshold for the proportion of variation explained by the functional principal
         components which must be between 0 and 1 (exclusive).
         If the threshold is not met, the number of principal components will be set to the maximum
         number of principal components specified by `max_principal`.
-    max_principal (int, optional): The maximum number of principal components to consider. Defaults to 20.
+    max_principal : int, optional
+        The maximum number of principal components to consider. Defaults to 20.
 
     Returns
     -------
-    Tuple[int, np.ndarray, np.ndarray, np.ndarray]: The number of principal components,
-        the eigenvalues, the eigenvectors (basis functions), and the cumulative functional variance explained.
+    num_fpca : int
+        The number of functional principal components that explain at least `fve_thresh` proportion of the
+        functional variance.
+    fpca_lambda : np.ndarray
+        The eigenvalues corresponding to the functional principal components, scaled by the time step size.
+    fpca_phi : np.ndarray
+        The functional principal component basis functions (eigenvectors) of shape (p, num_fpca).
+    cumu_fve : np.ndarray
+        The cumulative functional variance explained by the functional principal components, normalized to sum to 1.
     """
     if mean_func.ndim != 1:
         raise ValueError('mean_func must be a 1D array.')

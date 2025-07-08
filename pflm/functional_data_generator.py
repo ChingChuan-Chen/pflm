@@ -26,17 +26,19 @@ class FunctionalDataGenerator(object):
 
     parameters
     ----------
-    t (np.ndarray): The time points at which the functional data is defined.
-    mean_func (Callable[[np.ndarray], np.ndarray]):
+    t : array_like
+        The time points at which the functional data is defined. It should be a 1D array where each element corresponds to a time point.
+        The length of `t`, `nt`, determines the number of time points in the generated functional data samples.
+    mean_func : Callable[[np.ndarray], np.ndarray]
         A callable function that takes an array of time points and returns the mean function values at those time points.
-    var_func (Callable[[np.ndarray], np.ndarray]):
+    var_func : Callable[[np.ndarray], np.ndarray]
         A callable function that takes an array of time points and returns the variance function values at those time points.
-    corr_func (Callable[[np.ndarray], np.ndarray], optional):
+    corr_func : Callable[[np.ndarray], np.ndarray], optional
         A callable function that defines the correlation structure of the functional data. Defaults to scipy.special.j0 (Bessel function of the first kind).
-    variation_prop_thresh (float, optional):
+    variation_prop_thresh : float, optional
         The threshold for the proportion of variation explained by the functional principal components. It must be between 0 and 1 (exclusive).
         Defaults to 0.999999.
-    error_var (float, optional):
+    error_var :float, optional
         The variance of the error term added to the generated functional data samples. Defaults to 1.0.
     """
 
@@ -74,7 +76,8 @@ class FunctionalDataGenerator(object):
 
         Returns
         -------
-            np.ndarray: The functional principal component basis functions.
+        fpca_phi : array_like
+            The functional principal component basis functions.
         """
         if self._fpca_phi is None:
             self.__calculate_fpca_phi()
@@ -85,7 +88,8 @@ class FunctionalDataGenerator(object):
 
         Returns
         -------
-            int: The number of functional principal components.
+        num_fpc : int
+            The number of functional principal components.
         """
         if self._num_fpc is None:
             self.__calculate_fpca_phi()
@@ -96,12 +100,19 @@ class FunctionalDataGenerator(object):
 
         Parameters
         ----------
-            n (int): The number of samples to generate.
-            seed (Optional[int], optional): Random seed for reproducibility. Defaults to None.
+        n : int
+            The number of functional data samples to generate.
+            It must be a positive integer.
+        seed : Optional[int], optional
+            Random seed for reproducibility. If None, the random number generator will not be seeded.
 
         Returns
         -------
-            np.ndarray: The generated functional data samples.
+        y : array_like
+            The generated functional data samples. It will be a 2D array of shape (n, nt), where n is the number of samples and nt is the number of time points.
+            Each row corresponds to a sample and each column corresponds to a time point.
+            The values in `y` will be generated based on the mean function, variance function, and functional principal components.
+            The generated samples will include a random error term with variance specified by `error_var`.
         """
         rng = np.random.default_rng(seed)
         if self._fpca_phi is None:
@@ -118,13 +129,21 @@ class FunctionalDataGenerator(object):
 
         Parameters
         ----------
-            y (np.ndarray): The functional data samples.
-            missing_number (int): The number of missing values to introduce per sample.
-            seed (Optional[int], optional): Random seed for reproducibility. Defaults to None.
+        y : array_like
+            The functional data samples to which missing values will be added. It should be a 2D array where each row corresponds to a sample and each column corresponds to a time point.
+            The shape of `y` should be (n, nt), where n is the number of samples and nt is the number of time points.
+            Each element in `y` should be a finite number (not NaN or infinite). Defaults to None.
+        missing_number : int
+            The number of missing values to introduce in each sample. It must be between 1 and the number of columns in `y` (exclusive).
+            If `missing_number` is less than 1 or greater than or equal to the number of columns in `y`, a ValueError will be raised.
+        seed : Optional[int], optional
+            Random seed for reproducibility. If None, the random number generator will not be seeded.
 
         Returns
         -------
-            np.ndarray: The functional data samples with missing values.
+        output : array_like
+            The functional data samples with missing values introduced. The shape of `output` will be the same as `y`, but with some elements set to NaN.
+            The number of missing values in each sample will be equal to `missing_number`, and the positions of the missing values will be randomly chosen.
         """
         rng = np.random.default_rng(seed)
         output = y.copy()

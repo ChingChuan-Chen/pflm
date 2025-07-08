@@ -7,12 +7,15 @@ def trapz(y: np.ndarray, x: np.ndarray) -> np.ndarray:
 
     Parameters
     ----------
-    y (np.ndarray): 1D or 2D array of function values.
-    x (np.ndarray): 1D array of x-coordinates corresponding to the function values
+    y : array_like
+        1D or 2D array of function values.
+    x : array_like
+        1D array of x-coordinates corresponding to the function values.
 
     Returns
     -------
-    np.ndarray: The integrated area value(s) computed using the trapezoidal rule.
+    trapz_value : np.ndarray
+        The integrated area value computed using the trapezoidal rule.
     """
     if len(y.shape) == 1:
         if y.shape[0] != x.shape[0]:
