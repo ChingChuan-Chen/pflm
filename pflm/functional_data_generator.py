@@ -1,7 +1,12 @@
-import numpy as np
+# Authors: The pflm developers
+# SPDX-License-Identifier: MIT
+
 from math import sqrt
-from typing import Optional, Callable
+from typing import Callable, Optional
+
+import numpy as np
 import scipy.special
+
 from pflm.utils import get_eigen_results
 
 """
@@ -34,7 +39,8 @@ class FunctionalDataGenerator(object):
     var_func : Callable[[np.ndarray], np.ndarray]
         A callable function that takes an array of time points and returns the variance function values at those time points.
     corr_func : Callable[[np.ndarray], np.ndarray], optional
-        A callable function that defines the correlation structure of the functional data. Defaults to scipy.special.j0 (Bessel function of the first kind).
+        A callable function that defines the correlation structure of the functional data. Defaults to scipy.special.j0
+        (Bessel function of the first kind).
     variation_prop_thresh : float, optional
         The threshold for the proportion of variation explained by the functional principal components. It must be between 0 and 1 (exclusive).
         Defaults to 0.999999.
@@ -109,8 +115,8 @@ class FunctionalDataGenerator(object):
         Returns
         -------
         y : array_like
-            The generated functional data samples. It will be a 2D array of shape (n, nt), where n is the number of samples and nt is the number of time points.
-            Each row corresponds to a sample and each column corresponds to a time point.
+            The generated functional data samples. It will be a 2D array of shape (n, nt), where n is the number of samples and
+            nt is the number of time points. Each row corresponds to a sample and each column corresponds to a time point.
             The values in `y` will be generated based on the mean function, variance function, and functional principal components.
             The generated samples will include a random error term with variance specified by `error_var`.
         """
@@ -133,9 +139,9 @@ class FunctionalDataGenerator(object):
         Parameters
         ----------
         y : array_like
-            The functional data samples to which missing values will be added. It should be a 2D array where each row corresponds to a sample and each column corresponds to a time point.
-            The shape of `y` should be (n, nt), where n is the number of samples and nt is the number of time points.
-            Each element in `y` should be a finite number (not NaN or infinite). Defaults to None.
+            The functional data samples to which missing values will be added. It should be a 2D array where each row corresponds to a sample
+            and each column corresponds to a time point. The shape of `y` should be (n, nt), where n is the number of samples and nt is the
+            number of time points. Each element in `y` should be a finite number (not NaN or infinite). Defaults to None.
         missing_number : int
             The number of missing values to introduce in each sample. It must be between 1 and the number of columns in `y` (exclusive).
             If `missing_number` is less than 1 or greater than or equal to the number of columns in `y`, a ValueError will be raised.
@@ -145,8 +151,9 @@ class FunctionalDataGenerator(object):
         Returns
         -------
         output : array_like
-            The functional data samples with missing values introduced. The shape of `output` will be the same as `y`, but with some elements set to NaN.
-            The number of missing values in each sample will be equal to `missing_number`, and the positions of the missing values will be randomly chosen.
+            The functional data samples with missing values introduced. The shape of `output` will be the same as `y`, but with some elements
+            set to NaN. The number of missing values in each sample will be equal to `missing_number`, and the positions of the missing values
+            will be randomly chosen.
         """
         rng = np.random.default_rng(seed)
         output = y.copy()

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# Authors: The pflm developers
+# SPDX-License-Identifier: MIT
+
 import argparse
 import os
 

@@ -1,6 +1,8 @@
 import numpy as np
 import pytest
+
 from pflm.utils.trapz import trapz
+
 
 def test_trapz_1d_and_2d():
     x = np.linspace(0, 1, 5)

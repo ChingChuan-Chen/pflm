@@ -1,6 +1,8 @@
 import numpy as np
 import pytest
+
 from pflm.utils.utility import flatten_data_matrix, get_eigen_results
+
 
 def test_flatten_data_matrix_basic_and_nan():
     y = np.array([[1, 2, np.nan], [4, np.nan, 6]])
@@ -16,6 +18,7 @@ def test_flatten_data_matrix_basic_and_nan():
     assert np.allclose(tt2, np.sort(tt2))
     assert not np.isnan(yy2).any()
     assert not np.isnan(ww2).any()
+
 
 def test_flatten_data_matrix_shape_errors():
     y = np.ones((2, 3))
@@ -34,6 +37,7 @@ def test_flatten_data_matrix_shape_errors():
         flatten_data_matrix(np.empty((0, 3)), t)
     with pytest.raises(ValueError):
         flatten_data_matrix(y, np.empty(0))
+
 
 def test_get_eigen_results_all_branches():
     t = np.linspace(0, 1, 5)

@@ -1,4 +1,8 @@
+# Authors: The pflm developers
+# SPDX-License-Identifier: MIT
+
 import numpy as np
+
 from pflm.interp._interp import interp1d_f32, interp1d_f64, interp2d_f32, interp2d_f64
 
 """

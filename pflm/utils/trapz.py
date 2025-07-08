@@ -1,3 +1,5 @@
+# Authors: The pflm developers
+# SPDX-License-Identifier: MIT
 import numpy as np
 
 

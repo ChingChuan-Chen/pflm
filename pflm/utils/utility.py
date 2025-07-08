@@ -1,5 +1,9 @@
-import numpy as np
+# Authors: The pflm developers
+# SPDX-License-Identifier: MIT
 from typing import Tuple
+
+import numpy as np
+
 from pflm.utils import trapz
 
 

@@ -7,6 +7,7 @@ all:
 	@echo "Please use 'make <target>' where <target> is one of"
 	@echo "  dev                  build scikit-learn with Meson"
 	@echo "  clean                clean scikit-learn Meson build. Very rarely needed,"
+	@echo "  format               run code formatting tools"
 	@echo "                       since meson-python recompiles on import."
 
 .PHONY: all
@@ -15,6 +16,11 @@ dev: dev-meson
 
 dev-meson:
 	pip install --verbose --no-build-isolation --editable . --config-settings editable-verbose=true
+
+format:
+	@echo "Running code formatting tools..."
+	ruff check --fix pflm
+	ruff format pflm
 
 clean: clean-meson
 

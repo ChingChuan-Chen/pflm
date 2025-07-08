@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+
+# Authors: The pflm developers
+# SPDX-License-Identifier: MIT
+
 import os
 
 pflm_init = os.path.join(os.path.dirname(__file__), "../__init__.py")
