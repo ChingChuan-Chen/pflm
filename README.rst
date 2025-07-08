@@ -39,10 +39,9 @@ The parameters used for the benchmark are as follows:
 - t: np.linspace(0, 1, 100)
 - mean_func: lambda t: np.sin(2 * np.pi * t)
 - var_func: lambda t: 0.1 * np.ones_like(t)
+- corr_func: scipy.special.j0
 - variation_prop_thresh: 0.95
-- error_var: 0.1
-- num_fpc: 10
-- fpca_phi: None
+- error_var: 1
 
 .. code-block:: python
 
@@ -52,14 +51,14 @@ The parameters used for the benchmark are as follows:
         np.linspace(0, 1, 100),
         lambda t: np.sin(2 * np.pi * t),
         lambda t: 0.1 * np.ones_like(t),
-        0.95, 0.1, 10, None
+        scipy.special.j0,
+        0.95, 1
     )
     regular_data = fdg.generate(300, data_type='regular')
-    regular_data_with_missing = fdg.make_missing(regular_data, 0.1)
-    sparse_data = fdg.generate(300, data_type='sparse')
+    regular_data_with_missing = fdg.make_missing(regular_data, 10)
 
 Reference
-~~~~~~~~~~
+~~~~~~~~~
 
 1. fdapace: Functional Data Analysis and Empirical Dynamics, https://cran.r-project.org/web/packages/fdapace/index.html.
 2. PACE: Principal Analysis by Conditional Expectation, https://www.stat.ucdavis.edu/PACE/
