@@ -1,11 +1,3 @@
-import numpy as np
-import pytest
-from numpy.testing import assert_allclose
-
-from pflm.smooth.kernel import KernelType
-from pflm.smooth.polyfit import polyfit1d
-
-
 # @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 # def test_polyfit1d_happy_case(dtype):
 #     bw = 0.25
@@ -38,7 +30,8 @@ from pflm.smooth.polyfit import polyfit1d
 #     assert_allclose(
 #         polyfit1d(x, y, w, x_new, bw, KernelType.GAUSSIAN, 1, 0),
 #         np.array(
-#             [-0.05916294, 0.32503678, 0.73101491, 1.16175986, 1.61943037, 2.10520439, 2.61943037, 3.16175986, 3.73101491, 4.32503678, 4.94083706]
+#             [-0.05916294, 0.32503678, 0.73101491, 1.16175986, 1.61943037, 2.10520439,
+#               2.61943037, 3.16175986, 3.73101491, 4.32503678, 4.94083706]
 #         ),
 #         rtol=1e-5,
 #         atol=0,

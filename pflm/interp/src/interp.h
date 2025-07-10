@@ -3,6 +3,9 @@
 #include <cstddef>
 
 template <typename T>
+void find_le_indices(const T* a, std::size_t n, const T* b, std::size_t m, std::ptrdiff_t* result);
+
+template <typename T>
 void interp1d_linear(T[], T[], T[], T[], std::ptrdiff_t, std::ptrdiff_t);
 
 template <typename T>

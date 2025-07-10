@@ -1,11 +1,16 @@
 import numpy as np
 import pytest
-from pflm.utils._lapack_helper import _gelss_memview_f64, _gelss_memview_f32
 
-@pytest.mark.parametrize("dtype, func", [
-    (np.float32, _gelss_memview_f32),
-    (np.float64, _gelss_memview_f64),
-])
+from pflm.utils._lapack_helper import _gelss_memview_f32, _gelss_memview_f64
+
+
+@pytest.mark.parametrize(
+    "dtype, func",
+    [
+        (np.float32, _gelss_memview_f32),
+        (np.float64, _gelss_memview_f64),
+    ],
+)
 def test_gelss_memview(dtype, func):
     # Create a simple overdetermined system Ax = b
     # A = [[1, 1], [1, 2], [1, 3]], b = [6, 0, 0]
@@ -14,7 +19,7 @@ def test_gelss_memview(dtype, func):
     # Also check the solution is close to numpy.linalg.lstsq
     x_np, *_ = np.linalg.lstsq(A, b, rcond=None)
     # Convert A and b to Fortran-contiguous arrays
-    A_c = np.ascontiguousarray(A.ravel(order='F'))
+    A_c = np.ascontiguousarray(A.ravel(order="F"))
     b_c = np.ascontiguousarray(b)
     info, _, rank = func(A_c, b_c, A.shape[0], A.shape[1], 1, A.shape[0], b.shape[0])
     # check info
@@ -25,13 +30,17 @@ def test_gelss_memview(dtype, func):
     # check rank
     assert rank == 2
     # check if the solution is correct
-    x = b_c[:A.shape[1]]
+    x = b_c[: A.shape[1]]
     assert np.allclose(x, x_np, rtol=1e-5, atol=0.0)
 
-@pytest.mark.parametrize("dtype, func", [
-    (np.float32, _gelss_memview_f32),
-    (np.float64, _gelss_memview_f64),
-])
+
+@pytest.mark.parametrize(
+    "dtype, func",
+    [
+        (np.float32, _gelss_memview_f32),
+        (np.float64, _gelss_memview_f64),
+    ],
+)
 def test_gelss_memview_multiple_rhs(dtype, func):
     # Create a simple overdetermined system Ax = b2 with multiple RHS
     # A = [[1, 1], [1, 2], [1, 3]], b2 = [[6, 6], [0, 2], [0, -2]]
@@ -40,8 +49,8 @@ def test_gelss_memview_multiple_rhs(dtype, func):
     # Also check the solution is close to numpy.linalg.lstsq
     x_np2, *_ = np.linalg.lstsq(A, b2, rcond=None)
     # Convert A and b to Fortran-contiguous arrays
-    A_c = np.ascontiguousarray(A.ravel(order='F'))
-    b2_c = np.ascontiguousarray(b2.ravel(order='F'))
+    A_c = np.ascontiguousarray(A.ravel(order="F"))
+    b2_c = np.ascontiguousarray(b2.ravel(order="F"))
     info, _, rank = func(A_c, b2_c, A.shape[0], A.shape[1], b2.shape[1], A.shape[0], b2.shape[0])
     # check info
     # info = 0 means successful exit
@@ -52,5 +61,5 @@ def test_gelss_memview_multiple_rhs(dtype, func):
     assert rank == 2
     # the solution length is A.shape[1] * b2.shape[1]
     # the dimensions of x2 should be (A.shape[1], b2.shape[1])
-    x2 = np.array(b2_c, dtype=dtype, order='F').reshape(b2.shape[0], b2.shape[1], order='F')[:b2.shape[1], :]
+    x2 = np.array(b2_c, dtype=dtype, order="F").reshape(b2.shape[0], b2.shape[1], order="F")[: b2.shape[1], :]
     assert np.allclose(x2, x_np2, rtol=1e-5, atol=0.0)
