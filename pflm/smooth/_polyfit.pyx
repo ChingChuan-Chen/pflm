@@ -103,9 +103,12 @@ cdef void polyfit1d_memview_f64(
         if info != 0:
             mu[i] = NAN
             continue
+        info = 0
         _gels_helper(
             110, n, degree + 1, 1,
-            &lx[0], n, &ly[0], 1, &info
+            <np.float64_t*> &lx[0], n,
+            <np.float64_t*> &ly[0], n,
+            &info
         )
         if info == 0:
             mu[i] = ly[deriv] * factorials[deriv] * inv_deriv
@@ -152,9 +155,12 @@ cdef void polyfit1d_memview_f32(
         if info != 0:
             mu[i] = NAN
             continue
+        info = 0
         _gels_helper(
             110, n, degree + 1, 1,
-            &lx[0], n, &ly[0], 1, &info
+            <np.float32_t*> &lx[0], n,
+            <np.float32_t*> &ly[0], n,
+            &info
         )
         if info == 0:
             mu[i] = ly[deriv] * factorials[deriv] * inv_deriv
