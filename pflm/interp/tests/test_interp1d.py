@@ -108,6 +108,8 @@ def test_interp1d_exception(dtype):
     x = np.array([0.1, 0.8], dtype=dtype)
     y = x**2
     with pytest.raises(ValueError):
+        interp1d(np.array([x, x]), y, x_new, -1)
+    with pytest.raises(ValueError):
         interp1d(x, y, x_new, -1)
     with pytest.raises(ValueError):
         interp1d(x, y, x_new, 3)

@@ -143,6 +143,12 @@ def test_interp2d_raise_exception(dtype):
     x_new = np.linspace(0.0, 4.0, 4, dtype=dtype)
     y_new = np.linspace(10.0, 12.0, 4, dtype=dtype)
     with pytest.raises(ValueError):
+        interp2d(np.array([x, x]), y, A, x_new, y_new, "linear")
+    with pytest.raises(ValueError):
+        interp2d(x, np.array([y, y]), A, x_new, y_new, "linear")
+    with pytest.raises(ValueError):
+        interp2d(np.array([]), y, A, x_new, y_new, "linear")
+    with pytest.raises(ValueError):
         interp2d(x, y[:-1], A, x_new, y_new, "linear")
     with pytest.raises(ValueError):
         interp2d(x[:-1], y, A, x_new, y_new, "linear")
