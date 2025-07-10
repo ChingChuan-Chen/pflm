@@ -12,11 +12,13 @@ from numpy.testing import assert_allclose
 def test_search_lower_bound(dtype, func):
     a = np.array([1.0, 2.0, 3.0, 4.0, 5.0], dtype=dtype)
     b = np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5], dtype=dtype)
-    expected_right_inclusive = np.array([-1, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4], dtype=np.int64)
-    expected_not_right_inclusive = np.array([-1, -1, 0, 0, 1, 1, 2, 2, 3, 3, 4], dtype=np.int64)
-    for i, v in enumerate(b):
-        assert func(a, v, right_inclusive=1) == expected_right_inclusive[i], f"Failed at index {i} with value {v}"
-        assert func(a, v, right_inclusive=0) == expected_not_right_inclusive[i], f"Failed at index {i} with value {v}"
+    expected_right_inclusive = np.array([0, 1, 1, 2, 2, 3, 3, 4, 4, -1, -1], dtype=np.int64)
+    result_right_inclusive = [func(a, v, right_inclusive=1) for v in b]
+    assert_allclose(result_right_inclusive, expected_right_inclusive)
+
+    expected_not_right_inclusive = np.array([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, -1], dtype=np.int64)
+    result_not_right_inclusive = [func(a, v, right_inclusive=0) for v in b]
+    assert_allclose(result_not_right_inclusive, expected_not_right_inclusive)
 
 
 @pytest.mark.parametrize("dtype, func", [
@@ -27,5 +29,5 @@ def test_search_location(dtype, func):
     a = np.array([1.0, 2.0, 3.0, 4.0, 5.0], dtype=dtype)
     b = np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5], dtype=dtype)
     expected = np.array([-1, 0, -1, 1, -1, 2, -1, 3, -1, 4, -1], dtype=np.int64)
-    for i, v in enumerate(b):
-        assert func(a, v) == expected[i], f"Failed at index {i} with value {v}"
+    result = [func(a, v) for v in b]
+    assert_allclose(result, expected)

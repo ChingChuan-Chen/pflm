@@ -11,7 +11,7 @@ std::ptrdiff_t search_lower_bound(T sorted_array[], std::ptrdiff_t array_size, T
       right = mid - 1;
     }
   }
-  return right >= 0 ? right : -1;
+  return left < array_size ? left : -1;
 }
 
 template std::ptrdiff_t search_lower_bound<double>(double sorted_array[], std::ptrdiff_t array_size, double target, bool right_inclusive);
@@ -120,6 +120,9 @@ void polyfit1d_prepare(
         if ((*left <= 0) || (*left == *right)) {
             *info = -1; // no data in the window
             return;
+        }
+        if (*left == -1) {
+            *left = 0;
         }
         if (*right == -1) {
             *right = n;
