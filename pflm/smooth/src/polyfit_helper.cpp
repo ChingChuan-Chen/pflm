@@ -100,10 +100,10 @@ template <typename T>
 void polyfit1d_prepare(
     T bw,
     T center,
-    const T* x,
-    const T* y,
-    const T* w,
-    std::size_t n,
+    T* x,
+    T* y,
+    T* w,
+    std::ptrdiff_t n,
     int degree,
     int deriv,
     int kernel_type,
@@ -113,7 +113,7 @@ void polyfit1d_prepare(
     std::ptrdiff_t *right,
     int *info
 ) {
-    std::size_t n_rows = n;
+    std::ptrdiff_t n_rows = n;
     if (kernel_type >= 5) {
         *left = search_lower_bound<T>(x, n, center - bw);
         *right = search_lower_bound<T>(x, n, center + bw);
@@ -128,7 +128,7 @@ void polyfit1d_prepare(
             *info = -2; // invalid window
             return;
         }
-        n_rows = (std::size_t) (*right - *left);
+        n_rows = (*right - *left);
     } else {
         *left = 0;
         *right = n;
@@ -137,8 +137,8 @@ void polyfit1d_prepare(
     lx.assign(n_rows * (degree + 1), 0.0);
     ly.assign(n_rows, 0.0);
 
-    std::size_t i = 0;
-    for (std::size_t j = (std::size_t)*left; j < (std::size_t)*right; ++j) {
+    std::ptrdiff_t i = 0;
+    for (std::ptrdiff_t j = *left; j < *right; ++j) {
         T center_minus_xj = center - x[j];
         T u = center_minus_xj / bw;
         T sqrt_wj = calculate_sqrt_kernel_value<T>(u, kernel_type, w[j]);
@@ -150,3 +150,37 @@ void polyfit1d_prepare(
         ++i;
     }
 }
+
+template void polyfit1d_prepare<double>(
+    double bw,
+    double center,
+    double* x,
+    double* y,
+    double* w,
+    std::ptrdiff_t n,
+    int degree,
+    int deriv,
+    int kernel_type,
+    std::vector<double>& lx,
+    std::vector<double>& ly,
+    std::ptrdiff_t *left,
+    std::ptrdiff_t *right,
+    int *info
+);
+
+template void polyfit1d_prepare<float>(
+    float bw,
+    float center,
+    float* x,
+    float* y,
+    float* w,
+    std::ptrdiff_t n,
+    int degree,
+    int deriv,
+    int kernel_type,
+    std::vector<float>& lx,
+    std::vector<float>& ly,
+    std::ptrdiff_t *left,
+    std::ptrdiff_t *right,
+    int *info
+);

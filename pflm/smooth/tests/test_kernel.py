@@ -84,7 +84,7 @@ def test_calculate_kernel_value(dtype, func, weight):
     assert_allclose(result, expected, rtol=1e-5, atol=0.0)
 
     # The index where u is within the range (-1, 1)
-    idx = np.where(np.abs(u) <= 1.0)
+    idx = np.nonzero(np.abs(u) <= 1.0)
 
     # Test Rectangular kernel
     result = np.array([func(ui, KernelType.RECTANGULAR.value, wj[i]) for i, ui in enumerate(u)])
@@ -126,7 +126,7 @@ def test_calculate_kernel_value(dtype, func, weight):
     result = np.array([func(ui, KernelType.COSINE.value, wj[i]) for i, ui in enumerate(u)])
     expected = np.zeros_like(u)
     expected[idx] = np.sqrt(wj[idx] * np.pi / 4.0 * np.abs(np.cos(np.pi / 2.0 * u[idx])))
-    expected[np.abs(u) == 1.0] = 0.0  # Cosine kernel is zero at the boundaries
+    expected[np.abs(np.abs(u) - 1.0) <= 1e-7] = 0.0  # Cosine kernel is zero at the boundaries
     assert_allclose(result, expected, rtol=1e-5, atol=0.0)
 
 
@@ -144,6 +144,6 @@ def test_calculate_kernel_value_gausvar(dtype, func, weight):
     result = np.array([func(ui, KernelType.GAUSSIAN_VAR.value, wj[i]) for i, ui in enumerate(u)])
     expected = np.zeros_like(u)
     u_sq = u**2
-    idx = np.where(u_sq < 5.0)
+    idx = np.nonzero(u_sq < 5.0)
     expected[idx] = np.sqrt(wj[idx] * (1/np.sqrt(2*np.pi))*np.exp(-0.5*u_sq[idx]) * (1.25 - 0.25*u_sq[idx]))
     assert_allclose(result, expected, rtol=1e-5, atol=0.0)

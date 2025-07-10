@@ -72,8 +72,8 @@ void interp1d_spline_small(T x[], T y[], T x_new[], T y_new[], std::ptrdiff_t x_
     }
 }
 
-// Thomas algorithm for solving tridiagonal systems of equations Ax = d
-// where A is a tridiagonal matrix with sub-diagonal ldg, diagonal dg, and super-diagonal udg
+// Thomas algorithm for solving tri-diagonal systems of equations Ax = d
+// where A is a tri-diagonal matrix with sub-diagonal ldg, diagonal dg, and super-diagonal udg
 template <typename T>
 void thomas_algorithm(T ldg[], T dg[], T udg[], T g[], T x[], std::ptrdiff_t n) {
     std::ptrdiff_t i;

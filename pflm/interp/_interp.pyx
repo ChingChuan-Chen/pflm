@@ -56,7 +56,7 @@ def interp1d_f64(
     np.ndarray[np.float64_t] y,
     np.ndarray[np.float64_t] x_new,
     int method = 0
-):
+) -> np.ndarray[np.float64_t]:
     cdef np.ndarray[np.float64_t] y_new = np.empty(x_new.size, dtype=np.float64)
     interp1d_memview_f64(x, y, x_new, y_new, method)
     return y_new
@@ -82,7 +82,7 @@ def interp1d_f32(
     np.ndarray[np.float32_t] y,
     np.ndarray[np.float32_t] x_new,
     int method = 0
-):
+) -> np.ndarray[np.float32_t]:
     cdef np.ndarray[np.float32_t] y_new = np.empty(x_new.size, dtype=np.float32)
     interp1d_memview_f32(x, y, x_new, y_new, method)
     return y_new

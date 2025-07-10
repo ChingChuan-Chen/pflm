@@ -6,19 +6,17 @@
 import numpy as np
 
 from pflm.smooth.kernel import KernelType
-
-# from pflm.smooth._polyfit import (polyfit1d_gaussian_kernel_f32, polyfit1d_gaussian_kernel_f64,
-# polyfit1d_nongaussian_kernel_f32, polyfit1d_nongaussian_kernel_f64)
+from pflm.smooth._polyfit import polyfit1d_f64, polyfit1d_f32
 
 
 def polyfit1d(
     x: np.ndarray,
     y: np.ndarray,
     w: np.ndarray,
-    x_new: float,
+    x_new: np.ndarray,
     bandwidth: float,
     kernel: KernelType = KernelType.GAUSSIAN,
-    order: int = 1,
+    degree: int = 1,
     deriv: int = 0,
 ) -> np.ndarray:
     """Perform local polynomial regression on 1D data.
@@ -30,13 +28,13 @@ def polyfit1d(
         1D array of y-coordinates of the data points.
     w : np.ndarray
         1D array of weights for the data points.
-    x_new : float
-        The x-coordinate where the polynomial is evaluated.
+    x_new : np.ndarray
+        1D array of x-coordinates where the polynomial should be evaluated.
     bandwidth : float
         The bandwidth for the local polynomial regression.
     kernel : KernelType, optional
         The kernel type to use for weighting the data points. Default is KernelType.GAUSSIAN.
-    order : int, optional
+    degree : int, optional
         The degree of the polynomial to fit. Default is 1.
     deriv : int, optional
         The order of the derivative to compute. Default is 0 (no derivative).
@@ -70,27 +68,18 @@ def polyfit1d(
         raise ValueError("Bandwidth, bandwidth, should be positive.")
     if kernel not in KernelType:
         raise ValueError(f"kernel must be one of {list(KernelType)}.")
-    if order <= 0:
-        raise ValueError("Degree of polynomial, order, should be positive.")
+    if degree <= 0:
+        raise ValueError("Degree of polynomial, degree, should be positive.")
     if deriv < 0:
         raise ValueError("Order of derivative, deriv, should be positive.")
-    if order < deriv:
-        raise ValueError("Degree of polynomial, order, should be not less than the order of derivative.")
+    if degree < deriv:
+        raise ValueError("Degree of polynomial, degree, should be greater than or equal to order of derivative, deriv.")
 
-    if kernel in [KernelType.GAUSSIAN_VAR, KernelType.GAUSSIAN]:
-        # polyfit1d_func = polyfit1d_gaussian_kernel_f32 if x.dtype == np.float32 else polyfit1d_gaussian_kernel_f64
-        # mu = polyfit1d_func(
-        #     x, y.astype(x.dtype, copy=False), w.astype(x.dtype, copy=False), x_new.astype(x.dtype, copy=False),
-        #     bandwidth, kernel.value, order, deriv
-        # )
-        return np.zeros_like(x_new, dtype=x.dtype)
-    else:
-        # polyfit1d_func = polyfit1d_nongaussian_kernel_f32 if x.dtype == np.float32 else polyfit1d_nongaussian_kernel_f64
-        # mu = polyfit1d_func(
-        #     x, y.astype(x.dtype, copy=False), w.astype(x.dtype, copy=False), x_new.astype(x.dtype, copy=False),
-        #     bandwidth, kernel.value, order, deriv
-        # )
-        return np.ones_like(x_new, dtype=x.dtype)
+    polyfit_func = polyfit1d_f32 if x.dtype == np.float32 else polyfit1d_f64
+    return polyfit_func(
+        x, y.astype(x.dtype, copy=False), w.astype(x.dtype, copy=False), x_new.astype(x.dtype, copy=False),
+        bandwidth, kernel.value, degree, deriv
+    )
 
 
 def polyfit2d(

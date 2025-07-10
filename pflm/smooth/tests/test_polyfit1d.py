@@ -1,41 +1,47 @@
-# @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-# def test_polyfit1d_happy_case(dtype):
-#     bw = 0.25
-#     x = np.linspace(0.0, 1.0, 11, dtype=dtype)
-#     y = 2.0 * x**2 + 3 * x
-#     w = np.ones_like(x)
-#     x_new = np.linspace(0.0, 1.0, 11, dtype=dtype)
+import numpy as np
+import pytest
+from numpy.testing import assert_allclose
+from pflm.smooth.kernel import KernelType
+from pflm.smooth.polyfit import polyfit1d
 
-#     assert_allclose(
-#         polyfit1d(x, y, w, x_new, bw, KernelType.EPANECHNIKOV, 1, 0),
-#         np.array(
-#             [
-#                 -0.004684015,
-#                 0.337087794,
-#                 0.706823529,
-#                 1.106823529,
-#                 1.546823529,
-#                 2.026823529,
-#                 2.546823529,
-#                 3.106823529,
-#                 3.706823529,
-#                 4.337087794,
-#                 4.995315985,
-#             ]
-#         ),
-#         rtol=1e-5,
-#         atol=0,
-#     )
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_polyfit1d_happy_case(dtype):
+    bw = 0.25
+    x = np.linspace(0.0, 1.0, 11, dtype=dtype)
+    y = 2.0 * x**2 + 3 * x
+    w = np.ones_like(x)
+    x_new = np.linspace(0.0, 1.0, 11, dtype=dtype)
 
-#     assert_allclose(
-#         polyfit1d(x, y, w, x_new, bw, KernelType.GAUSSIAN, 1, 0),
-#         np.array(
-#             [-0.05916294, 0.32503678, 0.73101491, 1.16175986, 1.61943037, 2.10520439,
-#               2.61943037, 3.16175986, 3.73101491, 4.32503678, 4.94083706]
-#         ),
-#         rtol=1e-5,
-#         atol=0,
-#     )
+    assert_allclose(
+        polyfit1d(x, y, w, x_new, bw, KernelType.EPANECHNIKOV, 1, 0),
+        np.array(
+            [
+                -0.004684015,
+                0.337087794,
+                0.706823529,
+                1.106823529,
+                1.546823529,
+                2.026823529,
+                2.546823529,
+                3.106823529,
+                3.706823529,
+                4.337087794,
+                4.995315985,
+            ]
+        ),
+        rtol=1e-5,
+        atol=0,
+    )
+
+    assert_allclose(
+        polyfit1d(x, y, w, x_new, bw, KernelType.GAUSSIAN, 1, 0),
+        np.array(
+            [-0.05916294, 0.32503678, 0.73101491, 1.16175986, 1.61943037, 2.10520439,
+              2.61943037, 3.16175986, 3.73101491, 4.32503678, 4.94083706]
+        ),
+        rtol=1e-5,
+        atol=0,
+    )
 
 
 # @pytest.mark.parametrize("dtype", [np.float32, np.float64])
