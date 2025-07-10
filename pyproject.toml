@@ -119,7 +119,7 @@ ignore=[
 ]
 
 [tool.ruff.lint.flake8-copyright]
-notice-rgx = "\\#\\ Authors:\\ The\\ pflm\\ developers\\\r?\\\n\\#\\ SPDX\\-License\\-Identifier:\\ MIT"
+notice-rgx = "\\#\\ Authors:[^\r]+\\\r?\\\n\\#\\ SPDX\\-License\\-Identifier:\\ MIT"
 
 [tool.ruff.lint.per-file-ignores]
 # It's fine not to put the import at the top of the file in the examples folder.

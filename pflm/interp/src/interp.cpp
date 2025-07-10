@@ -1,10 +1,31 @@
-#include "interp_helper.h"
+#include "helper.h"
 #include "interp.h"
 #include <cstdlib>
 #include <cstddef>
 #include <cmath>
 #include <algorithm>
 #include <limits>
+
+
+template <typename T>
+std::ptrdiff_t search_sorted(T sorted_array[], std::ptrdiff_t array_size, T target) {
+  std::ptrdiff_t left = 0, right = array_size - 1, mid;
+  while (left <= right) {
+    mid = left + (right - left) / 2;
+    if (sorted_array[mid] <= target) {
+      left = mid + 1;
+    } else {
+      right = mid - 1;
+    }
+  }
+  if (left < array_size) {
+    return left;
+  } else if ((left == array_size) && (sorted_array[left - 1] == target)) {
+    return left - 1;
+  } else {
+    return -1;
+  }
+}
 
 template <typename T>
 void interp1d_linear(T x[], T y[], T x_new[], T y_new[], std::ptrdiff_t x_size, std::ptrdiff_t x_new_size) {

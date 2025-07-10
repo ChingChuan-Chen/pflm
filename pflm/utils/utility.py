@@ -1,4 +1,6 @@
-# Authors: The pflm developers
+"""Utility functions for flattening data matrices and computing eigenvalues and eigenvectors"""
+
+# Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 from typing import Tuple
 

@@ -1,6 +1,6 @@
 """Configure global settings and get information about the working environment."""
 
-# Authors: The pflm developers
+# Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 
 # Partial Functional Linear Models (pflm) for Python
@@ -41,6 +41,7 @@ from pflm.functional_data_generator import FunctionalDataGenerator  # noqa: F401
 
 _submodules = [
     "interp",
+    "smooth",
     "FunctionalDataGenerator",
     "utils",
 ]

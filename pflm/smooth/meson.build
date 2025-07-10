@@ -1,18 +1,16 @@
-interp_cython_tree = [
+polyfit_cython_tree = [
     pflm_root_cython_tree,
     fs.copyfile('__init__.py'),
     fs.copyfile('__init__.pxd'),
-    fs.copyfile('_interp.pxd'),
-    fs.copyfile('src/interp.h'),
+    fs.copyfile('_polyfit.pxd'),
 ]
 
 utils_inc = include_directories('../utils/src')
 
-interp_extension_metadata = {
-    '_interp': {
+polyfit_extension_metadata = {
+    '_polyfit': {
         'sources': [
-            cython_gen_cpp.process('_interp.pyx'),
-            'src' / 'interp.cpp'
+            cython_gen_cpp.process('_polyfit.pyx')
         ],
         'dependencies': [np_dep, openmp_dep],
         'link_with': [helper_lib],
@@ -20,14 +18,14 @@ interp_extension_metadata = {
     },
 }
 
-foreach ext_name, ext_dict : interp_extension_metadata
+foreach ext_name, ext_dict : polyfit_extension_metadata
     py.extension_module(
         ext_name,
-        [ext_dict.get('sources'), interp_cython_tree],
+        [ext_dict.get('sources'), polyfit_cython_tree],
         dependencies: ext_dict.get('dependencies', []),
         link_with: ext_dict.get('link_with', []),
         include_directories: ext_dict.get('include_directories', []),
-        subdir: 'pflm/interp',
+        subdir: 'pflm/smooth',
         install: true,
     )
 endforeach

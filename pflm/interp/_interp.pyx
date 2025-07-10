@@ -2,12 +2,6 @@ import numpy as np
 cimport numpy as np
 from libc.stddef cimport ptrdiff_t
 
-cdef extern from "src/interp_helper.cpp" nogil:
-    pass
-
-cdef extern from "src/interp_helper.h" nogil:
-    ptrdiff_t _search_sorted "search_sorted"[T](T*, ptrdiff_t)
-
 cdef extern from "src/interp.cpp" nogil:
     pass
 

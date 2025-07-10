@@ -1,4 +1,6 @@
-# Authors: The pflm developers
+"""Compute the integrated area value with trapezoidal rule."""
+
+# Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 import numpy as np
 

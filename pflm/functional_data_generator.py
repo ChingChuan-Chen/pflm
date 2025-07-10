@@ -1,4 +1,4 @@
-# Authors: The pflm developers
+# Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 
 from math import sqrt

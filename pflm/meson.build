@@ -134,7 +134,7 @@ cython_program = find_program(cython.cmd_array()[0])
 cython_gen_cpp = generator(
     cython_program,
     arguments: cython_args + ['--cplus', '@INPUT@', '--output-file', '@OUTPUT@'],
-    output: '@BASENAME@.cpp',
+    output: '@BASENAME@.cpp'
 )
 
 tempita_cli = find_program('_build_utils/tempita.py')
@@ -143,4 +143,6 @@ pflm_root_cython_tree = [fs.copyfile('__init__.py')]
 
 pflm_dir = py.get_install_dir() / 'pflm'
 
+subdir('utils')
 subdir('interp')
+subdir('smooth')

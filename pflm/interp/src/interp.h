@@ -1,5 +1,5 @@
-#ifndef __INTERP1D_H__
-#define __INTERP1D_H__
+#ifndef __INTERP_H__
+#define __INTERP_H__
 #include <cstddef>
 
 template <typename T>

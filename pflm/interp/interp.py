@@ -1,4 +1,6 @@
-# Authors: The pflm developers
+"""Interpolation on 1D and 2D data."""
+
+# Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 
 import numpy as np
@@ -18,7 +20,7 @@ Functions
 """
 
 
-def interp1d(x, y, x_new, method="linear"):
+def interp1d(x: np.ndarray, y: np.ndarray, x_new: np.ndarray, method: str = "linear") -> np.ndarray:
     """Interpolate 1D data using linear or spline interpolation.
 
     Parameters
@@ -60,7 +62,7 @@ def interp1d(x, y, x_new, method="linear"):
     return interp_func(x_unique, y_unique, x_new_typed, method_mapping[method])
 
 
-def interp2d(x, y, v, x_new, y_new, method="linear"):
+def interp2d(x: np.ndarray, y: np.ndarray, v: np.ndarray, x_new: np.ndarray, y_new: np.ndarray, method: str = "linear") -> np.ndarray:
     """Interpolate 2D data using linear or spline interpolation.
 
     Parameters
