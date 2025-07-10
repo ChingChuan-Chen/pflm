@@ -1,9 +1,6 @@
-#include "helper.h"
 #include "interp.h"
-#include <cstdlib>
 #include <cstddef>
 #include <cmath>
-#include <vector>
 #include <algorithm>
 #include <limits>
 
@@ -212,6 +209,18 @@ void interp2d_linear(
     }
     delete[] x_new_idx;
     delete[] y_new_idx;
+}
+
+// transpose a matrix of size n_rows x n_cols from src to dst with OpenMP parallelization
+template <typename T>
+void transpose_matrix(T *src, T *dst, ptrdiff_t n_rows, ptrdiff_t n_cols) {
+  ptrdiff_t i, j;
+  #pragma omp parallel for private(i, j)
+  for (i = 0; i < n_rows; ++i) {
+    for (j = 0; j < n_cols; ++j) {
+      dst[j * n_rows + i] = src[i * n_cols + j];
+    }
+  }
 }
 
 template <typename T>

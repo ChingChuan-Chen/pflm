@@ -6,8 +6,6 @@ interp_cython_tree = [
     fs.copyfile('src/interp.h'),
 ]
 
-utils_inc = include_directories('../utils/src')
-
 interp_extension_metadata = {
     '_interp': {
         'sources': [
@@ -15,8 +13,6 @@ interp_extension_metadata = {
             'src' / 'interp.cpp'
         ],
         'dependencies': [np_dep, openmp_dep],
-        'link_with': [helper_lib],
-        'include_directories': [utils_inc],
     },
 }
 
@@ -25,8 +21,6 @@ foreach ext_name, ext_dict : interp_extension_metadata
         ext_name,
         [ext_dict.get('sources'), interp_cython_tree],
         dependencies: ext_dict.get('dependencies', []),
-        link_with: ext_dict.get('link_with', []),
-        include_directories: ext_dict.get('include_directories', []),
         subdir: 'pflm/interp',
         install: true,
     )

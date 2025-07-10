@@ -3,16 +3,7 @@ utils_cython_tree = [
     fs.copyfile('__init__.py'),
     fs.copyfile('__init__.pxd'),
     fs.copyfile('_lapack_helper.pxd'),
-    fs.copyfile('src/helper.h'),
 ]
-
-helper_lib = static_library(
-    'helper',
-    'src/helper.cpp',
-    include_directories: include_directories('src'),
-    dependencies: [openmp_dep],
-    install: false
-)
 
 utils_extension_metadata = {
     '_lapack_helper': {
