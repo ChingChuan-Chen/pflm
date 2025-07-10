@@ -20,6 +20,7 @@ class KernelType(Enum):
     BIWEIGHT = 8     # Quartic Kernel
     TRIWEIGHT = 9
     TRICUBE = 10
+    COSINE = 11
 
     def __repr__(self):
         return f"KernelType.{self.name}"

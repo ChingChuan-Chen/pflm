@@ -62,6 +62,8 @@ def calculate_sqrt_kernel_value_f64(
 ) -> np.float64_t:
     if kernel_type >= 5 and abs(u) > 1.0:
         return 0.0
+    if kernel_type == 11 and abs(u) == 1.0:  # Cosine kernel is zero at the boundaries
+        return 0.0
     return _calculate_sqrt_kernel_value_f64(u, kernel_type, wj)
 
 def calculate_sqrt_kernel_value_f32(
@@ -70,5 +72,7 @@ def calculate_sqrt_kernel_value_f32(
     np.float32_t wj
 ) -> np.float32_t:
     if kernel_type >= 5 and abs(u) > 1.0:
+        return 0.0
+    if kernel_type == 11 and abs(u) == 1.0:  # Cosine kernel is zero at the boundaries
         return 0.0
     return _calculate_sqrt_kernel_value_f32(u, kernel_type, wj)

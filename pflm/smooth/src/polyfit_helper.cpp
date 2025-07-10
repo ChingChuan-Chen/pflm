@@ -50,13 +50,18 @@ T calculate_sqrt_kernel_value(
             return std::sqrt(wj * 1.0 / (std::exp(u) + 2.0 + std::exp(-u)));
         }
         case 2: { // SIGMOID
-            return std::sqrt(wj * 2.0 / acos(-1.0) / (std::exp(u) + std::exp(-u)));
+            return std::sqrt(wj / half_pi / (std::exp(u) + std::exp(-u)));
         }
         case 3: { // SILVERMAN
-            return std::sqrt(wj * 0.5 * std::exp(-std::abs(u) / std::sqrt(2.0)) * sin(std::abs(u) / std::sqrt(2.0) + acos(-1.0) / 4.0));
+            T tmp = std::abs(u) * inv_sqrt_2;
+            return std::sqrt(wj * 0.5 * std::exp(-tmp) * sin(tmp + quarter_pi));
         }
         case 4: { // GAUSSIAN_VAR
-            return std::sqrt(wj * inv_sqrt_2pi * std::exp(-0.5 * u * u) * (5.0 / 4.0 - 0.25 * u * u));
+            T u_sq = u * u;
+            if (u_sq >= 5.0) {
+                return 0.0; // Return zero for large u to avoid overflow
+            }
+            return std::sqrt(wj * inv_sqrt_2pi * std::exp(-0.5 * u_sq) * (1.25 - 0.25 * u_sq));
         }
         case 5: { // RECTANGULAR
             return std::sqrt(wj * 0.5);
@@ -65,7 +70,7 @@ T calculate_sqrt_kernel_value(
             return std::sqrt(wj * (1.0 - std::abs(u)));
         }
         case 7: { // EPANECHNIKOV
-            return std::sqrt(wj * 3.0 / 4.0 * (1.0 - u * u));
+            return std::sqrt(wj * 0.75 * (1.0 - u * u));
         }
         case 8: { // BIWEIGHT
             return std::sqrt(wj * 15.0 / 16.0 * std::pow(1.0 - u * u, 2.0));
@@ -75,6 +80,9 @@ T calculate_sqrt_kernel_value(
         }
         case 10: { // TRICUBE
             return std::sqrt(wj * 70.0 / 81.0 * std::pow(1.0 - std::pow(std::abs(u), 3.0), 3.0));
+        }
+        case 11: { // COSINE
+            return std::sqrt(wj * quarter_pi * std::cos(half_pi * u));
         }
         default:
             return 0.0; // Unknown kernel type, return zero

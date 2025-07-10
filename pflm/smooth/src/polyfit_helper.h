@@ -14,8 +14,11 @@ std::ptrdiff_t search_lower_bound(T[], std::ptrdiff_t, T, bool);
 template <typename T>
 std::ptrdiff_t search_location(T[], std::ptrdiff_t, T);
 
+const static double half_pi = std::acos(0.0);
+const static double quarter_pi = half_pi / 2.0;
+const static double inv_sqrt_2 = 1.0 / std::sqrt(2.0);
 const static double inv_2pi = 1.0/(2.0*std::acos(-1.0));
-const static double inv_sqrt_2pi = 1.0/(std::sqrt(2.0*std::acos(-1.0)));
+const static double inv_sqrt_2pi = std::sqrt(inv_2pi);
 const static double factorials[] = {1,1,2,6,24,120,720,5040,40320,362880,3628800};
 
 template <typename T>
