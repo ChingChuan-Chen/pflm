@@ -331,8 +331,8 @@ cdef void polyfit2d_memview_f64(
     np.float64_t bandwidth1,
     np.float64_t bandwidth2,
     int kernel_type,
-    int degree ,
-    int deriv1 ,
+    int degree,
+    int deriv1,
     int deriv2
 ) noexcept nogil:
     cdef ptrdiff_t n = x_grid.shape[1], n1 = x_new1.shape[0], n2 = x_new2.shape[0], i, j, l
@@ -377,8 +377,8 @@ cdef void polyfit2d_memview_f32(
     np.float32_t bandwidth1,
     np.float32_t bandwidth2,
     int kernel_type,
-    int degree ,
-    int deriv1 ,
+    int degree,
+    int deriv1,
     int deriv2
 ) noexcept nogil:
     cdef ptrdiff_t n = x_grid.shape[1], n1 = x_new1.shape[0], n2 = x_new2.shape[0]
@@ -395,8 +395,8 @@ def polyfit2d_f32(
     np.float32_t bandwidth1,
     np.float32_t bandwidth2,
     int kernel_type,
-    int degree ,
-    int deriv1 ,
+    int degree,
+    int deriv1,
     int deriv2
 ) -> np.ndarray[np.float32_t]:
     cdef ptrdiff_t n1 = x_new1.shape[0], n2 = x_new2.shape[0]
