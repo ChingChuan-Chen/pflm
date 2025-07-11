@@ -352,7 +352,7 @@ def polyfit2d_f64(
     np.ndarray[np.float64_t, ndim=2] x_grid,
     np.ndarray[np.float64_t] y,
     np.ndarray[np.float64_t] w,
-    np.ndarray[np.float64_t] x_new1,.
+    np.ndarray[np.float64_t] x_new1,
     np.ndarray[np.float64_t] x_new2,
     np.float64_t bandwidth1,
     np.float64_t bandwidth2,
