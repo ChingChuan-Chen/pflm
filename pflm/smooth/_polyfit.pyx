@@ -3,10 +3,11 @@ cimport numpy as np
 from cython.parallel cimport prange
 from libc.math cimport abs, pow, sqrt, NAN
 from libc.stddef cimport ptrdiff_t
+from libcpp.vector cimport vector
 from libcpp.iterator cimport distance
 from libcpp.algorithm cimport lower_bound
 from libc.stdlib cimport malloc, free
-from pflm.utils._lapack_helper cimport _gels_helper
+from pflm.utils._lapack_helper cimport _gels_helper, _gelss_helper
 
 
 cdef extern from "src/polyfit_helper.h" nogil:
@@ -79,16 +80,15 @@ cdef void polyfit1d_helper_f64(
     cdef ptrdiff_t n = x.shape[0], left = 0, right = n
     cdef np.float64_t *left_it
     cdef np.float64_t *right_it
-    if kernel_type >= 4:
-        left_it = lower_bound(&x[0], &x[0] + n, center - bw)
-        if left_it != &x[0] + n:
-            left = distance(&x[0], left_it)
-        right_it = lower_bound(&x[0], &x[0] + n, center + bw)
-        if right_it == &x[0] + n:
-            right = n
-        else:
-            right = distance(&x[0], right_it)
-        if (left >= right) or (right - left - 1 <= deriv):
+    cdef np.float64_t *x_start = &x[0]
+    cdef np.float64_t *x_end = &x[0] + n
+    cdef np.float64_t lb = center - bw, ub = center + bw
+    if kernel_type >= 100:
+        left_it = lower_bound(x_start, x_end, lb)
+        right_it = lower_bound(x_start, x_end, ub)
+        left = distance(x_start, left_it)
+        right = distance(x_start, right_it) if right_it != x_end else n
+        if (left > right) or (right - left - 1 <= deriv):
             mu[0] = NAN
             return
 
@@ -167,16 +167,15 @@ cdef void polyfit1d_helper_f32(
     cdef ptrdiff_t n = x.shape[0], left = 0, right = n
     cdef np.float32_t *left_it
     cdef np.float32_t *right_it
-    if kernel_type >= 4:
-        left_it = lower_bound(&x[0], &x[0] + n, center - bw)
-        if left_it != &x[0] + n:
-            left = distance(&x[0], left_it)
-        right_it = lower_bound(&x[0], &x[0] + n, center + bw)
-        if right_it == &x[0] + n:
-            right = n
-        else:
-            right = distance(&x[0], right_it)
-        if (left >= right) or (right - left - 1 <= deriv):
+    cdef np.float32_t *x_start = &x[0]
+    cdef np.float32_t *x_end = &x[0] + n
+    cdef np.float32_t lb = center - bw, ub = center + bw
+    if kernel_type >= 100:
+        left_it = lower_bound(x_start, x_end, lb)
+        right_it = lower_bound(x_start, x_end, ub)
+        left = distance(x_start, left_it)
+        right = distance(x_start, right_it) if right_it != x_end else n
+        if (left > right) or (right - left - 1 <= deriv):
             mu[0] = NAN
             return
 
@@ -251,25 +250,75 @@ cdef void polyfit2d_helper_f64(
     np.float64_t[:] y,
     np.float64_t[:] w,
     int kernel_type,
-    int degree = 1,
-    int deriv1 = 0,
-    int deriv2 = 0
+    int degree,
+    int deriv1,
+    int deriv2
 ) noexcept nogil:
-    cdef ptrdiff_t n = x_grid.shape[0], left = 0, right = n
+    cdef ptrdiff_t n = x_grid.shape[1], left = 0, right = n, i
     cdef np.float64_t *left_it
     cdef np.float64_t *right_it
-    if kernel_type >= 4:
-        left_it = lower_bound(&x_grid[0, 0], &x_grid[0, 0] + n, center1 - bw1)
-        if left_it != &x_grid[0, 0] + n:
-            left = distance(&x_grid[0, 0], left_it)
-        right_it = lower_bound(&x_grid[0, 0], &x_grid[0, 0] + n, center1 + bw1)
-        if right_it == &x_grid[0, 0] + n:
-            right = n
-        else:
-            right = distance(&x_grid[0, 0], right_it)
-        if (left >= right) or (right - left - 1 <= 0):
+    cdef np.float64_t *x1_start = &x_grid[0, 0]
+    cdef np.float64_t *x1_end = &x_grid[0, 0] + n
+    cdef np.float64_t lb = center1 - bw1 - 1e-6, ub = center1 + bw1 + 1e-6
+    cdef ptrdiff_t num_lx_cols = (degree + 1) * (degree + 2) / 2
+    cdef vector[ptrdiff_t] idx = vector[ptrdiff_t]()
+    if kernel_type >= 100:
+        left_it = lower_bound(x1_start, x1_end, lb)
+        right_it = lower_bound(x1_start, x1_end, ub)
+        left = distance(x1_start, left_it)
+        right = distance(x1_start, right_it) if right_it != x1_end else n
+        if left >= right:
             mu[0] = NAN
             return
+
+        for i in range(left, right):
+            if x_grid[1, i] > center2 - bw2 - 1e-6 and x_grid[1, i] < center2 + bw2 + 1e-6:
+                idx.push_back(i)
+
+        if idx.empty() or idx.size() < num_lx_cols:
+            mu[0] = NAN
+            return
+    else:
+        idx.resize(n)
+        for i in range(n):
+            idx.push_back(i)
+
+    cdef ptrdiff_t n_rows = <ptrdiff_t> idx.size(), j, total_deg, px, py, col_idx
+    cdef np.float64_t *lx = <np.float64_t*> malloc(n_rows * num_lx_cols * sizeof(np.float64_t))
+    cdef np.float64_t *ly = <np.float64_t*> malloc(n_rows * sizeof(np.float64_t))
+    cdef np.float64_t xj_minus_center1 = 0.0, xj_minus_center2 = 0.0
+    cdef np.float64_t u1 = 0.0, u2 = 0.0, sqrt_wj = 0.0
+    for i in range(n_rows):
+        j = idx[i]
+        xj_minus_center1 = x_grid[0, j] - center1
+        xj_minus_center2 = x_grid[1, j] - center2
+        u1 = xj_minus_center1 / bw1
+        u2 = xj_minus_center2 / bw2
+        sqrt_wj = sqrt(_calculate_kernel_value_f64(u1, kernel_type) * _calculate_kernel_value_f64(u2, kernel_type) * w[j])
+
+        ly[i] = y[j] * sqrt_wj
+        for total_deg in range(degree + 1):
+            for py in range(total_deg + 1):
+                px = total_deg - py
+                col_idx = total_deg * (total_deg + 1) // 2 + py
+                lx[i + n_rows * col_idx] = pow(xj_minus_center1, px) * pow(xj_minus_center2, py) * sqrt_wj
+
+    cdef int info = 0, rank = 0
+    cdef np.float64_t rcond = -1.0
+    _gelss_helper(
+        n_rows, num_lx_cols, 1,
+        lx, n_rows,
+        ly, n_rows,
+        &rcond, &rank, &info
+    )
+    cdef ptrdiff_t total_deriv = <ptrdiff_t> deriv1 + <ptrdiff_t> deriv2
+    cdef ptrdiff_t mu_idx = total_deriv * (total_deriv + 1) // 2 + deriv2
+    if info == 0:
+        mu[0] = ly[mu_idx] * factorials[deriv1] * factorials[deriv2]
+    else:
+        mu[0] = NAN
+    free(lx)
+    free(ly)
 
 
 cdef void polyfit2d_memview_f64(
@@ -278,33 +327,41 @@ cdef void polyfit2d_memview_f64(
     np.float64_t[:] w,
     np.float64_t[:] x_new1,
     np.float64_t[:] x_new2,
-    np.float64_t[:] mu,
+    np.float64_t[:, ::1] mu,
     np.float64_t bandwidth1,
     np.float64_t bandwidth2,
     int kernel_type,
-    int degree = 1,
-    int deriv1 = 0,
-    int deriv2 = 0
+    int degree ,
+    int deriv1 ,
+    int deriv2
 ) noexcept nogil:
-    cdef ptrdiff_t n = x_grid.shape[0], n1 = x_new1.shape[0], n2 = x_new2.shape[0]
-    # Implement the logic for 2D polynomial fitting here
-    pass
+    cdef ptrdiff_t n = x_grid.shape[1], n1 = x_new1.shape[0], n2 = x_new2.shape[0], i, j, l
+    for l in prange(n1 * n2, nogil=True):
+        i = l // n2
+        j = l % n2
+        polyfit2d_helper_f64(
+            bandwidth1, bandwidth2,
+            x_new1[i], x_new2[j],
+            &mu[j, i],
+            x_grid, y, w,
+            kernel_type, degree, deriv1, deriv2
+        )
 
 
 def polyfit2d_f64(
     np.ndarray[np.float64_t, ndim=2] x_grid,
     np.ndarray[np.float64_t] y,
     np.ndarray[np.float64_t] w,
-    np.ndarray[np.float64_t] x_new1,
+    np.ndarray[np.float64_t] x_new1,.
     np.ndarray[np.float64_t] x_new2,
     np.float64_t bandwidth1,
     np.float64_t bandwidth2,
     int kernel_type,
-    int degree = 1,
-    int deriv1 = 0,
-    int deriv2 = 0
+    int degree,
+    int deriv1,
+    int deriv2
 ) -> np.ndarray[np.float64_t]:
-    cdef ptrdiff_t n = x_grid.shape[0], n1 = x_new1.shape[0], n2 = x_new2.shape[0]
+    cdef ptrdiff_t n1 = x_new1.shape[0], n2 = x_new2.shape[0]
     cdef np.ndarray[np.float64_t, ndim=2] mu = np.empty((n2, n1), dtype=np.float64)
     polyfit2d_memview_f64(x_grid, y, w, x_new1, x_new2, mu, bandwidth1, bandwidth2, kernel_type, degree, deriv1, deriv2)
     return mu
@@ -320,11 +377,11 @@ cdef void polyfit2d_memview_f32(
     np.float32_t bandwidth1,
     np.float32_t bandwidth2,
     int kernel_type,
-    int degree = 1,
-    int deriv1 = 0,
-    int deriv2 = 0
+    int degree ,
+    int deriv1 ,
+    int deriv2
 ) noexcept nogil:
-    cdef ptrdiff_t n = x_grid.shape[0], n1 = x_new1.shape[0], n2 = x_new2.shape[0]
+    cdef ptrdiff_t n = x_grid.shape[1], n1 = x_new1.shape[0], n2 = x_new2.shape[0]
     # Implement the logic for 2D polynomial fitting here
     pass
 
@@ -338,11 +395,11 @@ def polyfit2d_f32(
     np.float32_t bandwidth1,
     np.float32_t bandwidth2,
     int kernel_type,
-    int degree = 1,
-    int deriv1 = 0,
-    int deriv2 = 0
+    int degree ,
+    int deriv1 ,
+    int deriv2
 ) -> np.ndarray[np.float32_t]:
-    cdef ptrdiff_t n = x_grid.shape[0], n1 = x_new1.shape[0], n2 = x_new2.shape[0]
+    cdef ptrdiff_t n1 = x_new1.shape[0], n2 = x_new2.shape[0]
     cdef np.ndarray[np.float32_t, ndim=2] mu = np.empty((n2, n1), dtype=np.float32)
     polyfit2d_memview_f32(x_grid, y, w, x_new1, x_new2, mu, bandwidth1, bandwidth2, kernel_type, degree, deriv1, deriv2)
     return mu

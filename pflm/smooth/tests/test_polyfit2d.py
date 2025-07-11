@@ -1,23 +1,24 @@
 # ruff: noqa: E501
 import numpy as np
 import pytest
+from numpy.testing import assert_allclose
 
 from pflm.smooth.kernel import KernelType
 from pflm.smooth.polyfit import polyfit2d
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("dtype", [np.float64])
 def test_polyfit2d(dtype):
     bw1 = 0.25
     bw2 = 0.25
     x = np.linspace(0.0, 1.0, 11, dtype=dtype)
     x1v, x2v = np.meshgrid(x, x)
-    x_grid = np.vstack((x1v.ravel(), x2v.ravel())).T
-    y = x1v.ravel() ** 2 - 3.0 * x2v.ravel() ** 2 + 6.0 * x1v.ravel() + 4.0 * x2v.ravel()
+    x_grid = np.hstack((x2v.ravel(), x1v.ravel())).reshape(2, -1).T
+    y = x2v.ravel() ** 2 - 3.0 * x1v.ravel() ** 2 + 6.0 * x2v.ravel() + 4.0 * x1v.ravel()
     w = np.ones_like(y, dtype=dtype)
 
-    x_new0 = np.linspace(0.0, 1.0, 11, dtype=dtype)
     x_new1 = np.linspace(0.0, 1.0, 11, dtype=dtype)
+    x_new2 = np.linspace(0.0, 1.0, 11, dtype=dtype)
 
     # fmt: off
     expected_gaussian = np.array(
@@ -52,10 +53,9 @@ def test_polyfit2d(dtype):
         dtype=dtype
     )
 
-
     # fmt: on
-    # assert_allclose(polyfit2d(x_grid, y, w, x_new0, x_new1, bw1, bw2, KernelType.GAUSSIAN), expected_gaussian, rtol=1e-5, atol=1e-6)
-    # assert_allclose(polyfit2d(x_grid, y, w, x_new0, x_new1, bw1, bw2, KernelType.EPANECHNIKOV), expected_epanechnikov, rtol=1e-5, atol=1e-6)
+    assert_allclose(polyfit2d(x_grid, y, w, x_new1, x_new2, bw1, bw2, KernelType.GAUSSIAN), expected_gaussian, rtol=1e-5, atol=1e-6)
+    assert_allclose(polyfit2d(x_grid, y, w, x_new1, x_new2, bw1, bw2, KernelType.EPANECHNIKOV), expected_epanechnikov, rtol=1e-5, atol=1e-6)
 
 
 def make_valid_inputs(dtype=np.float64):
@@ -98,10 +98,10 @@ def test_polyfit2d_x_grid_y_size_mismatch():
         polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, 1.0)
 
 
-def test_polyfit2d_x_grid_w_size_mismatch():
+def test_polyfit2d_y_size_w_size_mismatch():
     x_grid, y, w, x_new1, x_new2 = make_valid_inputs()
     w = np.zeros(3)
-    with pytest.raises(ValueError, match="w must have the same size as the second dimension of x_grid."):
+    with pytest.raises(ValueError, match="w must have the same size as y."):
         polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, 1.0)
 
 

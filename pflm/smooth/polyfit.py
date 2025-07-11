@@ -91,8 +91,8 @@ def polyfit1d(
     if np.any(np.diff(x_new) <= 0):
         raise ValueError("x_new must be strictly increasing.")
 
-    polyfit_func = polyfit1d_f32 if x.dtype == np.float32 else polyfit1d_f64
-    return polyfit_func(
+    polyfit1d_func = polyfit1d_f32 if x.dtype == np.float32 else polyfit1d_f64
+    return polyfit1d_func(
         x,
         y.astype(x.dtype, copy=False),
         w.astype(x.dtype, copy=False),
@@ -157,8 +157,8 @@ def polyfit2d(
         raise ValueError("w must be a 1D array.")
     if x_grid.shape[0] != y.size:
         raise ValueError("y must have the same size as the first dimension of x_grid.")
-    if x_grid.shape[1] != w.size:
-        raise ValueError("w must have the same size as the second dimension of x_grid.")
+    if y.size != w.size:
+        raise ValueError("w must have the same size as y.")
     if x_new1.ndim != 1 or x_new2.ndim != 1:
         raise ValueError("x_new1 and x_new2 must be 1D arrays.")
     if x_new1.size == 0 or x_new2.size == 0:
@@ -200,17 +200,38 @@ def polyfit2d(
     if np.any(w < 0):
         raise ValueError("All weights in w must be greater than 0.")
 
-    polyfit_func = polyfit2d_f32 if x_grid.dtype == np.float32 else polyfit2d_f64
-    return polyfit_func(
-        x_grid,
-        y.astype(x_grid.dtype, copy=False),
-        w.astype(x_grid.dtype, copy=False),
-        x_new1.astype(x_grid.dtype, copy=False),
-        x_new2.astype(x_grid.dtype, copy=False),
-        bandwidth1,
-        bandwidth2,
-        kernel_type.value,
-        degree,
-        deriv1,
-        deriv2
-    )
+    polyfit2d_func = polyfit2d_f32 if x_grid.dtype == np.float32 else polyfit2d_f64
+    if kernel_type.value >= 100:
+        # For kernel that don't have support |u| <= 1, we need to ensure that x_grid is sorted in the first dimension.
+        ord = np.lexsort((x_grid[:, 0], x_grid[:, 1]))
+        x_grid_sorted = np.ascontiguousarray(x_grid[ord, :].T)
+        y_sorted = y[ord].astype(x_grid_sorted.dtype, copy=False)
+        w_sorted = w[ord].astype(x_grid_sorted.dtype, copy=False)
+        return polyfit2d_func(
+            x_grid_sorted,
+            y_sorted,
+            w_sorted,
+            x_new1.astype(x_grid_sorted.dtype, copy=False),
+            x_new2.astype(x_grid_sorted.dtype, copy=False),
+            bandwidth1,
+            bandwidth2,
+            kernel_type.value,
+            degree,
+            deriv1,
+            deriv2
+        )
+    else:
+        x_grid = np.ascontiguousarray(x_grid.T)
+        return polyfit2d_func(
+            x_grid,
+            y.astype(x_grid.dtype, copy=False),
+            w.astype(x_grid.dtype, copy=False),
+            x_new1.astype(x_grid.dtype, copy=False),
+            x_new2.astype(x_grid.dtype, copy=False),
+            bandwidth1,
+            bandwidth2,
+            kernel_type.value,
+            degree,
+            deriv1,
+            deriv2
+        )

@@ -62,11 +62,9 @@ def interp1d(x: np.ndarray, y: np.ndarray, x_new: np.ndarray, method: str = "lin
         raise ValueError("Invalid method. Use 'linear' or 'spline'.")
     method_mapping = {"linear": 0, "spline": 1}
     interp_func = interp1d_f32 if x.dtype == np.float32 else interp1d_f64
-    input_type = x.dtype
     x_unique, idx = np.unique(x, return_index=True)
-    y_unique = y[idx].astype(input_type, copy=False)
-    x_new_typed = x_new.astype(input_type, copy=False)
-    return interp_func(x_unique, y_unique, x_new_typed, method_mapping[method])
+    y_unique = y[idx].astype(x.dtype, copy=False)
+    return interp_func(x_unique, y_unique, x_new.astype(x.dtype, copy=False), method_mapping[method])
 
 
 def interp2d(x: np.ndarray, y: np.ndarray, v: np.ndarray, x_new: np.ndarray, y_new: np.ndarray, method: str = "linear") -> np.ndarray:
@@ -122,10 +120,7 @@ def interp2d(x: np.ndarray, y: np.ndarray, v: np.ndarray, x_new: np.ndarray, y_n
         raise ValueError("Invalid method. Use 'linear' or 'spline'.")
     method_mapping = {"linear": 0, "spline": 1}
     interp_func = interp2d_f32 if x.dtype == np.float32 else interp2d_f64
-    input_type = x.dtype
     x_unique, idx_x = np.unique(x, return_index=True)
-    y_unique, idx_y = np.unique(y.astype(input_type, copy=False), return_index=True)
-    v_unique = v[np.ix_(idx_y, idx_x)].astype(input_type, copy=False)
-    x_new_typed = x_new.astype(input_type, copy=False)
-    y_new_typed = y_new.astype(input_type, copy=False)
-    return interp_func(x_unique, y_unique, v_unique, x_new_typed, y_new_typed, method_mapping[method])
+    y_unique, idx_y = np.unique(y.astype(x.dtype, copy=False), return_index=True)
+    v_unique = v[np.ix_(idx_y, idx_x)].astype(x.dtype, copy=False)
+    return interp_func(x_unique, y_unique, v_unique, x_new.astype(x.dtype, copy=False), y_new.astype(x.dtype, copy=False), method_mapping[method])
