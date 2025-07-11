@@ -15,7 +15,7 @@ def polyfit1d(
     w: np.ndarray,
     x_new: np.ndarray,
     bandwidth: float,
-    kernel: KernelType = KernelType.GAUSSIAN,
+    kernel_type: KernelType = KernelType.GAUSSIAN,
     degree: int = 1,
     deriv: int = 0,
 ) -> np.ndarray:
@@ -32,7 +32,7 @@ def polyfit1d(
         1D array of x-coordinates where the polynomial should be evaluated.
     bandwidth : float
         The bandwidth for the local polynomial regression.
-    kernel : KernelType, optional
+    kernel_type : KernelType, optional
         The kernel type to use for weighting the data points. Default is KernelType.GAUSSIAN.
     degree : int, optional
         The degree of the polynomial to fit. Default is 1.
@@ -66,7 +66,7 @@ def polyfit1d(
         raise ValueError("x_new must be strictly increasing.")
     if bandwidth <= 0:
         raise ValueError("Bandwidth, bandwidth, should be positive.")
-    if kernel not in KernelType:
+    if kernel_type not in KernelType:
         raise ValueError(f"kernel must be one of {list(KernelType)}.")
     if degree <= 0:
         raise ValueError("Degree of polynomial, degree, should be positive.")
@@ -78,7 +78,7 @@ def polyfit1d(
     polyfit_func = polyfit1d_f32 if x.dtype == np.float32 else polyfit1d_f64
     return polyfit_func(
         x, y.astype(x.dtype, copy=False), w.astype(x.dtype, copy=False), x_new.astype(x.dtype, copy=False),
-        bandwidth, kernel.value, degree, deriv
+        bandwidth, kernel_type.value, degree, deriv
     )
 
 
@@ -90,7 +90,7 @@ def polyfit2d(
     x_new1: float,
     bandwidth1: float,
     bandwidth2: float,
-    kernel: KernelType = KernelType.GAUSSIAN,
+    kernel_type: KernelType = KernelType.GAUSSIAN,
     order: int = 1,
     deriv: int = 0,
 ):

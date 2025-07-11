@@ -12,15 +12,14 @@ class KernelType(Enum):
     GAUSSIAN = 0
     LOGISTIC = 1
     SIGMOID = 2
-    SILVERMAN = 3
-    GAUSSIAN_VAR = 4
-    RECTANGULAR = 5  # Uniform Kernel
-    TRIANGULAR = 6
-    EPANECHNIKOV = 7
-    BIWEIGHT = 8     # Quartic Kernel
-    TRIWEIGHT = 9
-    TRICUBE = 10
-    COSINE = 11
+    GAUSSIAN_VAR = 3
+    RECTANGULAR = 4  # Uniform Kernel
+    TRIANGULAR = 5
+    EPANECHNIKOV = 6
+    BIWEIGHT = 7     # Quartic Kernel
+    TRIWEIGHT = 8
+    TRICUBE = 9
+    COSINE = 10
 
     def __repr__(self):
         return f"KernelType.{self.name}"
