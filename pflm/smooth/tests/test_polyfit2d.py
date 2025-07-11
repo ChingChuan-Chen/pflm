@@ -20,7 +20,7 @@ def test_polyfit2d(dtype):
     x_new1 = np.linspace(0.0, 1.0, 11, dtype=dtype)
 
     # fmt: off
-    expected_guassian = np.array(
+    expected_gaussian = np.array(
         [
             [0.0591629392161743, 0.332863362626855, 0.573896163997318, 0.777778746944114, 0.941272980082079, 1.06261194763721, 1.14127298008208, 1.17777874694411, 1.17389616399732, 1.13286336262685, 1.05916293921617],
             [0.70126279807928, 0.974963221489959, 1.21599602286042, 1.41987860580722, 1.58337283894518, 1.70471180650031, 1.78337283894519, 1.81987860580722, 1.81599602286042, 1.77496322148996, 1.70126279807928],
@@ -54,7 +54,7 @@ def test_polyfit2d(dtype):
 
 
     # fmt: on
-    # assert_allclose(polyfit2d(x_grid, y, w, x_new0, x_new1, bw1, bw2, KernelType.GAUSSIAN), expected_guassian, rtol=1e-5, atol=1e-6)
+    # assert_allclose(polyfit2d(x_grid, y, w, x_new0, x_new1, bw1, bw2, KernelType.GAUSSIAN), expected_gaussian, rtol=1e-5, atol=1e-6)
     # assert_allclose(polyfit2d(x_grid, y, w, x_new0, x_new1, bw1, bw2, KernelType.EPANECHNIKOV), expected_epanechnikov, rtol=1e-5, atol=1e-6)
 
 
@@ -67,7 +67,7 @@ def make_valid_inputs(dtype=np.float64):
     return x_grid, y, w, x_new1, x_new2
 
 
-def test_polyfit2d_xgrid_not_2d():
+def test_polyfit2d_x_grid_not_2d():
     x_grid = np.zeros(2)
     y = np.zeros(2)
     w = np.zeros(2)
@@ -91,14 +91,14 @@ def test_polyfit2d_w_not_1d():
         polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, 1.0)
 
 
-def test_polyfit2d_xgrid_y_size_mismatch():
+def test_polyfit2d_x_grid_y_size_mismatch():
     x_grid, y, w, x_new1, x_new2 = make_valid_inputs()
     y = np.zeros(3)
     with pytest.raises(ValueError, match="y must have the same size as the first dimension of x_grid."):
         polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, 1.0)
 
 
-def test_polyfit2d_xgrid_w_size_mismatch():
+def test_polyfit2d_x_grid_w_size_mismatch():
     x_grid, y, w, x_new1, x_new2 = make_valid_inputs()
     w = np.zeros(3)
     with pytest.raises(ValueError, match="w must have the same size as the second dimension of x_grid."):
@@ -126,10 +126,12 @@ def test_polyfit2d_x_new_empty():
         polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, 1.0)
 
 
-def test_polyfit2d_bandwidth_nonpositive():
+def test_polyfit2d_bandwidth_non_positive():
     x_grid, y, w, x_new1, x_new2 = make_valid_inputs()
     with pytest.raises(ValueError, match="Bandwidths, bandwidth1 and bandwidth2, should be positive."):
         polyfit2d(x_grid, y, w, x_new1, x_new2, 0.0, 1.0)
+    with pytest.raises(ValueError, match="Bandwidths, bandwidth1 and bandwidth2, should be positive."):
+        polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, 0.0)
 
 
 def test_polyfit2d_kernel_type_invalid():
@@ -142,7 +144,7 @@ def test_polyfit2d_kernel_type_invalid():
         polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, 1.0, Dummy())
 
 
-def test_polyfit2d_degree_nonpositive():
+def test_polyfit2d_degree_non_positive():
     x_grid, y, w, x_new1, x_new2 = make_valid_inputs()
     with pytest.raises(ValueError, match="Degree of polynomial, degree, should be positive."):
         polyfit2d(x_grid, y, w, x_new1, x_new2, 0.1, 1.0, KernelType.GAUSSIAN, 0)
@@ -218,7 +220,7 @@ def test_polyfit2d_bandwidths_nan(bad_type):
 
 
 @pytest.mark.parametrize("bad_type", ["2", None, [1], (2,), {"a": 1}])
-def test_polyfit2d_bandwidth_nonint_type(bad_type):
+def test_polyfit2d_bandwidth_non_int_type(bad_type):
     x_grid = np.zeros((2, 2))
     y = np.zeros(2)
     w = np.ones(2)
@@ -232,7 +234,7 @@ def test_polyfit2d_bandwidth_nonint_type(bad_type):
 
 
 @pytest.mark.parametrize("bad_type", [1.5, "2", None, float('nan'), np.nan, [1], (2,), {"a": 1}])
-def test_polyfit2d_degree_nonint_type(bad_type):
+def test_polyfit2d_degree_non_int_type(bad_type):
     x_grid = np.zeros((2, 2))
     y = np.zeros(2)
     w = np.ones(2)
@@ -243,7 +245,7 @@ def test_polyfit2d_degree_nonint_type(bad_type):
 
 
 @pytest.mark.parametrize("bad_type", [1.5, "2", None, float('nan'), np.nan, [1], (2,), {"a": 1}])
-def test_polyfit2d_deriv1_nonint_type(bad_type):
+def test_polyfit2d_deriv1_non_int_type(bad_type):
     x_grid = np.zeros((2, 2))
     y = np.zeros(2)
     w = np.ones(2)
@@ -254,7 +256,7 @@ def test_polyfit2d_deriv1_nonint_type(bad_type):
 
 
 @pytest.mark.parametrize("bad_type", [1.5, "2", None, float('nan'), np.nan, [1], (2,), {"a": 1}])
-def test_polyfit2d_deriv2_nonint_type(bad_type):
+def test_polyfit2d_deriv2_non_int_type(bad_type):
     x_grid = np.zeros((2, 2))
     y = np.zeros(2)
     w = np.ones(2)

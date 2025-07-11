@@ -1032,28 +1032,28 @@ def test_polyfit1d_x_w_size_mismatch():
         polyfit1d(x, y, w, x_new, 0.1)
 
 
-def test_polyfit1d_xnew_not_1d():
+def test_polyfit1d_x_new_not_1d():
     x, y, w, x_new = make_test_inputs()
     x_new = np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float64)
     with pytest.raises(ValueError, match="x_new must be a 1D array."):
         polyfit1d(x, y, w, x_new, 0.1)
 
 
-def test_polyfit1d_xnew_empty():
+def test_polyfit1d_x_new_empty():
     x, y, w, x_new = make_test_inputs()
     x_new = np.array([], dtype=np.float64)
     with pytest.raises(ValueError, match="x_new must not be empty."):
         polyfit1d(x, y, w, x_new, 0.1)
 
 
-def test_polyfit1d_xnew_not_strictly_increasing():
+def test_polyfit1d_x_new_not_strictly_increasing():
     x, y, w, x_new = make_test_inputs()
     x_new = np.array([0.1, 0.1])
     with pytest.raises(ValueError, match="x_new must be strictly increasing."):
         polyfit1d(x, y, w, x_new, 0.1)
 
 
-def test_polyfit1d_bandwidth_nonpositive():
+def test_polyfit1d_bandwidth_non_positive():
     x, y, w, x_new = make_test_inputs()
     with pytest.raises(ValueError, match="Bandwidth, bandwidth, should be positive."):
         polyfit1d(x, y, w, x_new, 0.0)
@@ -1069,7 +1069,7 @@ def test_polyfit1d_kernel_type_invalid():
         polyfit1d(x, y, w, x_new, 0.1, Dummy())
 
 
-def test_polyfit1d_degree_nonpositive():
+def test_polyfit1d_degree_non_positive():
     x, y, w, x_new = make_test_inputs()
     with pytest.raises(ValueError, match="Degree of polynomial, degree, should be positive."):
         polyfit1d(x, y, w, x_new, 0.1, KernelType.GAUSSIAN, 0)
@@ -1115,21 +1115,21 @@ def test_polyfit1d_bandwidth_nan(bad_type):
 
 
 @pytest.mark.parametrize("bad_type", ["2", None, [1], (2,), {"a": 1}])
-def test_polyfit1d_bandwidth_nonint_type(bad_type):
+def test_polyfit1d_bandwidth_non_int_type(bad_type):
     x, y, w, x_new = make_test_inputs()
     with pytest.raises(TypeError, match="Bandwidth, bandwidth, should be a float or an integer."):
         polyfit1d(x, y, w, x_new, bad_type, KernelType.GAUSSIAN)
 
 
 @pytest.mark.parametrize("bad_type", [1.5, "2", float('nan'), np.nan, None, [1], (2,), {"a": 1}])
-def test_polyfit1d_degree_nonint_type(bad_type):
+def test_polyfit1d_degree_non_int_type(bad_type):
     x, y, w, x_new = make_test_inputs()
     with pytest.raises(TypeError, match="Degree of polynomial, degree, should be an integer."):
         polyfit1d(x, y, w, x_new, 0.1, KernelType.GAUSSIAN, bad_type)
 
 
 @pytest.mark.parametrize("bad_type", [1.5, "2", float('nan'), np.nan, None, [1], (2,), {"a": 1}])
-def test_polyfit1d_deriv_nonint_type(bad_type):
+def test_polyfit1d_deriv_non_int_type(bad_type):
     x, y, w, x_new = make_test_inputs()
     with pytest.raises(TypeError, match="Order of derivative, deriv, should be an integer."):
         polyfit1d(x, y, w, x_new, 0.1, KernelType.GAUSSIAN, 2, bad_type)

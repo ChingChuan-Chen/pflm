@@ -160,7 +160,7 @@ def test_interp2d_raise_exception(dtype):
         interp2d(x[:-1], y, A, x_new, y_new, "linear")
     # invalid method string
     with pytest.raises(ValueError, match="Invalid method. Use 'linear' or 'spline'."):
-        interp2d(x, y, A, x_new, y_new, "badmethod")
+        interp2d(x, y, A, x_new, y_new, "bad_method")
     # invalid method type
     with pytest.raises(ValueError, match="Invalid method. Use 'linear' or 'spline'."):
         interp2d(x, y, A, x_new, y_new, -1)
