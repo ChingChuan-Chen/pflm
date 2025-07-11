@@ -142,6 +142,30 @@ def test_polyfit2d_kernel_type_invalid():
         polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, 1.0, Dummy())
 
 
+def test_polyfit2d_degree_nonpositive():
+    x_grid, y, w, x_new1, x_new2 = make_valid_inputs()
+    with pytest.raises(ValueError, match="Degree of polynomial, degree, should be positive."):
+        polyfit2d(x_grid, y, w, x_new1, x_new2, 0.1, 1.0, KernelType.GAUSSIAN, 0)
+
+
+def test_polyfit2d_deriv1_negative():
+    x_grid, y, w, x_new1, x_new2 = make_valid_inputs()
+    with pytest.raises(ValueError, match="Order of derivative, deriv1, should be positive."):
+        polyfit2d(x_grid, y, w, x_new1, x_new2, 0.1, 1.0, KernelType.GAUSSIAN, 1, -1)
+
+
+def test_polyfit2d_deriv2_negative():
+    x_grid, y, w, x_new1, x_new2 = make_valid_inputs()
+    with pytest.raises(ValueError, match="Order of derivative, deriv2, should be positive."):
+        polyfit2d(x_grid, y, w, x_new1, x_new2, 0.1, 1.0, KernelType.GAUSSIAN, 1, 0, -1)
+
+
+def test_polyfit2d_degree_less_than_sum_of_deriv1_deriv2():
+    x_grid, y, w, x_new1, x_new2 = make_valid_inputs()
+    with pytest.raises(ValueError, match="Degree of polynomial, degree, should be greater than or equal to the sum of orders of derivatives, deriv1 and deriv2."):
+        polyfit2d(x_grid, y, w, x_new1, x_new2, 0.1, 1.0, KernelType.GAUSSIAN, 1, 2)
+
+
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_polyfit2d_nan_inputs(dtype):
     from pflm.smooth.polyfit import polyfit2d
@@ -181,3 +205,60 @@ def test_polyfit2d_nan_inputs(dtype):
     x_new2_nan[0] = np.nan
     with pytest.raises(ValueError, match="Input array x_new2 contains NaN values."):
         polyfit2d(x_grid, y, w, x_new1, x_new2_nan, 1.0, 1.0, KernelType.GAUSSIAN)
+
+
+@pytest.mark.parametrize("bad_type", [float('nan'), np.nan])
+def test_polyfit2d_bandwidths_nan(bad_type):
+    x_grid, y, w, x_new1, x_new2 = make_valid_inputs()
+    with pytest.raises(ValueError, match="Bandwidths, bandwidth1 and bandwidth2, should not be NaN."):
+        polyfit2d(x_grid, y, w, x_new1, x_new2, bad_type, 1.0, KernelType.GAUSSIAN)
+
+    with pytest.raises(ValueError, match="Bandwidths, bandwidth1 and bandwidth2, should not be NaN."):
+        polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, bad_type, KernelType.GAUSSIAN)
+
+
+@pytest.mark.parametrize("bad_type", ["2", None, [1], (2,), {"a": 1}])
+def test_polyfit2d_bandwidth_nonint_type(bad_type):
+    x_grid = np.zeros((2, 2))
+    y = np.zeros(2)
+    w = np.ones(2)
+    x_new1 = np.array([0.1, 0.2])
+    x_new2 = np.array([0.1, 0.2])
+    with pytest.raises(TypeError, match="Bandwidth, bandwidth1, should not be None and must be a float or int."):
+        polyfit2d(x_grid, y, w, x_new1, x_new2, bad_type, 1.0, KernelType.GAUSSIAN)
+
+    with pytest.raises(TypeError, match="Bandwidth, bandwidth2, should not be None and must be a float or int."):
+        polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, bad_type, KernelType.GAUSSIAN)
+
+
+@pytest.mark.parametrize("bad_type", [1.5, "2", None, float('nan'), np.nan, [1], (2,), {"a": 1}])
+def test_polyfit2d_degree_nonint_type(bad_type):
+    x_grid = np.zeros((2, 2))
+    y = np.zeros(2)
+    w = np.ones(2)
+    x_new1 = np.array([0.1, 0.2])
+    x_new2 = np.array([0.1, 0.2])
+    with pytest.raises(TypeError, match="Degree of polynomial, degree, should not be None and must be an integer."):
+        polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, 1.0, KernelType.GAUSSIAN, bad_type, 0, 0)
+
+
+@pytest.mark.parametrize("bad_type", [1.5, "2", None, float('nan'), np.nan, [1], (2,), {"a": 1}])
+def test_polyfit2d_deriv1_nonint_type(bad_type):
+    x_grid = np.zeros((2, 2))
+    y = np.zeros(2)
+    w = np.ones(2)
+    x_new1 = np.array([0.1, 0.2])
+    x_new2 = np.array([0.1, 0.2])
+    with pytest.raises(TypeError, match="Order of derivative, deriv1, should not be None and must be an integer."):
+        polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, 1.0, KernelType.GAUSSIAN, 2, bad_type, 0)
+
+
+@pytest.mark.parametrize("bad_type", [1.5, "2", None, float('nan'), np.nan, [1], (2,), {"a": 1}])
+def test_polyfit2d_deriv2_nonint_type(bad_type):
+    x_grid = np.zeros((2, 2))
+    y = np.zeros(2)
+    w = np.ones(2)
+    x_new1 = np.array([0.1, 0.2])
+    x_new2 = np.array([0.1, 0.2])
+    with pytest.raises(TypeError, match="Order of derivative, deriv2, should not be None and must be an integer."):
+        polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, 1.0, KernelType.GAUSSIAN, 2, 0, bad_type)

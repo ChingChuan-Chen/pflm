@@ -975,110 +975,92 @@ def test_polyfit1d_big(dtype):
     )
 
 
-def test_polyfit1d_x_not_1d():
-    x = np.array([[0.1, 0.2]])
+def make_test_inputs():
+    x = np.array([0.1, 0.2])
     y = np.array([0.1, 0.2])
     w = np.array([1.0, 1.0])
     x_new = np.array([0.1, 0.2])
+    return x, y, w, x_new
+
+
+def test_polyfit1d_x_not_1d():
+    x, y, w, x_new = make_test_inputs()
+    x = np.array([[0.1, 0.2], [0.3, 0.4]])  # Not 1D
     with pytest.raises(ValueError, match="x must be a 1D array."):
         polyfit1d(x, y, w, x_new, 0.1)
 
 
 def test_polyfit1d_y_not_1d():
-    x = np.array([0.1, 0.2])
-    y = np.array([[0.1, 0.2]])
-    w = np.array([1.0, 1.0])
-    x_new = np.array([0.1, 0.2])
+    x, y, w, x_new = make_test_inputs()
+    y = np.array([[0.1, 0.2], [0.3, 0.4]])  # Not 1D
     with pytest.raises(ValueError, match="y must be a 1D array."):
         polyfit1d(x, y, w, x_new, 0.1)
 
 
 def test_polyfit1d_w_not_1d():
-    x = np.array([0.1, 0.2])
-    y = np.array([0.1, 0.2])
-    w = np.array([[1.0, 1.0]])
-    x_new = np.array([0.1, 0.2])
+    x, y, w, x_new = make_test_inputs()
+    w = np.array([[1.0, 1.0], [1.0, 1.0]])  # Not 1D
     with pytest.raises(ValueError, match="w must be a 1D array."):
         polyfit1d(x, y, w, x_new, 0.1)
 
 
 def test_polyfit1d_x_y_size_mismatch():
-    x = np.array([0.1, 0.2])
-    y = np.array([0.1])
-    w = np.array([1.0, 1.0])
-    x_new = np.array([0.1, 0.2])
+    x, y, w, x_new = make_test_inputs()
+    y = np.array([0.1, 0.2, 0.3])  # Different size than x
     with pytest.raises(ValueError, match="y must have the same size as x."):
         polyfit1d(x, y, w, x_new, 0.1)
 
 
 def test_polyfit1d_x_not_sorted():
-    x = np.array([0.2, 0.1])
-    y = np.array([0.1, 0.2])
-    w = np.array([1.0, 1.0])
-    x_new = np.array([0.1, 0.2])
+    x, y, w, x_new = make_test_inputs()
+    x = np.array([0.2, 0.1])  # Not sorted
     with pytest.raises(ValueError, match="x must be sorted in ascending order."):
         polyfit1d(x, y, w, x_new, 0.1)
 
 
 def test_polyfit1d_w_negative():
-    x = np.array([0.1, 0.2])
-    y = np.array([0.1, 0.2])
-    w = np.array([1.0, -1.0])
-    x_new = np.array([0.1, 0.2])
+    x, y, w, x_new = make_test_inputs()
+    w = np.array([-1.0, 1.0])  # Negative weight
     with pytest.raises(ValueError, match="All weights in w must be greater than 0."):
         polyfit1d(x, y, w, x_new, 0.1)
 
 
 def test_polyfit1d_x_w_size_mismatch():
-    x = np.array([0.1, 0.2])
-    y = np.array([0.1, 0.2])
-    w = np.array([1.0])
-    x_new = np.array([0.1, 0.2])
+    x, y, w, x_new = make_test_inputs()
+    w = np.array([1.0, 1.0, 1.0])  # Different size than x
     with pytest.raises(ValueError, match="w must have the same size as x."):
         polyfit1d(x, y, w, x_new, 0.1)
 
 
 def test_polyfit1d_xnew_not_1d():
-    x = np.array([0.1, 0.2])
-    y = np.array([0.1, 0.2])
-    w = np.array([1.0, 1.0])
-    x_new = np.array([[0.1, 0.2]])
+    x, y, w, x_new = make_test_inputs()
+    x_new = np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float64)
     with pytest.raises(ValueError, match="x_new must be a 1D array."):
         polyfit1d(x, y, w, x_new, 0.1)
 
 
 def test_polyfit1d_xnew_empty():
-    x = np.array([0.1, 0.2])
-    y = np.array([0.1, 0.2])
-    w = np.array([1.0, 1.0])
+    x, y, w, x_new = make_test_inputs()
     x_new = np.array([], dtype=np.float64)
     with pytest.raises(ValueError, match="x_new must not be empty."):
         polyfit1d(x, y, w, x_new, 0.1)
 
 
 def test_polyfit1d_xnew_not_strictly_increasing():
-    x = np.array([0.1, 0.2])
-    y = np.array([0.1, 0.2])
-    w = np.array([1.0, 1.0])
+    x, y, w, x_new = make_test_inputs()
     x_new = np.array([0.1, 0.1])
     with pytest.raises(ValueError, match="x_new must be strictly increasing."):
         polyfit1d(x, y, w, x_new, 0.1)
 
 
 def test_polyfit1d_bandwidth_nonpositive():
-    x = np.array([0.1, 0.2])
-    y = np.array([0.1, 0.2])
-    w = np.array([1.0, 1.0])
-    x_new = np.array([0.1, 0.2])
+    x, y, w, x_new = make_test_inputs()
     with pytest.raises(ValueError, match="Bandwidth, bandwidth, should be positive."):
         polyfit1d(x, y, w, x_new, 0.0)
 
 
 def test_polyfit1d_kernel_type_invalid():
-    x = np.array([0.1, 0.2])
-    y = np.array([0.1, 0.2])
-    w = np.array([1.0, 1.0])
-    x_new = np.array([0.1, 0.2])
+    x, y, w, x_new = make_test_inputs()
 
     class Dummy:
         value = 999
@@ -1088,28 +1070,19 @@ def test_polyfit1d_kernel_type_invalid():
 
 
 def test_polyfit1d_degree_nonpositive():
-    x = np.array([0.1, 0.2])
-    y = np.array([0.1, 0.2])
-    w = np.array([1.0, 1.0])
-    x_new = np.array([0.1, 0.2])
+    x, y, w, x_new = make_test_inputs()
     with pytest.raises(ValueError, match="Degree of polynomial, degree, should be positive."):
         polyfit1d(x, y, w, x_new, 0.1, KernelType.GAUSSIAN, 0)
 
 
 def test_polyfit1d_deriv_negative():
-    x = np.array([0.1, 0.2])
-    y = np.array([0.1, 0.2])
-    w = np.array([1.0, 1.0])
-    x_new = np.array([0.1, 0.2])
+    x, y, w, x_new = make_test_inputs()
     with pytest.raises(ValueError, match="Order of derivative, deriv, should be positive."):
         polyfit1d(x, y, w, x_new, 0.1, KernelType.GAUSSIAN, 1, -1)
 
 
 def test_polyfit1d_degree_less_than_deriv():
-    x = np.array([0.1, 0.2])
-    y = np.array([0.1, 0.2])
-    w = np.array([1.0, 1.0])
-    x_new = np.array([0.1, 0.2])
+    x, y, w, x_new = make_test_inputs()
     with pytest.raises(ValueError, match="Degree of polynomial, degree, should be greater than or equal to order of derivative, deriv."):
         polyfit1d(x, y, w, x_new, 0.1, KernelType.GAUSSIAN, 1, 2)
 
@@ -1132,3 +1105,31 @@ def test_polyfit1d_nan_inputs(dtype):
     x_new_nan[2] = np.nan
     with pytest.raises(ValueError, match="Input array x_new contains NaN values."):
         polyfit1d(np.array([0.1, 0.5, 0.8], dtype=dtype), y, w, x_new_nan, 0.1, KernelType.GAUSSIAN)
+
+
+@pytest.mark.parametrize("bad_type", [float('nan'), np.nan])
+def test_polyfit1d_bandwidth_nan(bad_type):
+    x, y, w, x_new = make_test_inputs()
+    with pytest.raises(ValueError, match="Bandwidth, bandwidth, should not be NaN."):
+        polyfit1d(x, y, w, x_new, bad_type, KernelType.GAUSSIAN)
+
+
+@pytest.mark.parametrize("bad_type", ["2", None, [1], (2,), {"a": 1}])
+def test_polyfit1d_bandwidth_nonint_type(bad_type):
+    x, y, w, x_new = make_test_inputs()
+    with pytest.raises(TypeError, match="Bandwidth, bandwidth, should be a float or an integer."):
+        polyfit1d(x, y, w, x_new, bad_type, KernelType.GAUSSIAN)
+
+
+@pytest.mark.parametrize("bad_type", [1.5, "2", float('nan'), np.nan, None, [1], (2,), {"a": 1}])
+def test_polyfit1d_degree_nonint_type(bad_type):
+    x, y, w, x_new = make_test_inputs()
+    with pytest.raises(TypeError, match="Degree of polynomial, degree, should be an integer."):
+        polyfit1d(x, y, w, x_new, 0.1, KernelType.GAUSSIAN, bad_type)
+
+
+@pytest.mark.parametrize("bad_type", [1.5, "2", float('nan'), np.nan, None, [1], (2,), {"a": 1}])
+def test_polyfit1d_deriv_nonint_type(bad_type):
+    x, y, w, x_new = make_test_inputs()
+    with pytest.raises(TypeError, match="Order of derivative, deriv, should be an integer."):
+        polyfit1d(x, y, w, x_new, 0.1, KernelType.GAUSSIAN, 2, bad_type)

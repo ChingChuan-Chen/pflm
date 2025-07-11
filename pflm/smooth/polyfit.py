@@ -52,22 +52,24 @@ def polyfit1d(
         raise ValueError("w must be a 1D array.")
     if x.size != y.size:
         raise ValueError("y must have the same size as x.")
-    if np.any(np.diff(x) < 0):
-        raise ValueError("x must be sorted in ascending order.")
-    if np.any(w < 0):
-        raise ValueError("All weights in w must be greater than 0.")
     if x.size != w.size:
         raise ValueError("w must have the same size as x.")
     if x_new.ndim != 1:
         raise ValueError("x_new must be a 1D array.")
     if x_new.size == 0:
         raise ValueError("x_new must not be empty.")
-    if np.any(np.diff(x_new) <= 0):
-        raise ValueError("x_new must be strictly increasing.")
+    if bandwidth is None or not isinstance(bandwidth, (float, int)):
+        raise TypeError("Bandwidth, bandwidth, should be a float or an integer.")
+    if np.isnan(bandwidth):
+        raise ValueError("Bandwidth, bandwidth, should not be NaN.")
     if bandwidth <= 0:
         raise ValueError("Bandwidth, bandwidth, should be positive.")
     if kernel_type not in KernelType:
         raise ValueError(f"kernel must be one of {list(KernelType)}.")
+    if degree is None or not isinstance(degree, int):
+        raise TypeError("Degree of polynomial, degree, should be an integer.")
+    if deriv is None or not isinstance(deriv, int):
+        raise TypeError("Order of derivative, deriv, should be an integer.")
     if degree <= 0:
         raise ValueError("Degree of polynomial, degree, should be positive.")
     if deriv < 0:
@@ -82,6 +84,12 @@ def polyfit1d(
         raise ValueError("Input array w contains NaN values.")
     if np.isnan(x_new).any():
         raise ValueError("Input array x_new contains NaN values.")
+    if np.any(np.diff(x) < 0):
+        raise ValueError("x must be sorted in ascending order.")
+    if np.any(w < 0):
+        raise ValueError("All weights in w must be greater than 0.")
+    if np.any(np.diff(x_new) <= 0):
+        raise ValueError("x_new must be strictly increasing.")
 
     polyfit_func = polyfit1d_f32 if x.dtype == np.float32 else polyfit1d_f64
     return polyfit_func(
@@ -105,6 +113,9 @@ def polyfit2d(
     bandwidth1: float,
     bandwidth2: float,
     kernel_type: KernelType = KernelType.GAUSSIAN,
+    degree: int = 1,
+    deriv1: int = 0,
+    deriv2: int = 0
 ):
     """Perform local polynomial regression on 2D data.
 
@@ -126,6 +137,12 @@ def polyfit2d(
         The bandwidth for the local polynomial regression in the second dimension.
     kernel_type : KernelType, optional
         The kernel type to use for weighting the data points. Default is KernelType.GAUSSIAN.
+    degree : int, optional
+        The degree of the polynomial to fit. Default is 1.
+    deriv1 : int, optional
+        The order of the derivative to compute in the first dimension. Default is 0 (no derivative).
+    deriv2 : int, optional
+        The order of the derivative to compute in the second dimension. Default is 0 (no derivative).
 
     Returns
     -------
@@ -142,16 +159,34 @@ def polyfit2d(
         raise ValueError("y must have the same size as the first dimension of x_grid.")
     if x_grid.shape[1] != w.size:
         raise ValueError("w must have the same size as the second dimension of x_grid.")
-    if np.any(w < 0):
-        raise ValueError("All weights in w must be greater than 0.")
     if x_new1.ndim != 1 or x_new2.ndim != 1:
         raise ValueError("x_new1 and x_new2 must be 1D arrays.")
     if x_new1.size == 0 or x_new2.size == 0:
         raise ValueError("x_new1 and x_new2 must not be empty.")
+    if bandwidth1 is None or not isinstance(bandwidth1, (float, int)):
+        raise TypeError("Bandwidth, bandwidth1, should not be None and must be a float or int.")
+    if bandwidth2 is None or not isinstance(bandwidth2, (float, int)):
+        raise TypeError("Bandwidth, bandwidth2, should not be None and must be a float or int.")
+    if np.isnan(bandwidth1) or np.isnan(bandwidth2):
+        raise ValueError("Bandwidths, bandwidth1 and bandwidth2, should not be NaN.")
     if bandwidth1 <= 0 or bandwidth2 <= 0:
         raise ValueError("Bandwidths, bandwidth1 and bandwidth2, should be positive.")
     if kernel_type not in KernelType:
         raise ValueError(f"kernel must be one of {list(KernelType)}.")
+    if degree is None or not isinstance(degree, int):
+        raise TypeError("Degree of polynomial, degree, should not be None and must be an integer.")
+    if deriv1 is None or not isinstance(deriv1, int):
+        raise TypeError("Order of derivative, deriv1, should not be None and must be an integer.")
+    if deriv2 is None or not isinstance(deriv2, int):
+        raise TypeError("Order of derivative, deriv2, should not be None and must be an integer.")
+    if degree <= 0:
+        raise ValueError("Degree of polynomial, degree, should be positive.")
+    if deriv1 < 0:
+        raise ValueError("Order of derivative, deriv1, should be positive.")
+    if deriv2 < 0:
+        raise ValueError("Order of derivative, deriv2, should be positive.")
+    if degree < deriv1 + deriv2:
+        raise ValueError("Degree of polynomial, degree, should be greater than or equal to the sum of orders of derivatives, deriv1 and deriv2.")
     if np.isnan(x_grid).any():
         raise ValueError("Input array x_grid contains NaN values.")
     if np.isnan(y).any():
@@ -162,6 +197,8 @@ def polyfit2d(
         raise ValueError("Input array x_new1 contains NaN values.")
     if np.isnan(x_new2).any():
         raise ValueError("Input array x_new2 contains NaN values.")
+    if np.any(w < 0):
+        raise ValueError("All weights in w must be greater than 0.")
 
     polyfit_func = polyfit2d_f32 if x_grid.dtype == np.float32 else polyfit2d_f64
     return polyfit_func(
@@ -173,4 +210,7 @@ def polyfit2d(
         bandwidth1,
         bandwidth2,
         kernel_type.value,
+        degree,
+        deriv1,
+        deriv2
     )

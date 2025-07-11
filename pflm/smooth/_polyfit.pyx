@@ -1,18 +1,19 @@
 import numpy as np
 cimport numpy as np
 from cython.parallel cimport prange
-from libc.math cimport abs, exp, isnan, pow, sqrt, NAN
-from libc.stddef cimport ptrdiff_t, size_t
+from libc.math cimport abs, pow, sqrt, NAN
+from libc.stddef cimport ptrdiff_t
 from libcpp.iterator cimport distance
 from libcpp.algorithm cimport lower_bound
 from libc.stdlib cimport malloc, free
-from libcpp.vector cimport vector
 from pflm.utils._lapack_helper cimport _gels_helper
+
 
 cdef extern from "src/polyfit_helper.h" nogil:
     np.float64_t _calculate_kernel_value_f64 "calculate_kernel_value_f64"(np.float64_t, int)
     np.float32_t _calculate_kernel_value_f32 "calculate_kernel_value_f32"(np.float32_t, int)
     double[11] factorials
+
 
 def search_lower_bound_f64(
     np.float64_t[:] a,
@@ -27,6 +28,7 @@ def search_lower_bound_f64(
     else:
         return distance(&a_ptr[0], it)
 
+
 def search_location_f64(
     np.float64_t[:] a,
     np.float64_t target
@@ -40,6 +42,7 @@ def search_location_f64(
     else:
         return -1
 
+
 def calculate_kernel_value_f64(
     np.float64_t u,
     int kernel_type
@@ -49,6 +52,7 @@ def calculate_kernel_value_f64(
     if kernel_type == 106 and abs(abs(u) - 1.0) <= 1e-7:
         return 0.0
     return _calculate_kernel_value_f64(u, kernel_type)
+
 
 def calculate_kernel_value_f32(
     np.float32_t u,
@@ -246,7 +250,10 @@ cdef void polyfit2d_helper_f64(
     np.float64_t[:, ::1] x_grid,
     np.float64_t[:] y,
     np.float64_t[:] w,
-    int kernel_type
+    int kernel_type,
+    int degree = 1,
+    int deriv1 = 0,
+    int deriv2 = 0
 ) noexcept nogil:
     cdef ptrdiff_t n = x_grid.shape[0], left = 0, right = n
     cdef np.float64_t *left_it
@@ -274,11 +281,15 @@ cdef void polyfit2d_memview_f64(
     np.float64_t[:] mu,
     np.float64_t bandwidth1,
     np.float64_t bandwidth2,
-    int kernel_type
+    int kernel_type,
+    int degree = 1,
+    int deriv1 = 0,
+    int deriv2 = 0
 ) noexcept nogil:
     cdef ptrdiff_t n = x_grid.shape[0], n1 = x_new1.shape[0], n2 = x_new2.shape[0]
     # Implement the logic for 2D polynomial fitting here
     pass
+
 
 def polyfit2d_f64(
     np.ndarray[np.float64_t, ndim=2] x_grid,
@@ -288,11 +299,14 @@ def polyfit2d_f64(
     np.ndarray[np.float64_t] x_new2,
     np.float64_t bandwidth1,
     np.float64_t bandwidth2,
-    int kernel_type
+    int kernel_type,
+    int degree = 1,
+    int deriv1 = 0,
+    int deriv2 = 0
 ) -> np.ndarray[np.float64_t]:
     cdef ptrdiff_t n = x_grid.shape[0], n1 = x_new1.shape[0], n2 = x_new2.shape[0]
     cdef np.ndarray[np.float64_t, ndim=2] mu = np.empty((n2, n1), dtype=np.float64)
-    polyfit2d_memview_f64(x_grid, y, w, x_new1, x_new2, mu, bandwidth1, bandwidth2, kernel_type)
+    polyfit2d_memview_f64(x_grid, y, w, x_new1, x_new2, mu, bandwidth1, bandwidth2, kernel_type, degree, deriv1, deriv2)
     return mu
 
 
@@ -305,7 +319,10 @@ cdef void polyfit2d_memview_f32(
     np.float32_t[:] mu,
     np.float32_t bandwidth1,
     np.float32_t bandwidth2,
-    int kernel_type
+    int kernel_type,
+    int degree = 1,
+    int deriv1 = 0,
+    int deriv2 = 0
 ) noexcept nogil:
     cdef ptrdiff_t n = x_grid.shape[0], n1 = x_new1.shape[0], n2 = x_new2.shape[0]
     # Implement the logic for 2D polynomial fitting here
@@ -320,9 +337,12 @@ def polyfit2d_f32(
     np.ndarray[np.float32_t] x_new2,
     np.float32_t bandwidth1,
     np.float32_t bandwidth2,
-    int kernel_type
+    int kernel_type,
+    int degree = 1,
+    int deriv1 = 0,
+    int deriv2 = 0
 ) -> np.ndarray[np.float32_t]:
     cdef ptrdiff_t n = x_grid.shape[0], n1 = x_new1.shape[0], n2 = x_new2.shape[0]
     cdef np.ndarray[np.float32_t, ndim=2] mu = np.empty((n2, n1), dtype=np.float32)
-    polyfit2d_memview_f32(x_grid, y, w, x_new1, x_new2, mu, bandwidth1, bandwidth2, kernel_type)
+    polyfit2d_memview_f32(x_grid, y, w, x_new1, x_new2, mu, bandwidth1, bandwidth2, kernel_type, degree, deriv1, deriv2)
     return mu

@@ -36,4 +36,3 @@ cdef void interp2d_memview_f32(
   np.float32_t[:, ::1] v_new,
   int method = *
 ) noexcept nogil
-

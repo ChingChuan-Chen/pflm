@@ -28,7 +28,7 @@ The benchmark is run on a machine with the following specifications:
 - CPU: Intel Core i9-13900K@5.3GHz
 - RAM: 128GB@4800MHz
 - OS: Windows 11 Pro
-- Python version: 3.11.5
+- Python version: 3.13.5
 - R version: 4.5.1
 - MATLAB version: R2023b
 
