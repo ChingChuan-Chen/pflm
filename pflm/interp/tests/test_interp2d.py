@@ -142,19 +142,27 @@ def test_interp2d_raise_exception(dtype):
     y = np.array([10.0, 11.0, 12.0], dtype=dtype)
     x_new = np.linspace(0.0, 4.0, 4, dtype=dtype)
     y_new = np.linspace(10.0, 12.0, 4, dtype=dtype)
-    with pytest.raises(ValueError):
+
+    # x is not 1D
+    with pytest.raises(ValueError, match="x, y, and v must be 1D and 2D arrays respectively."):
         interp2d(np.array([x, x]), y, A, x_new, y_new, "linear")
-    with pytest.raises(ValueError):
+    # y is not 1D
+    with pytest.raises(ValueError, match="x, y, and v must be 1D and 2D arrays respectively."):
         interp2d(x, np.array([y, y]), A, x_new, y_new, "linear")
-    with pytest.raises(ValueError):
-        interp2d(np.array([]), y, A, x_new, y_new, "linear")
-    with pytest.raises(ValueError):
+    # x is empty
+    with pytest.raises(ValueError, match="x, y, v, x_new, and y_new must not be empty."):
+        interp2d(np.array([], dtype=dtype), y, A, x_new, y_new, "linear")
+    # y shorter than v.shape[0]
+    with pytest.raises(ValueError, match="y must have the same length as the second dimension of v"):
         interp2d(x, y[:-1], A, x_new, y_new, "linear")
-    with pytest.raises(ValueError):
+    # x shorter than v.shape[1]
+    with pytest.raises(ValueError, match="x must have the same length as the first dimension of v"):
         interp2d(x[:-1], y, A, x_new, y_new, "linear")
-    with pytest.raises(ValueError):
+    # invalid method string
+    with pytest.raises(ValueError, match="Invalid method. Use 'linear' or 'spline'."):
         interp2d(x, y, A, x_new, y_new, "badmethod")
-    with pytest.raises(ValueError):
+    # invalid method type
+    with pytest.raises(ValueError, match="Invalid method. Use 'linear' or 'spline'."):
         interp2d(x, y, A, x_new, y_new, -1)
 
 
@@ -176,3 +184,53 @@ def test_interp2d_type_mismatch():
 
     y_out4 = interp2d(x_f64.astype(np.float32), y_f32, v_f32, x_new_f32, y_new_f64.astype(np.float32), "spline")
     assert y_out4.dtype == np.float32
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_interp2d_nan_inputs(dtype):
+    # x contains NaN
+    x = np.array([0.0, np.nan, 4.0], dtype=dtype)
+    y = np.array([10.0, 11.0, 12.0], dtype=dtype)
+    v = np.ones((3, 3), dtype=dtype)
+    x_new = np.linspace(0.0, 4.0, 4, dtype=dtype)
+    y_new = np.linspace(10.0, 12.0, 4, dtype=dtype)
+    with pytest.raises(ValueError, match="Input array x contains NaN values."):
+        interp2d(x, y, v, x_new, y_new, "linear")
+    with pytest.raises(ValueError, match="Input array x contains NaN values."):
+        interp2d(x, y, v, x_new, y_new, "spline")
+
+    # y contains NaN
+    x = np.array([0.0, 1.0, 4.0], dtype=dtype)
+    y = np.array([10.0, np.nan, 12.0], dtype=dtype)
+    v = np.ones((3, 3), dtype=dtype)
+    with pytest.raises(ValueError, match="Input array y contains NaN values."):
+        interp2d(x, y, v, x_new, y_new, "linear")
+    with pytest.raises(ValueError, match="Input array y contains NaN values."):
+        interp2d(x, y, v, x_new, y_new, "spline")
+
+    # v contains NaN
+    x = np.array([0.0, 1.0, 4.0], dtype=dtype)
+    y = np.array([10.0, 11.0, 12.0], dtype=dtype)
+    v = np.ones((3, 3), dtype=dtype)
+    v[1, 1] = np.nan
+    with pytest.raises(ValueError, match="Input array v contains NaN values."):
+        interp2d(x, y, v, x_new, y_new, "linear")
+    with pytest.raises(ValueError, match="Input array v contains NaN values."):
+        interp2d(x, y, v, x_new, y_new, "spline")
+
+    # x_new contains NaN
+    x_new_nan = x_new.copy()
+    x_new_nan[2] = np.nan
+    v = np.ones((3, 3), dtype=dtype)
+    with pytest.raises(ValueError, match="Input array x_new contains NaN values."):
+        interp2d(x, y, v, x_new_nan, y_new, "linear")
+    with pytest.raises(ValueError, match="Input array x_new contains NaN values."):
+        interp2d(x, y, v, x_new_nan, y_new, "spline")
+
+    # y_new contains NaN
+    y_new_nan = y_new.copy()
+    y_new_nan[1] = np.nan
+    with pytest.raises(ValueError, match="Input array y_new contains NaN values."):
+        interp2d(x, y, v, x_new, y_new_nan, "linear")
+    with pytest.raises(ValueError, match="Input array y_new contains NaN values."):
+        interp2d(x, y, v, x_new, y_new_nan, "spline")

@@ -51,6 +51,13 @@ def interp1d(x: np.ndarray, y: np.ndarray, x_new: np.ndarray, method: str = "lin
         raise ValueError("x, y, and x_new must not be empty.")
     if x.size != y.size:
         raise ValueError("x must have the same size as y.")
+    # NaN check
+    if np.isnan(x).any():
+        raise ValueError("Input array x contains NaN values.")
+    if np.isnan(y).any():
+        raise ValueError("Input array y contains NaN values.")
+    if np.isnan(x_new).any():
+        raise ValueError("Input array x_new contains NaN values.")
     if method not in ["linear", "spline"]:
         raise ValueError("Invalid method. Use 'linear' or 'spline'.")
     method_mapping = {"linear": 0, "spline": 1}
@@ -100,6 +107,17 @@ def interp2d(x: np.ndarray, y: np.ndarray, v: np.ndarray, x_new: np.ndarray, y_n
         raise ValueError("x must have the same length as the first dimension of v")
     if y.size != v.shape[0]:
         raise ValueError("y must have the same length as the second dimension of v")
+    # NaN check
+    if np.isnan(x).any():
+        raise ValueError("Input array x contains NaN values.")
+    if np.isnan(y).any():
+        raise ValueError("Input array y contains NaN values.")
+    if np.isnan(v).any():
+        raise ValueError("Input array v contains NaN values.")
+    if np.isnan(x_new).any():
+        raise ValueError("Input array x_new contains NaN values.")
+    if np.isnan(y_new).any():
+        raise ValueError("Input array y_new contains NaN values.")
     if method not in ["linear", "spline"]:
         raise ValueError("Invalid method. Use 'linear' or 'spline'.")
     method_mapping = {"linear": 0, "spline": 1}

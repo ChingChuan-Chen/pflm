@@ -14,27 +14,23 @@ cdef extern from "src/interp.h" nogil:
     void _interp2d_spline "interp2d_spline"[T](T*, T*, T*, T*, T*, T*, ptrdiff_t, ptrdiff_t, ptrdiff_t, ptrdiff_t)
 
 def find_le_indices_memview_f64(
-    np.float64_t[:] a,
-    np.float64_t[:] b
-):
-    """find_le_indices_memview_f64(a, b) -> np.ndarray[np.intp_t] (test only)"""
+    np.float64_t[:] a, np.float64_t[:] b
+) -> np.ndarray[np.int64_t]:
+    """find_le_indices_memview_f64(a, b) -> np.ndarray[np.int64_t] (test only)"""
     cdef ptrdiff_t n = a.shape[0], m = b.shape[0]
-    cdef np.float64_t[:] a_ptr = a, b_ptr = b
-    cdef np.ndarray[np.intp_t] result = np.empty(m, dtype=np.intp)
+    cdef np.ndarray[np.int64_t] result = np.empty(m, dtype=np.int64)
     cdef ptrdiff_t[:] result_ptr = result
-    _find_le_indices[np.float64_t](&a_ptr[0], n, &b_ptr[0], m, &result_ptr[0])
+    _find_le_indices[np.float64_t](&a[0], n, &b[0], m, &result_ptr[0])
     return result
 
 def find_le_indices_memview_f32(
-    np.float32_t[:] a,
-    np.float32_t[:] b
-):
+    np.float32_t[:] a, np.float32_t[:] b
+) -> np.ndarray[np.int64_t]:
     """find_le_indices_memview_f32(a, b) -> np.ndarray[np.intp_t] (test only)"""
     cdef ptrdiff_t n = a.shape[0], m = b.shape[0]
-    cdef np.float32_t[:] a_ptr = a, b_ptr = b
-    cdef np.ndarray[np.intp_t] result = np.empty(m, dtype=np.intp)
+    cdef np.ndarray[np.int64_t] result = np.empty(m, dtype=np.int64)
     cdef ptrdiff_t[:] result_ptr = result
-    _find_le_indices[np.float32_t](&a_ptr[0], n, &b_ptr[0], m, &result_ptr[0])
+    _find_le_indices[np.float32_t](&a[0], n, &b[0], m, &result_ptr[0])
     return result
 
 cdef void interp1d_memview_f64(

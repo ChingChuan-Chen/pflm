@@ -1,0 +1,7 @@
+[run]
+branch = False
+source = pflm
+parallel = True
+omit =
+    */build/*
+    */pflm/_build_utils/*

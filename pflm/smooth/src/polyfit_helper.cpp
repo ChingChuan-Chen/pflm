@@ -18,33 +18,38 @@ T calculate_kernel_value(
         case 3: { // GAUSSIAN_VAR
             T u_sq = u * u;
             if (u_sq >= 5.0) {
-                return 0.0; // Return zero for large u to avoid overflow
+                return 0.0;
             }
             return inv_sqrt_2pi * std::exp(-0.5 * u_sq) * (1.25 - 0.25 * u_sq);
         }
-        case 4: { // RECTANGULAR
+        case 100: { // RECTANGULAR
             return 0.5;
         }
-        case 5: { // TRIANGULAR
+        case 101: { // TRIANGULAR
             return (1.0 - std::abs(u));
         }
-        case 6: { // EPANECHNIKOV
+        case 102: { // EPANECHNIKOV
             return  0.75 * (1.0 - u * u);
         }
-        case 7: { // BIWEIGHT
+        case 103: { // BIWEIGHT
             return 15.0 / 16.0 * std::pow(1.0 - u * u, 2.0);
         }
-        case 8: { // TRIWEIGHT
+        case 104: { // TRIWEIGHT
             return 35.0 / 32.0 * std::pow(1.0 - u * u, 3.0);
         }
-        case 9: { // TRICUBE
+        case 105: { // TRICUBE
             return 70.0 / 81.0 * std::pow(1.0 - std::pow(std::abs(u), 3.0), 3.0);
         }
-        case 10: { // COSINE
+        case 106: { // COSINE
             return quarter_pi * std::cos(half_pi * u);
         }
+        // SILVERMAN is not included since it might produce negative weights that are not supported in our implementation.
+        // case 107: { // SILVERMAN
+        //     T temp = std::abs(u) * inv_sqrt_2;
+        //     return 0.5 * std::exp(-0.5 * temp) * std::sin(temp + quarter_pi);
+        // }
         default:
-            return 0.0; // Unknown kernel type, return zero
+            return 0.0;
     }
 }
 
