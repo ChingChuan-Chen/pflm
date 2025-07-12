@@ -103,8 +103,7 @@ cdef void polyfit1d_helper_f64(
         sqrt_wj = sqrt(_calculate_kernel_value_f32(u, kernel_type) * w[j])
 
         ly[i] = y[j] * sqrt_wj
-        lx[i] = sqrt_wj
-        for k in range(1, degree + 1):
+        for k in range(degree + 1):
             lx[i + n_rows * k] = pow(xj_minus_center, k) * sqrt_wj
         i += 1
     cdef int info = 0
@@ -190,8 +189,7 @@ cdef void polyfit1d_helper_f32(
         sqrt_wj = sqrt(_calculate_kernel_value_f32(u, kernel_type) * w[j])
 
         ly[i] = y[j] * sqrt_wj
-        lx[i] = sqrt_wj
-        for k in range(1, degree + 1):
+        for k in range(degree + 1):
             lx[i + n_rows * k] = pow(xj_minus_center, k) * sqrt_wj
         i += 1
     cdef int info = 0
@@ -253,26 +251,30 @@ cdef void polyfit2d_helper_f64(
     int degree,
     int deriv1,
     int deriv2
-) noexcept nogil:
+):
     cdef ptrdiff_t n = x_grid.shape[1], left = 0, right = n, i
     cdef np.float64_t *left_it
     cdef np.float64_t *right_it
     cdef np.float64_t *x1_start = &x_grid[0, 0]
     cdef np.float64_t *x1_end = &x_grid[0, 0] + n
-    cdef np.float64_t lb = center1 - bw1 - 1e-6, ub = center1 + bw1 + 1e-6
-    cdef ptrdiff_t num_lx_cols = (degree + 1) * (degree + 2) / 2
+    cdef np.float64_t lb1, ub1, lb2, ub2
+    cdef ptrdiff_t num_lx_cols = (degree + 1) * (degree + 2) // 2
     cdef vector[ptrdiff_t] idx = vector[ptrdiff_t]()
     if kernel_type >= 100:
-        left_it = lower_bound(x1_start, x1_end, lb)
-        right_it = lower_bound(x1_start, x1_end, ub)
+        lb1 = center1 - bw1 - 1e-6
+        ub1 = center1 + bw1 + 1e-6
+        left_it = lower_bound(x1_start, x1_end, lb1)
+        right_it = lower_bound(x1_start, x1_end, ub1)
         left = distance(x1_start, left_it)
         right = distance(x1_start, right_it) if right_it != x1_end else n
         if left >= right:
             mu[0] = NAN
             return
 
+        lb2 = center2 - bw2 - 1e-6
+        ub2 = center2 + bw2 + 1e-6
         for i in range(left, right):
-            if x_grid[1, i] > center2 - bw2 - 1e-6 and x_grid[1, i] < center2 + bw2 + 1e-6:
+            if x_grid[1, i] > lb2 and x_grid[1, i] < ub2:
                 idx.push_back(i)
 
         if idx.empty() or idx.size() < num_lx_cols:
@@ -281,27 +283,25 @@ cdef void polyfit2d_helper_f64(
     else:
         idx.resize(n)
         for i in range(n):
-            idx.push_back(i)
+            idx[i] = i
 
-    cdef ptrdiff_t n_rows = <ptrdiff_t> idx.size(), j, total_deg, px, py, col_idx
+    cdef ptrdiff_t n_rows = <ptrdiff_t> idx.size(), j, total_deg, py, col_idx
     cdef np.float64_t *lx = <np.float64_t*> malloc(n_rows * num_lx_cols * sizeof(np.float64_t))
     cdef np.float64_t *ly = <np.float64_t*> malloc(n_rows * sizeof(np.float64_t))
-    cdef np.float64_t xj_minus_center1 = 0.0, xj_minus_center2 = 0.0
-    cdef np.float64_t u1 = 0.0, u2 = 0.0, sqrt_wj = 0.0
+    cdef np.float64_t x1j_minus_center1, x2j_minus_center2, u1, u2, sqrt_wj
     for i in range(n_rows):
         j = idx[i]
-        xj_minus_center1 = x_grid[0, j] - center1
-        xj_minus_center2 = x_grid[1, j] - center2
-        u1 = xj_minus_center1 / bw1
-        u2 = xj_minus_center2 / bw2
+        x1j_minus_center1 = x_grid[0, j] - center1
+        x2j_minus_center2 = x_grid[1, j] - center2
+        u1 = x1j_minus_center1 / bw1
+        u2 = x2j_minus_center2 / bw2
         sqrt_wj = sqrt(_calculate_kernel_value_f64(u1, kernel_type) * _calculate_kernel_value_f64(u2, kernel_type) * w[j])
 
         ly[i] = y[j] * sqrt_wj
         for total_deg in range(degree + 1):
             for py in range(total_deg + 1):
-                px = total_deg - py
                 col_idx = total_deg * (total_deg + 1) // 2 + py
-                lx[i + n_rows * col_idx] = pow(xj_minus_center1, px) * pow(xj_minus_center2, py) * sqrt_wj
+                lx[i + n_rows * col_idx] = pow(x1j_minus_center1, total_deg - py) * pow(x2j_minus_center2, py) * sqrt_wj
 
     cdef int info = 0, rank = 0
     cdef np.float64_t rcond = -1.0
@@ -311,6 +311,7 @@ cdef void polyfit2d_helper_f64(
         ly, n_rows,
         &rcond, &rank, &info
     )
+
     cdef ptrdiff_t total_deriv = <ptrdiff_t> deriv1 + <ptrdiff_t> deriv2
     cdef ptrdiff_t mu_idx = total_deriv * (total_deriv + 1) // 2 + deriv2
     if info == 0:
@@ -334,9 +335,9 @@ cdef void polyfit2d_memview_f64(
     int degree,
     int deriv1,
     int deriv2
-) noexcept nogil:
+):
     cdef ptrdiff_t n = x_grid.shape[1], n1 = x_new1.shape[0], n2 = x_new2.shape[0], i, j, l
-    for l in prange(n1 * n2, nogil=True):
+    for l in range(n1 * n2):
         i = l // n2
         j = l % n2
         polyfit2d_helper_f64(

@@ -5,3 +5,5 @@ parallel = True
 omit =
     */build/*
     */pflm/_build_utils/*
+    */benchmarks/*
+    **/tests/test_*

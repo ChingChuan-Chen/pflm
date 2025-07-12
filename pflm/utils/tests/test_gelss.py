@@ -14,7 +14,7 @@ from pflm.utils._lapack_helper import _gelss_memview_f32, _gelss_memview_f64
 def test_gelss_memview(dtype, func):
     # Create a simple overdetermined system Ax = b
     # A = [[1, 1], [1, 2], [1, 3]], b = [6, 0, 0]
-    A = np.array([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0]], dtype=dtype)
+    A = np.array([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0]], dtype=dtype,)
     b = np.array([6.0, 0.0, 0.0], dtype=dtype)
     # Also check the solution is close to numpy.linalg.lstsq
     x_np, *_ = np.linalg.lstsq(A, b, rcond=None)

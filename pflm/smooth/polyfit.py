@@ -203,7 +203,8 @@ def polyfit2d(
     polyfit2d_func = polyfit2d_f32 if x_grid.dtype == np.float32 else polyfit2d_f64
     if kernel_type.value >= 100:
         # For kernel that don't have support |u| <= 1, we need to ensure that x_grid is sorted in the first dimension.
-        ord = np.lexsort((x_grid[:, 0], x_grid[:, 1]))
+        ord = np.lexsort((x_grid[:, 1], x_grid[:, 0]))
+        # We need to convert x_grid to a contiguous array with shape (2, n) for Cython compatibility.
         x_grid_sorted = np.ascontiguousarray(x_grid[ord, :].T)
         y_sorted = y[ord].astype(x_grid_sorted.dtype, copy=False)
         w_sorted = w[ord].astype(x_grid_sorted.dtype, copy=False)
@@ -221,6 +222,7 @@ def polyfit2d(
             deriv2
         )
     else:
+        # We need to convert x_grid to a contiguous array with shape (2, n) for Cython compatibility.
         x_grid = np.ascontiguousarray(x_grid.T)
         return polyfit2d_func(
             x_grid,

@@ -2,6 +2,8 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
+import rpy2
+
 from pflm.smooth.kernel import KernelType
 from pflm.smooth.polyfit import polyfit1d
 
