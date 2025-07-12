@@ -15,13 +15,16 @@ T calculate_kernel_value(
         case 2: { // SIGMOID
             return 1.0 / std::cosh(u) / acos(-1.0);
         }
-        case 3: { // GAUSSIAN_VAR
-            T u_sq = u * u;
-            if (u_sq >= 5.0) {
-                return 0.0;
-            }
-            return inv_sqrt_2pi * std::exp(-0.5 * u_sq) * (1.25 - 0.25 * u_sq);
-        }
+        // Shifted Gaussian kernel is not included since it might produce negative weights that are not supported in our implementation.
+        // case 3: { // GAUSSIAN_VAR
+        //     T u_sq = u * u;
+        //     return inv_sqrt_2pi * std::exp(-0.5 * u_sq) * (1.25 - 0.25 * u_sq);
+        // }
+        // Silverman kernel is not included since it might produce negative weights that are not supported in our implementation.
+        // case 4: { // SILVERMAN
+        //     T temp = std::abs(u) * inv_sqrt_2;
+        //     return 0.5 * std::exp(-0.5 * temp) * std::sin(temp + quarter_pi);
+        // }
         case 100: { // RECTANGULAR
             return 0.5;
         }
@@ -43,11 +46,6 @@ T calculate_kernel_value(
         case 106: { // COSINE
             return quarter_pi * std::cos(half_pi * u);
         }
-        // SILVERMAN is not included since it might produce negative weights that are not supported in our implementation.
-        // case 107: { // SILVERMAN
-        //     T temp = std::abs(u) * inv_sqrt_2;
-        //     return 0.5 * std::exp(-0.5 * temp) * std::sin(temp + quarter_pi);
-        // }
         default:
             return 0.0;
     }
