@@ -115,7 +115,7 @@ def polyfit2d(
     kernel_type: KernelType = KernelType.GAUSSIAN,
     degree: int = 1,
     deriv1: int = 0,
-    deriv2: int = 0
+    deriv2: int = 0,
 ):
     """Perform local polynomial regression on 2D data.
 
@@ -219,7 +219,7 @@ def polyfit2d(
             kernel_type.value,
             degree,
             deriv1,
-            deriv2
+            deriv2,
         )
     else:
         # We need to convert x_grid to a contiguous array with shape (2, n) for Cython compatibility.
@@ -235,5 +235,5 @@ def polyfit2d(
             kernel_type.value,
             degree,
             deriv1,
-            deriv2
+            deriv2,
         )

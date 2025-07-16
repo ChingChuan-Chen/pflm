@@ -14,8 +14,8 @@ class KernelType(Enum):
     SIGMOID = 2
     # Consider to deal with the following kernels in the future.
     # The needed action is to ensure that our implementation can handle negative weights if needed.
-    # GAUSSIAN_VAR = 3 # Shifted Gaussian kernel is not included since it might produce negative weights that are not supported in our implementation.
-    # SILVERMAN = 4 # Silverman kernel is not included since it might produce negative weights that are not supported in our implementation.
+    # GAUSSIAN_VAR = 3 # Shifted Gaussian kernel is not included since it might produce negative weights that are not supported.
+    # SILVERMAN = 4 # Silverman kernel is not included since it might produce negative weights that are not supported.
     RECTANGULAR = 100  # Uniform Kernel
     TRIANGULAR = 101
     EPANECHNIKOV = 102

@@ -302,7 +302,9 @@ def test_polyfit2d_deriv2_negative():
 
 def test_polyfit2d_degree_less_than_sum_of_deriv1_deriv2():
     x_grid, y, w, x_new1, x_new2 = make_valid_inputs()
-    with pytest.raises(ValueError, match="Degree of polynomial, degree, should be greater than or equal to the sum of orders of derivatives, deriv1 and deriv2."):
+    with pytest.raises(
+        ValueError, match="Degree of polynomial, degree, should be greater than or equal to the sum of orders of derivatives, deriv1 and deriv2."
+    ):
         polyfit2d(x_grid, y, w, x_new1, x_new2, 0.1, 1.0, KernelType.GAUSSIAN, 1, 2)
 
 
@@ -345,7 +347,7 @@ def test_polyfit2d_nan_inputs(dtype):
         polyfit2d(x_grid, y, w, x_new1, x_new2_nan, 1.0, 1.0, KernelType.GAUSSIAN)
 
 
-@pytest.mark.parametrize("bad_type", [float('nan'), np.nan])
+@pytest.mark.parametrize("bad_type", [float("nan"), np.nan])
 def test_polyfit2d_bandwidths_nan(bad_type):
     x_grid, y, w, x_new1, x_new2 = make_valid_inputs()
     with pytest.raises(ValueError, match="Bandwidths, bandwidth1 and bandwidth2, should not be NaN."):
@@ -367,7 +369,7 @@ def test_polyfit2d_bandwidth_non_int_type(bad_type):
         polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, bad_type, KernelType.GAUSSIAN)
 
 
-@pytest.mark.parametrize("bad_type", [1.5, "2", None, float('nan'), np.nan, [1], (2,), {"a": 1}])
+@pytest.mark.parametrize("bad_type", [1.5, "2", None, float("nan"), np.nan, [1], (2,), {"a": 1}])
 def test_polyfit2d_degree_non_int_type(bad_type):
     x_grid = np.zeros((2, 2))
     y = np.zeros(2)
@@ -378,7 +380,7 @@ def test_polyfit2d_degree_non_int_type(bad_type):
         polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, 1.0, KernelType.GAUSSIAN, bad_type, 0, 0)
 
 
-@pytest.mark.parametrize("bad_type", [1.5, "2", None, float('nan'), np.nan, [1], (2,), {"a": 1}])
+@pytest.mark.parametrize("bad_type", [1.5, "2", None, float("nan"), np.nan, [1], (2,), {"a": 1}])
 def test_polyfit2d_deriv1_non_int_type(bad_type):
     x_grid = np.zeros((2, 2))
     y = np.zeros(2)
@@ -389,7 +391,7 @@ def test_polyfit2d_deriv1_non_int_type(bad_type):
         polyfit2d(x_grid, y, w, x_new1, x_new2, 1.0, 1.0, KernelType.GAUSSIAN, 2, bad_type, 0)
 
 
-@pytest.mark.parametrize("bad_type", [1.5, "2", None, float('nan'), np.nan, [1], (2,), {"a": 1}])
+@pytest.mark.parametrize("bad_type", [1.5, "2", None, float("nan"), np.nan, [1], (2,), {"a": 1}])
 def test_polyfit2d_deriv2_non_int_type(bad_type):
     x_grid = np.zeros((2, 2))
     y = np.zeros(2)
