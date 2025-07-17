@@ -564,3 +564,26 @@ def test_polyfit1d_wrong_bandwidth_selection():
     model = Polyfit1DModel(obs_grid=x_new)
     with pytest.raises(ValueError, match="bandwidth_selection must be one of"):
         model.fit(x, y, sample_weight=w, bandwidth=0.1, bandwidth_selection="invalid")
+
+
+def test_polyfit1d_num_bw_candidates():
+    x, y, w, x_new = make_test_inputs()
+    model = Polyfit1DModel(obs_grid=x_new)
+    with pytest.raises(TypeError, match="Number of bandwidth candidates, num_bw_candidates, should be an integer"):
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, num_bw_candidates=1.5)
+    with pytest.raises(ValueError, match="Number of bandwidth candidates, num_bw_candidates, should be at least 2"):
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, num_bw_candidates=1)
+
+
+def test_polyfit1d_cv_folds():
+    x, y, w, x_new = make_test_inputs()
+    model = Polyfit1DModel(obs_grid=x_new)
+    with pytest.raises(ValueError, match="Number of cross-validation folds, cv_folds, should be at least 2"):
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, bandwidth_selection="cv", cv_folds=1)
+
+
+def test_polyfit1d_bandwidth_candidates():
+    x, y, w, x_new = make_test_inputs()
+    model = Polyfit1DModel(obs_grid=x_new)
+    with pytest.raises(ValueError, match="bandwidth_candidates must be a 1D array"):
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, bandwidth_candidates=np.array([[0.1, 0.2]]))
