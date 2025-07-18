@@ -600,6 +600,7 @@ def test_polyfit1d_gcv_bandwidth_selection():
     model = Polyfit1DModel(obs_grid=x_new, random_seed=100)
     model.fit(x, y, sample_weight=w, bandwidth_selection_method="gcv")
     assert model.bandwidth_ == np.float64(0.019500705768392176)  # Assuming the GCV method selects this bandwidth
+    assert "bandwidth_selection_results_" in model.__dict__, "bandwidth_selection_results_ should be set after fitting with gcv method"
 
 
 def test_polyfit1d_cv_bandwidth_selection():
@@ -607,6 +608,7 @@ def test_polyfit1d_cv_bandwidth_selection():
     model = Polyfit1DModel(obs_grid=x_new, random_seed=100)
     model.fit(x, y, sample_weight=w, bandwidth_selection_method="cv", cv_folds=3)
     assert model.bandwidth_ == np.float64(0.11968268412043005)  # Assuming the CV method selects this bandwidth
+    assert "bandwidth_selection_results_" in model.__dict__, "bandwidth_selection_results_ should be set after fitting with cv method"
 
 
 def test_polyfit1d_unable_generate_bandwidth_candidates():

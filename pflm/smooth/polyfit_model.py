@@ -11,12 +11,14 @@ from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.utils._array_api import get_namespace_and_device, supported_float_dtypes
 from sklearn.utils.validation import check_array, check_is_fitted
 
-from pflm.interp import interp1d
+from pflm.interp import interp1d, interp2d
 from pflm.smooth._polyfit import (
     calculate_kernel_value_f32,
     calculate_kernel_value_f64,
     polyfit1d_f32,
     polyfit1d_f64,
+    polyfit2d_f32,
+    polyfit2d_f64,
 )
 from pflm.smooth.kernel import KernelType
 
@@ -43,6 +45,8 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         Number of points to use for interpolation grid (only used if obs_grid is None).
     interp_kind : str, default='linear'
         Type of interpolation ('linear', 'spline').
+    random_seed : int, default=None
+        Random seed for reproducibility.
 
     Attributes
     ----------
@@ -104,8 +108,8 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
 
         Parameters
         ----------
-        X : np.ndarray
-            Input data.
+        sorted_unique_support : np.ndarray
+            Sorted unique values of X for support calculation.
         num_bw_candidates : int
             Number of bandwidth candidates to generate.
 
@@ -114,7 +118,6 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         np.ndarray
             Array of bandwidth candidates.
         """
-        print(sorted_unique_support)
         if sorted_unique_support.size <= self.degree + 1:
             raise ValueError(f"Not enough unique support points ({sorted_unique_support.size}) to fit a polynomial of degree {self.degree}.")
 
@@ -130,7 +133,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         q = math.pow(max_bw / min_bw, 1.0 / (num_bw_candidates - 1))
         return min_bw * q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates)
 
-    def _compute_cv_score(self, sorted_unique_X: np.ndarray, bandwidth: float, unique_idx: np.ndarray, cv_folds: int = 5) -> float:
+    def _compute_cv_score(self, sorted_unique_X: np.ndarray, bandwidth: np.floating, unique_idx: np.ndarray, cv_folds: int = 5) -> np.floating:
         """
         Compute cross-validation score for a given bandwidth.
 
@@ -178,7 +181,9 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
             )
         return np.mean(cv_scores) / self._sum_sample_weight
 
-    def _compute_gcv_score(self, sorted_unique_X: np.ndarray, bandwidth: float, unique_idx: np.ndarray, k0: float, r: float) -> float:
+    def _compute_gcv_score(
+        self, sorted_unique_X: np.ndarray, bandwidth: np.floating, unique_idx: np.ndarray, k0: float, r: np.floating
+    ) -> np.floating:
         """
         Compute Generalized Cross-Validation score for a given bandwidth.
 
@@ -225,7 +230,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         method: Literal["cv", "gcv"] = "gcv",
         custom_bw_candidates: Optional[np.ndarray] = None,
         cv_folds: int = 5,
-    ) -> float:
+    ) -> np.floating:
         """
         Select bandwidth using cross-validation.
 
@@ -522,6 +527,8 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         Number of points for interpolation grid in each dimension (only used if obs_grid is None).
     interp_kind : str, default='linear'
         Interpolation method ('linear', 'cubic', 'quintic').
+    random_seed : int, default=None
+        Random seed for reproducibility.
 
     Attributes
     ----------
@@ -560,6 +567,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         obs_grid2: Optional[Union[np.ndarray, List[float]]] = None,
         n_interp_points: int = 100,
         interp_kind: Literal["linear", "spline"] = "linear",
+        random_seed: Optional[int] = None,
     ) -> None:
         if kernel_type not in KernelType:
             raise ValueError(f"kernel_type must be one of {list(KernelType)}.")
@@ -586,19 +594,18 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         self.obs_grid2_ = obs_grid2
         self.n_interp_points = n_interp_points
         self.interp_kind = interp_kind
+        self.rng = np.random.default_rng(random_seed)
 
-    def _generate_bandwidth_candidates(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray) -> List[Tuple[float, float]]:
+    def _generate_bandwidth_candidates(self, sorted_grid_pairs: np.ndarray, num_bw_candidates: int) -> List[Tuple[float, float]]:
         """
         Generate bandwidth candidates for 2D selection.
 
         Parameters
         ----------
-        X : np.ndarray
-            Input data.
-        y : np.ndarray
-            Target values.
-        sample_weight : np.ndarray
-            Sample weights.
+        sorted_grid_pairs : np.ndarray
+            Sorted unique pairs of grid points.
+        num_bw_candidates : int
+            Number of bandwidth candidates to generate.
 
         Returns
         -------
@@ -612,19 +619,15 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         return [(bw1, bw2) for bw1 in bw1_candidates for bw2 in bw2_candidates]
 
     def _compute_cv_score(
-        self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray, bandwidth1: float, bandwidth2: float, cv_folds: int = 5
-    ) -> float:
+        self, sorted_grid_pairs: np.ndarray, bandwidth1: np.floating, bandwidth2: np.floating, cv_folds: int = 5
+    ) -> np.floating:
         """
         Compute cross-validation score for given bandwidths.
 
         Parameters
         ----------
-        X : np.ndarray
-            Input data.
-        y : np.ndarray
-            Target values.
-        sample_weight : np.ndarray
-            Sample weights.
+        sorted_grid_pairs : np.ndarray
+            Sorted unique pairs of grid points.
         bandwidth1 : float
             Bandwidth for first dimension.
         bandwidth2 : float
@@ -641,22 +644,24 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         # This is a placeholder - you'll provide the actual implementation
         return np.random.rand()  # Example random score
 
-    def _compute_gcv_score(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray, bandwidth1: float, bandwidth2: float) -> float:
+    def _compute_gcv_score(
+        self, sorted_grid_pairs: np.ndarray, bandwidth1: np.floating, bandwidth2: np.floating, unique_idx: np.ndarray, k0: float, r: np.floating
+    ) -> np.floating:
         """
         Compute Generalized Cross-Validation score for given bandwidths.
 
         Parameters
         ----------
-        X : np.ndarray
-            Input data.
-        y : np.ndarray
-            Target values.
-        sample_weight : np.ndarray
-            Sample weights.
+        sorted_grid_pairs : np.ndarray
+            Sorted unique pairs of grid points.
         bandwidth1 : float
             Bandwidth for first dimension.
         bandwidth2 : float
             Bandwidth for second dimension.
+        k0 : float
+            Kernel value at zero.
+        r : float
+            Range of the sorted unique grid pairs.
 
         Returns
         -------
@@ -668,22 +673,24 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         return np.random.rand()  # Example random score
 
     def _select_bandwidth(
-        self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray, method: Literal["cv", "gcv"] = "gcv", cv_folds: int = 5
-    ) -> Tuple[float, float]:
+        self,
+        num_bw_candidates: int = 21,
+        method: Literal["cv", "gcv"] = "gcv",
+        custom_bw_candidates: Optional[np.ndarray] = None,
+        cv_folds: int = 5,
+    ) -> Tuple[np.floating, np.floating]:
         """
         Select bandwidths using cross-validation.
 
         Parameters
         ----------
-        X : np.ndarray
-            Input data.
-        y : np.ndarray
-            Target values.
-        sample_weight : np.ndarray
-            Sample weights.
+        num_bw_candidates : int, default=21
+            Number of bandwidth candidates to generate. Only used if custom_bw_candidates is None.
         method : str, default='gcv'
             Method for bandwidth selection. Options: 'cv', 'gcv'.
             If 'cv', uses cross-validation; if 'gcv', uses Generalized Cross-Validation.
+        custom_bw_candidates: Optional[np.ndarray], default=None
+            Custom bandwidth candidates to use instead of generating them.
         cv_folds : int, default=5
             Number of cross-validation folds.
 
@@ -692,21 +699,47 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         Tuple[float, float]
             The bandwidth pair with the best score.
         """
-        self.bandwidth_candidates_ = self._generate_bandwidth_candidates(X, y, sample_weight)
-
-        if method == "cv":
-            cv_scores = np.array([self._compute_cv_score(X, y, sample_weight, bw1, bw2, cv_folds) for bw1, bw2 in self.bandwidth_candidates_])
-        elif method == "gcv":
-            cv_scores = np.array([self._compute_gcv_score(X, y, sample_weight, bw1, bw2) for bw1, bw2 in self.bandwidth_candidates_])
+        sorted_unique_X, unique_idx = np.unique(self.sorted_X_, return_inverse=True)
+        if custom_bw_candidates is not None:
+            bandwidth_candidates_ = custom_bw_candidates
         else:
-            raise ValueError(f"Invalid method '{method}'. Use 'cv' or 'gcv'.")
+            bandwidth_candidates_ = self._generate_bandwidth_candidates(sorted_unique_X, num_bw_candidates)
 
         # Store for inspection
-        self.cv_scores_ = cv_scores
+        self.bandwidth_selection_results_ = {
+            "bandwidth_candidates": bandwidth_candidates_,
+            "bandwidth_selection_method": method,
+        }
 
-        # Return bandwidths with minimum CV score
-        best_idx = np.argmin(cv_scores)
-        return self.bandwidth_candidates_[best_idx]
+        if method == "cv":
+            cv_scores = np.zeros(bandwidth_candidates_.shape[0], dtype=self._input_dtype)
+            for i in range(bandwidth_candidates_.shape[0]):
+                cv_scores[i] = self._compute_cv_score(
+                    sorted_unique_X, bandwidth_candidates_[i, 0], bandwidth_candidates_[i, 1], unique_idx, cv_folds
+                )
+            if (~np.isfinite(cv_scores)).all():
+                raise ValueError("All CV scores are non-finite. Check your data and bandwidth candidates.")
+            self.bandwidth_selection_results_["cv_scores"] = cv_scores
+            self.bandwidth_selection_results_["best_bandwidth"] = bandwidth_candidates_[np.argmin(cv_scores)]
+            self.bandwidth_selection_results_["cv_folds"] = cv_folds
+        elif method == "gcv":
+            k0 = (
+                calculate_kernel_value_f32(0, self.kernel_type.value)
+                if self._input_dtype == np.float32
+                else calculate_kernel_value_f64(0, self.kernel_type.value)
+            )
+            r = sorted_unique_X[-1] - sorted_unique_X[0]
+            gcv_scores = np.zeros(bandwidth_candidates_.shape[0], dtype=self._input_dtype)
+            for i in range(bandwidth_candidates_.shape[0]):
+                gcv_scores[i] = self._compute_gcv_score(
+                    sorted_unique_X, unique_idx, bandwidth_candidates_[i, 0], bandwidth_candidates_[i, 1], k0, r
+                )
+            if (~np.isfinite(gcv_scores)).all():
+                raise ValueError("All GCV scores are non-finite. Check your data and bandwidth candidates.")
+            self.bandwidth_selection_results_["gcv_scores"] = gcv_scores
+            self.bandwidth_selection_results_["best_bandwidth"] = bandwidth_candidates_[np.argmin(gcv_scores)]
+
+        return self.bandwidth_selection_results_["best_bandwidth"]
 
     def fit(
         self,
@@ -715,7 +748,9 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         sample_weight: Optional[Union[np.ndarray, List[float]]] = None,
         bandwidth1: Optional[float] = None,
         bandwidth2: Optional[float] = None,
+        num_bw_candidates: int = 21,
         bandwidth_selection_method: Literal["cv", "gcv"] = "gcv",
+        custom_bw_candidates: Optional[np.ndarray] = None,
         cv_folds: int = 5,
     ) -> "Polyfit2DModel":
         """
@@ -735,6 +770,8 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             The bandwidth parameter for the second dimension.
         bandwidth_selection_method : str, default='gcv'
             Method for bandwidth selection. Options: 'cv', 'gcv'.
+        custom_bw_candidates: Optional[np.ndarray], default=None
+            Custom bandwidth candidates to use instead of generating them.
         cv_folds : int, default=5
             Number of cross-validation folds (only used if bandwidth_selection='cv').
 
@@ -746,6 +783,8 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         # Validate bandwidth_selection_method
         if bandwidth_selection_method not in ["cv", "gcv"]:
             raise ValueError(f"bandwidth_selection_method must be one of ['cv', 'gcv'], got {bandwidth_selection_method}")
+        if bandwidth_selection_method == "cv" and cv_folds < 2:
+            raise ValueError("Number of cross-validation folds, cv_folds, should be at least 2 for 'cv' method.")
 
         if bandwidth1 is not None and not isinstance(bandwidth1, (float, int)):
             raise ValueError("bandwidth1 must be positive float or integer.")
@@ -761,6 +800,16 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         elif bandwidth2 is not None and bandwidth2 <= 0:
             raise ValueError("bandwidth2 must be positive.")
 
+        if num_bw_candidates is None or not isinstance(num_bw_candidates, int):
+            raise TypeError("Number of bandwidth candidates, num_bw_candidates, should be an integer.")
+        if num_bw_candidates < 2:
+            raise ValueError("Number of bandwidth candidates, num_bw_candidates, should be at least 2.")
+
+        if num_bw_candidates is None or not isinstance(num_bw_candidates, int):
+            raise TypeError("Number of bandwidth candidates, num_bw_candidates, should be an integer.")
+        if num_bw_candidates < 2:
+            raise ValueError("Number of bandwidth candidates, num_bw_candidates, should be at least 2.")
+
         xp, *_ = get_namespace_and_device(X, y, sample_weight)
 
         # Handle input validation
@@ -772,6 +821,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             raise ValueError("y must have the same size as X.")
 
         self._input_dtype = X.dtype
+        self._polyfit2d_func = polyfit2d_f32 if self._input_dtype == np.float32 else polyfit2d_f64
 
         # Handle sample weights
         if sample_weight is not None:
@@ -789,16 +839,78 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         self.sample_weight_ = sample_weight
         self.n_features_in_ = 2
 
+        # sort training data by X for polyfit2d requirement
+        sort_idx = np.lexsort((X[:, 1], X[:, 0]))
+        self.sorted_X_ = X[sort_idx]
+        self.sorted_y_ = y[sort_idx]
+        self.sorted_sample_weight_ = sample_weight[sort_idx]
+
         # Select bandwidths if needed
         if bandwidth1 is None or bandwidth2 is None:
             if bandwidth1 is not None or bandwidth2 is not None:
                 raise ValueError("If one bandwidth is provided, both must be provided.")
-            self.bandwidth1_, self.bandwidth2_ = self._select_bandwidth(X, y, sample_weight, bandwidth_selection_method, cv_folds)
+            if custom_bw_candidates is not None:
+                custom_bw_candidates = check_array(custom_bw_candidates, ensure_2d=True, dtype=self._input_dtype)
+                if custom_bw_candidates.shape[1] != 2:
+                    raise ValueError(f"custom_bw_candidates must have exactly 2 features, got {custom_bw_candidates.shape[1]}")
+            self.bandwidth1_, self.bandwidth2_ = self._select_bandwidth(
+                num_bw_candidates, bandwidth_selection_method, custom_bw_candidates, cv_folds
+            )
         else:
             self.bandwidth1_ = float(bandwidth1)
             self.bandwidth2_ = float(bandwidth2)
 
-        # TODO: Complete implementation for 2D model
+        # Create interpolation grids
+        x1_min, x1_max = np.min(X[:, 0]), np.max(X[:, 0])
+        x2_min, x2_max = np.min(X[:, 1]), np.max(X[:, 1])
+        if self.obs_grid1_ is not None:
+            # Use custom grid for first dimension
+            self.obs_grid1_ = check_array(self.obs_grid1_, ensure_2d=False, dtype=self._input_dtype)
+            if self.obs_grid1_.ndim != 1:
+                raise ValueError("obs_grid1 must be a 1D array")
+            if len(self.obs_grid1_) < 2:
+                raise ValueError("obs_grid1 must have at least 2 points")
+            if np.min(self.obs_grid1_) < x1_min or np.max(self.obs_grid1_) > x1_max:
+                raise ValueError(
+                    f"obs_grid1 must be within the range of input X[:, 0] [{x1_min:.6f}, {x1_max:.6f}]. "
+                    f"Got obs_grid1 range [{np.min(self.obs_grid1_):.6f}, {np.max(self.obs_grid1_):.6f}]"
+                )
+        else:
+            # Create uniform grid for first dimension
+            self.obs_grid1_ = np.linspace(x1_min, x1_max, self.n_interp_points)
+        if self.obs_grid2_ is not None:
+            # Use custom grid for second dimension
+            self.obs_grid2_ = check_array(self.obs_grid2_, ensure_2d=False, dtype=self._input_dtype)
+            if self.obs_grid2_.ndim != 1:
+                raise ValueError("obs_grid2 must be a 1D array")
+            if len(self.obs_grid2_) < 2:
+                raise ValueError("obs_grid2 must have at least 2 points")
+            if np.min(self.obs_grid2_) < x2_min or np.max(self.obs_grid2_) > x2_max:
+                raise ValueError(
+                    f"obs_grid2 must be within the range of input X[:, 1] [{x2_min:.6f}, {x2_max:.6f}]. "
+                    f"Got obs_grid2 range [{np.min(self.obs_grid2_):.6f}, {np.max(self.obs_grid2_):.6f}]"
+                )
+        else:
+            # Create uniform grid for second dimension
+            self.obs_grid2_ = np.linspace(x2_min, x2_max, self.n_interp_points)
+
+        try:
+            self.obs_fitted_values_ = self._polyfit2d_func(
+                self.sorted_X_,
+                self.sorted_y_,
+                self.sorted_sample_weight_,
+                self.obs_grid1_,
+                self.obs_grid2_,
+                self.bandwidth1_,
+                self.bandwidth2_,
+                self.kernel_type.value,
+                self.degree,
+                self.deriv1,
+                self.deriv2,
+            )
+        except Exception as e:
+            raise ValueError(f"Error in polyfit2d: {e!s}") from e
+
         return self
 
     def predict(self, X: Union[np.ndarray, List[List[float]]], use_model_interp: bool = True) -> np.ndarray:
@@ -818,6 +930,51 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         np.ndarray
             Predicted values of shape (n_samples,).
         """
-        check_is_fitted(self)
-        # TODO: Complete implementation
-        return np.zeros(X.shape[0])
+        check_is_fitted(self, ["obs_fitted_values_", "obs_grid1_", "obs_grid2_", "bandwidth1_", "bandwidth2_"])
+
+        # Handle input validation
+        X = check_array(X, ensure_2d=True, dtype=self._input_dtype)
+        if X.shape[1] != 2:
+            raise ValueError(f"X must have exactly 2 features for 2D model, got {X.shape[1]}")
+        ord = np.lexsort((X[:, 1], X[:, 0]))
+
+        if use_model_interp:
+            try:
+                y_pred = interp2d(self.obs_grid1_, self.obs_grid2_, self.obs_fitted_values_, X[ord, 0], X[ord, 1], self.interp_kind)
+            except Exception as e:
+                raise ValueError(f"Error during interpolation: {e!s}") from e
+        else:
+            try:
+                y_pred = self._polyfit2d_func(
+                    self.sorted_X_,
+                    self.sorted_y_,
+                    self.sorted_sample_weight_,
+                    X[ord, 0],
+                    X[ord, 1],
+                    self.bandwidth1_,
+                    self.bandwidth2_,
+                    self.kernel_type.value,
+                    self.degree,
+                    self.deriv1,
+                    self.deriv2,
+                )
+            except Exception as e:
+                raise ValueError(f"Error in polyfit2d: {e!s}") from e
+
+        inverse_sort_idx = np.argsort(ord)
+        return y_pred[inverse_sort_idx]
+
+    def get_fitted_grids(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Get the fitted values at the interpolation grid points.
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray, np.ndarray]
+            A tuple containing:
+            - obs_grid1: The interpolation grid points for the first dimension.
+            - obs_grid2: The interpolation grid points for the second dimension.
+            - obs_fitted_values: The fitted values at interpolation grid points.
+        """
+        check_is_fitted(self, ["obs_fitted_values_", "obs_grid1_", "obs_grid2_", "bandwidth1_", "bandwidth2_"])
+        return self.obs_grid1_.copy(), self.obs_grid2_.copy(), self.obs_fitted_values_.copy()
