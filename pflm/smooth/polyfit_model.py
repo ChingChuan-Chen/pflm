@@ -114,6 +114,10 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         np.ndarray
             Array of bandwidth candidates.
         """
+        print(sorted_unique_support)
+        if sorted_unique_support.size <= self.degree + 1:
+            raise ValueError(f"Not enough unique support points ({sorted_unique_support.size}) to fit a polynomial of degree {self.degree}.")
+
         dstar = np.max(np.diff(sorted_unique_support, n=self.degree + 1))
         r = sorted_unique_support[-1] - sorted_unique_support[0]
         h0 = min(1.5 * dstar, r)
@@ -228,7 +232,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         Parameters
         ----------
         num_bw_candidates : int, default=21
-            Number of bandwidth candidates to generate.
+            Number of bandwidth candidates to generate. Only used if custom_bw_candidates is None.
         method : str, default='gcv'
             Method for bandwidth selection. Options: 'cv', 'gcv'.
             If 'cv', uses cross-validation; if 'gcv', uses Generalized Cross-Validation.
@@ -244,7 +248,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         """
         sorted_unique_X, unique_idx = np.unique(self.sorted_X_, return_inverse=True)
         if custom_bw_candidates is not None:
-            bandwidth_candidates_ = np.asarray(custom_bw_candidates, dtype=self._input_dtype)
+            bandwidth_candidates_ = custom_bw_candidates
         else:
             bandwidth_candidates_ = self._generate_bandwidth_candidates(sorted_unique_X, num_bw_candidates)
 
@@ -274,8 +278,6 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
                 raise ValueError("All GCV scores are non-finite. Check your data and bandwidth candidates.")
             self.bandwidth_selection_results_["gcv_scores"] = gcv_scores
             self.bandwidth_selection_results_["best_bandwidth"] = bandwidth_candidates_[np.argmin(gcv_scores)]
-        else:
-            raise ValueError(f"Invalid method '{method}'. Use 'cv' or 'gcv'.")
 
         return self.bandwidth_selection_results_["best_bandwidth"]
 
@@ -377,10 +379,13 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
 
         # Select bandwidth if needed
         if bandwidth is None:
+            if custom_bw_candidates is not None:
+                custom_bw_candidates = check_array(custom_bw_candidates, ensure_2d=False, dtype=self._input_dtype)
+                if custom_bw_candidates.ndim == 2:
+                    if custom_bw_candidates.shape[1] != 1:
+                        raise ValueError(f"custom_bw_candidates must have exactly 1 feature, got {custom_bw_candidates.shape[1]}")
+                    custom_bw_candidates = custom_bw_candidates.ravel()
             self.bandwidth_ = self._select_bandwidth(
-                self.sorted_X_,
-                self.sorted_y_,
-                self.sorted_sample_weight_,
                 num_bw_candidates,
                 bandwidth_selection_method,
                 custom_bw_candidates,
@@ -491,15 +496,6 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         """
         check_is_fitted(self, ["obs_fitted_values_", "obs_grid_", "bandwidth_"])
         return self.obs_grid_.copy(), self.obs_fitted_values_.copy()
-
-    def _more_tags(self) -> dict:
-        return {
-            "requires_y": True,
-            "requires_fit": True,
-            "X_types": ["1darray", "2darray"],
-            "y_types": ["1darray"],
-            "no_validation": False,
-        }
 
 
 class Polyfit2DModel(BaseEstimator, RegressorMixin):
@@ -719,7 +715,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         sample_weight: Optional[Union[np.ndarray, List[float]]] = None,
         bandwidth1: Optional[float] = None,
         bandwidth2: Optional[float] = None,
-        bandwidth_selection: Literal["cv", "gcv"] = "gcv",
+        bandwidth_selection_method: Literal["cv", "gcv"] = "gcv",
         cv_folds: int = 5,
     ) -> "Polyfit2DModel":
         """
@@ -737,7 +733,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             The bandwidth parameter for the first dimension.
         bandwidth2 : float, default=None
             The bandwidth parameter for the second dimension.
-        bandwidth_selection : str, default='gcv'
+        bandwidth_selection_method : str, default='gcv'
             Method for bandwidth selection. Options: 'cv', 'gcv'.
         cv_folds : int, default=5
             Number of cross-validation folds (only used if bandwidth_selection='cv').
@@ -747,9 +743,9 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         Polyfit2DModel
             Returns self.
         """
-        # Validate bandwidth_selection
-        if bandwidth_selection not in ["cv", "gcv"]:
-            raise ValueError(f"bandwidth_selection must be one of ['cv', 'gcv'], got {bandwidth_selection}")
+        # Validate bandwidth_selection_method
+        if bandwidth_selection_method not in ["cv", "gcv"]:
+            raise ValueError(f"bandwidth_selection_method must be one of ['cv', 'gcv'], got {bandwidth_selection_method}")
 
         if bandwidth1 is not None and not isinstance(bandwidth1, (float, int)):
             raise ValueError("bandwidth1 must be positive float or integer.")
@@ -797,7 +793,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         if bandwidth1 is None or bandwidth2 is None:
             if bandwidth1 is not None or bandwidth2 is not None:
                 raise ValueError("If one bandwidth is provided, both must be provided.")
-            self.bandwidth1_, self.bandwidth2_ = self._select_bandwidth(X, y, sample_weight, bandwidth_selection, cv_folds)
+            self.bandwidth1_, self.bandwidth2_ = self._select_bandwidth(X, y, sample_weight, bandwidth_selection_method, cv_folds)
         else:
             self.bandwidth1_ = float(bandwidth1)
             self.bandwidth2_ = float(bandwidth2)
@@ -825,12 +821,3 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         check_is_fitted(self)
         # TODO: Complete implementation
         return np.zeros(X.shape[0])
-
-    def _more_tags(self) -> dict:
-        return {
-            "requires_y": True,
-            "requires_fit": True,
-            "X_types": ["2darray"],
-            "y_types": ["1darray"],
-            "no_validation": False,
-        }

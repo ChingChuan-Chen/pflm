@@ -292,10 +292,10 @@ def test_polyfit1d_big(dtype):
 
 
 def make_test_inputs():
-    x = np.array([0.1, 0.2])
-    y = np.array([0.1, 0.2])
-    w = np.array([1.0, 1.0])
-    x_new = np.array([0.1, 0.2])
+    x = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
+    y = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
+    w = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
+    x_new = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
     return x, y, w, x_new
 
 
@@ -347,7 +347,7 @@ def test_polyfit1d_x_y_size_mismatch():
 
 def test_polyfit1d_w_negative():
     x, y, w, x_new = make_test_inputs()
-    w = np.array([-1.0, 1.0])  # Negative weight
+    w = np.array([-1.0, 1.0, 1.0, 2.0, 3.0])  # Negative weight
     model = Polyfit1DModel(obs_grid=x_new)
     with pytest.raises(ValueError, match="All sample weights must be non-negative"):
         model.fit(x, y, sample_weight=w, bandwidth=0.1)
@@ -471,7 +471,7 @@ def test_polyfit1d_model_predict_wrong_2d_input():
 
     # Test with 2D input
     with pytest.raises(ValueError, match="X must have exactly 1 feature"):
-        model.predict(x_new.reshape(-1, 2))
+        model.predict(x_new.reshape(-1, 5))
 
 
 def test_polyfit1d_model_predict_2d_input():
@@ -559,11 +559,11 @@ def test_polyfit1d_wrong_interp_kind():
         model = Polyfit1DModel(obs_grid=x_new, interp_kind="invalid")
 
 
-def test_polyfit1d_wrong_bandwidth_selection():
+def test_polyfit1d_wrong_bandwidth_selection_method():
     x, y, w, x_new = make_test_inputs()
     model = Polyfit1DModel(obs_grid=x_new)
-    with pytest.raises(ValueError, match="bandwidth_selection must be one of"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1, bandwidth_selection="invalid")
+    with pytest.raises(ValueError, match="bandwidth_selection_method must be one of"):
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, bandwidth_selection_method="invalid")
 
 
 def test_polyfit1d_num_bw_candidates():
@@ -579,11 +579,40 @@ def test_polyfit1d_cv_folds():
     x, y, w, x_new = make_test_inputs()
     model = Polyfit1DModel(obs_grid=x_new)
     with pytest.raises(ValueError, match="Number of cross-validation folds, cv_folds, should be at least 2"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1, bandwidth_selection="cv", cv_folds=1)
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, bandwidth_selection_method="cv", cv_folds=1)
 
 
-def test_polyfit1d_bandwidth_candidates():
+def test_polyfit1d_custom_bw_candidates():
     x, y, w, x_new = make_test_inputs()
-    model = Polyfit1DModel(obs_grid=x_new)
-    with pytest.raises(ValueError, match="bandwidth_candidates must be a 1D array"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1, bandwidth_candidates=np.array([[0.1, 0.2]]))
+    model = Polyfit1DModel(obs_grid=x_new, random_seed=100)
+    model.fit(x, y, sample_weight=w, custom_bw_candidates=np.array([[0.1], [0.2]]))
+    assert model.bandwidth_ == np.float64(0.2)
+    with pytest.raises(ValueError, match="All CV scores are non-finite."):
+        model.fit(x, y, sample_weight=w, bandwidth_selection_method="cv", custom_bw_candidates=np.array([[0.005], [0.006]]))
+    with pytest.raises(ValueError, match="All GCV scores are non-finite."):
+        model.fit(x, y, sample_weight=w, custom_bw_candidates=np.array([0.005, 0.006]))
+    with pytest.raises(ValueError, match="custom_bw_candidates must have exactly 1 feature"):
+        model.fit(x, y, sample_weight=w, custom_bw_candidates=np.array([[0.1, 0.2]]))
+
+
+def test_polyfit1d_gcv_bandwidth_selection():
+    x, y, w, x_new = make_test_inputs()
+    model = Polyfit1DModel(obs_grid=x_new, random_seed=100)
+    model.fit(x, y, sample_weight=w, bandwidth_selection_method="gcv")
+    assert model.bandwidth_ == np.float64(0.019500705768392176)  # Assuming the GCV method selects this bandwidth
+
+
+def test_polyfit1d_cv_bandwidth_selection():
+    x, y, w, x_new = make_test_inputs()
+    model = Polyfit1DModel(obs_grid=x_new, random_seed=100)
+    model.fit(x, y, sample_weight=w, bandwidth_selection_method="cv", cv_folds=3)
+    assert model.bandwidth_ == np.float64(0.11968268412043005)  # Assuming the CV method selects this bandwidth
+
+
+def test_polyfit1d_unable_generate_bandwidth_candidates():
+    x = np.array([0.1, 0.2, 0.2])
+    y = np.array([0.1, 0.2, 0.3])
+    w = np.array([1.0, 1.0, 1.0])
+    model = Polyfit1DModel(obs_grid=x, random_seed=100)
+    with pytest.raises(ValueError, match="Not enough unique support points"):
+        model.fit(x, y, sample_weight=w)
