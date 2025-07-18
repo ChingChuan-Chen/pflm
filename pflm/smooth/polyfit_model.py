@@ -4,14 +4,20 @@
 # SPDX-License-Identifier: MIT
 
 import math
-from typing import Optional, Union, Tuple, Literal, List
+from typing import List, Literal, Optional, Tuple, Union
+
 import numpy as np
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.utils._array_api import get_namespace_and_device, supported_float_dtypes
 from sklearn.utils.validation import check_array, check_is_fitted
 
-from pflm.interp import interp1d, interp2d
-from pflm.smooth._polyfit import polyfit1d_f32, polyfit1d_f64, polyfit2d_f32, polyfit2d_f64
+from pflm.interp import interp1d
+from pflm.smooth._polyfit import (
+    calculate_kernel_value_f32,
+    calculate_kernel_value_f64,
+    polyfit1d_f32,
+    polyfit1d_f64,
+)
 from pflm.smooth.kernel import KernelType
 
 
@@ -53,11 +59,9 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
     obs_fitted_values_ : ndarray
         The fitted values at interpolation grid points.
     bandwidth_ : float
-        The selected bandwidth after fitting.
-    cv_scores_ : ndarray, optional
-        CV/GCV scores for each bandwidth candidate.
-    bandwidth_candidates_ : ndarray, optional
-        Bandwidth candidates evaluated during selection.
+        The bandwidth used for kernel smoothing. It might be selected automatically or provided by the user.
+    bandwidth_selection_results_ : dict, optional
+        Results of bandwidth selection, including candidates, scores, and the best bandwidth.
     """
 
     def __init__(
@@ -69,6 +73,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         obs_grid: Optional[Union[np.ndarray, List[float]]] = None,
         n_interp_points: int = 100,
         interp_kind: Literal["linear", "spline"] = "linear",
+        random_seed: Optional[int] = None,
     ) -> None:
         if kernel_type not in KernelType:
             raise ValueError(f"kernel must be one of {list(KernelType)}.")
@@ -91,8 +96,9 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         self.obs_grid_ = obs_grid
         self.n_interp_points = n_interp_points
         self.interp_kind = interp_kind
+        self.rng = np.random.default_rng(random_seed)
 
-    def _generate_bandwidth_candidates(self, num_bw_candidates: int) -> np.ndarray:
+    def _generate_bandwidth_candidates(self, sorted_unique_support: np.ndarray, num_bw_candidates: int) -> np.ndarray:
         """
         Generate bandwidth candidates for selection.
 
@@ -108,11 +114,8 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         np.ndarray
             Array of bandwidth candidates.
         """
-        if not hasattr(self, "_sort_idx"):
-            self._sort_idx = np.argsort(self.X_)
-        sorted_X = self.X_[self._sort_idx]
-        dstar = np.max(np.diff(sorted_X, n=self.degree + 1))
-        r = sorted_X[-1] - sorted_X[0]
+        dstar = np.max(np.diff(sorted_unique_support, n=self.degree + 1))
+        r = sorted_unique_support[-1] - sorted_unique_support[0]
         h0 = min(1.5 * dstar, r)
         h1 = r / math.sqrt(2.0 * math.pi)
         min_bw = min(h0, h1)
@@ -123,25 +126,14 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         q = math.pow(max_bw / min_bw, 1.0 / (num_bw_candidates - 1))
         return min_bw * q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates)
 
-    def _compute_cv_score(
-        self,
-        X: np.ndarray,
-        y: np.ndarray,
-        sample_weight: np.ndarray,
-        bandwidth: float,
-        cv_folds: int = 5
-    ) -> float:
+    def _compute_cv_score(self, sorted_unique_X: np.ndarray, bandwidth: float, unique_idx: np.ndarray, cv_folds: int = 5) -> float:
         """
         Compute cross-validation score for a given bandwidth.
 
         Parameters
         ----------
-        X : np.ndarray
-            Input data.
-        y : np.ndarray
-            Target values.
-        sample_weight : np.ndarray
-            Sample weights.
+        sorted_unique_X : np.ndarray
+            Sorted unique values of X.
         bandwidth : float
             Bandwidth parameter.
         cv_folds : int, default=5
@@ -152,61 +144,89 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         float
             Cross-validation score.
         """
-        # TODO: Implement CV score calculation
-        # This is a placeholder - you'll provide the actual implementation
-        return np.random.rand()  # Example random score
+        if np.isnan(bandwidth) or bandwidth <= 0:
+            return np.inf
 
-    def _compute_gcv_score(
-        self,
-        X: np.ndarray,
-        y: np.ndarray,
-        sample_weight: np.ndarray,
-        bandwidth: float
-    ) -> float:
+        cv_index = np.arange(len(self.X_)) % cv_folds
+        self.rng.shuffle(cv_index)
+
+        cv_scores = np.zeros(cv_folds, dtype=self._input_dtype)
+        for fold in range(cv_folds):
+            train_mask = cv_index != fold
+            test_mask = cv_index == fold
+
+            y_pred = self._polyfit1d_func(
+                self.sorted_X_[train_mask],
+                self.sorted_y_[train_mask],
+                self.sorted_sample_weight_[train_mask],
+                sorted_unique_X,
+                bandwidth,
+                self.kernel_type.value,
+                self.degree,
+                self.deriv,
+            )
+
+            if np.isnan(y_pred).any():
+                return np.inf
+
+            cv_scores[fold] = sum(
+                self.sorted_sample_weight_[unique_idx[test_mask]] * (self.sorted_y_[unique_idx[test_mask]] - y_pred[unique_idx[test_mask]]) ** 2
+            )
+        return np.mean(cv_scores) / self._sum_sample_weight
+
+    def _compute_gcv_score(self, sorted_unique_X: np.ndarray, bandwidth: float, unique_idx: np.ndarray, k0: float, r: float) -> float:
         """
         Compute Generalized Cross-Validation score for a given bandwidth.
 
         Parameters
         ----------
-        X : np.ndarray
-            Input data.
-        y : np.ndarray
-            Target values.
-        sample_weight : np.ndarray
-            Sample weights.
+        sorted_unique_X : np.ndarray
+            Sorted unique values of X.
         bandwidth : float
             Bandwidth parameter.
+        unique_idx : np.ndarray
+            Indices of the original X values in the sorted unique array.
+        k0 : float
+            Kernel value at zero.
+        r : float
+            Range of the sorted unique X values.
 
         Returns
         -------
         float
             GCV score.
         """
-        # TODO: Implement GCV score calculation
-        # This is a placeholder - you'll provide the actual implementation
-        return np.random.rand()  # Example random score
+        if np.isnan(bandwidth) or bandwidth <= 0:
+            return np.inf
+
+        y_pred = self._polyfit1d_func(
+            self.sorted_X_,
+            self.sorted_y_,
+            self.sorted_sample_weight_,
+            sorted_unique_X,
+            bandwidth,
+            self.kernel_type.value,
+            self.degree,
+            self.deriv,
+        )
+        if np.isnan(y_pred).any():
+            return np.inf
+        numerator = sum(self.sorted_sample_weight_ * (self.sorted_y_ - y_pred[unique_idx]) ** 2)
+        denominator = math.pow(1.0 - r * k0 / bandwidth / self._sum_sample_weight, 2.0)
+        return numerator / denominator
 
     def _select_bandwidth(
         self,
-        X: np.ndarray,
-        y: np.ndarray,
-        sample_weight: np.ndarray,
         num_bw_candidates: int = 21,
         method: Literal["cv", "gcv"] = "gcv",
         custom_bw_candidates: Optional[np.ndarray] = None,
-        cv_folds: int = 5
+        cv_folds: int = 5,
     ) -> float:
         """
         Select bandwidth using cross-validation.
 
         Parameters
         ----------
-        X : np.ndarray
-            Input data.
-        y : np.ndarray
-            Target values.
-        sample_weight : np.ndarray
-            Sample weights.
         num_bw_candidates : int, default=21
             Number of bandwidth candidates to generate.
         method : str, default='gcv'
@@ -222,24 +242,42 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         float
             The bandwidth with the best score.
         """
+        sorted_unique_X, unique_idx = np.unique(self.sorted_X_, return_inverse=True)
         if custom_bw_candidates is not None:
-            self.bandwidth_candidates_ = np.asarray(custom_bw_candidates, dtype=self._input_dtype)
+            bandwidth_candidates_ = np.asarray(custom_bw_candidates, dtype=self._input_dtype)
         else:
-            self.bandwidth_candidates_ = self._generate_bandwidth_candidates(num_bw_candidates)
+            bandwidth_candidates_ = self._generate_bandwidth_candidates(sorted_unique_X, num_bw_candidates)
 
+        # Store for inspection
+        self.bandwidth_selection_results_ = {
+            "bandwidth_candidates": bandwidth_candidates_,
+            "bandwidth_selection_method": method,
+        }
+
+        self._sum_sample_weight = np.sum(self.sample_weight_)
         if method == "cv":
-            cv_scores = np.array([self._compute_cv_score(X, y, sample_weight, bw, cv_folds) for bw in self.bandwidth_candidates_])
+            cv_scores = np.array([self._compute_cv_score(sorted_unique_X, bw, unique_idx, cv_folds) for bw in bandwidth_candidates_])
+            if (~np.isfinite(cv_scores)).all():
+                raise ValueError("All CV scores are non-finite. Check your data and bandwidth candidates.")
+            self.bandwidth_selection_results_["cv_scores"] = cv_scores
+            self.bandwidth_selection_results_["best_bandwidth"] = bandwidth_candidates_[np.argmin(cv_scores)]
+            self.bandwidth_selection_results_["cv_folds"] = cv_folds
         elif method == "gcv":
-            cv_scores = np.array([self._compute_gcv_score(X, y, sample_weight, bw) for bw in self.bandwidth_candidates_])
+            k0 = (
+                calculate_kernel_value_f32(0, self.kernel_type.value)
+                if self._input_dtype == np.float32
+                else calculate_kernel_value_f64(0, self.kernel_type.value)
+            )
+            r = sorted_unique_X[-1] - sorted_unique_X[0]
+            gcv_scores = np.array([self._compute_gcv_score(sorted_unique_X, bw, unique_idx, k0, r) for bw in bandwidth_candidates_])
+            if (~np.isfinite(gcv_scores)).all():
+                raise ValueError("All GCV scores are non-finite. Check your data and bandwidth candidates.")
+            self.bandwidth_selection_results_["gcv_scores"] = gcv_scores
+            self.bandwidth_selection_results_["best_bandwidth"] = bandwidth_candidates_[np.argmin(gcv_scores)]
         else:
             raise ValueError(f"Invalid method '{method}'. Use 'cv' or 'gcv'.")
 
-        # Store for inspection
-        self.cv_scores_ = cv_scores
-
-        # Return bandwidth with minimum CV score (assuming lower is better)
-        best_idx = np.argmin(cv_scores)
-        return self.bandwidth_candidates_[best_idx]
+        return self.bandwidth_selection_results_["best_bandwidth"]
 
     def fit(
         self,
@@ -248,9 +286,9 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         sample_weight: Optional[Union[np.ndarray, List[float]]] = None,
         bandwidth: Optional[float] = None,
         num_bw_candidates: int = 21,
-        bandwidth_selection: Literal["cv", "gcv"] = "gcv",
+        bandwidth_selection_method: Literal["cv", "gcv"] = "gcv",
         custom_bw_candidates: Optional[np.ndarray] = None,
-        cv_folds: int = 5
+        cv_folds: int = 5,
     ) -> "Polyfit1DModel":
         """
         Fit the 1D polynomial model.
@@ -265,25 +303,25 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
             Sample weights.
         bandwidth : float, default=None
             The bandwidth parameter for kernel smoothing. If None, will be selected
-            using the method specified in bandwidth_selection.
+            using the method specified in bandwidth_selection_method.
         num_bw_candidates : int, default=21
             Number of bandwidth candidates to generate.
-        bandwidth_selection : str, default='gcv'
+        bandwidth_selection_method : str, default='gcv'
             Method for bandwidth selection. Options: 'cv', 'gcv'.
         custom_bw_candidates: Optional[np.ndarray], default=None
             Custom bandwidth candidates to use instead of generating them.
         cv_folds : int, default=5
-            Number of cross-validation folds (only used if bandwidth_selection='cv').
+            Number of cross-validation folds (only used if bandwidth_selection_method='cv').
 
         Returns
         -------
         Polyfit1DModel
             Returns self.
         """
-        # Validate bandwidth_selection
-        if bandwidth_selection not in ["cv", "gcv"]:
-            raise ValueError(f"bandwidth_selection must be one of ['cv', 'gcv'], got {bandwidth_selection}")
-        if bandwidth_selection == "cv" and cv_folds < 2:
+        # Validate bandwidth_selection_method
+        if bandwidth_selection_method not in ["cv", "gcv"]:
+            raise ValueError(f"bandwidth_selection_method must be one of ['cv', 'gcv'], got {bandwidth_selection_method}")
+        if bandwidth_selection_method == "cv" and cv_folds < 2:
             raise ValueError("Number of cross-validation folds, cv_folds, should be at least 2 for 'cv' method.")
 
         if bandwidth is not None and not isinstance(bandwidth, (float, int)):
@@ -310,7 +348,10 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         if y.size != X.size:
             raise ValueError("y must have the same size as X.")
 
+        # Store input dtype for later use
         self._input_dtype = X.dtype
+        # Fit polynomial at grid points
+        self._polyfit1d_func = polyfit1d_f32 if self._input_dtype == np.float32 else polyfit1d_f64
 
         # Handle sample weights
         if sample_weight is not None:
@@ -329,15 +370,22 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         self.n_features_in_ = 1
 
         # Sort training data by X for polyfit1d requirement
-        if not hasattr(self, "_sort_idx"):
-            self._sort_idx = np.argsort(X)
-        X_sorted = X[self._sort_idx]
-        y_sorted = y[self._sort_idx]
-        sample_weight_sorted = sample_weight[self._sort_idx]
+        sort_idx = np.argsort(X)
+        self.sorted_X_ = X[sort_idx]
+        self.sorted_y_ = y[sort_idx]
+        self.sorted_sample_weight_ = sample_weight[sort_idx]
 
         # Select bandwidth if needed
         if bandwidth is None:
-            self.bandwidth_ = self._select_bandwidth(X, y, sample_weight, num_bw_candidates, bandwidth_selection, custom_bw_candidates, cv_folds)
+            self.bandwidth_ = self._select_bandwidth(
+                self.sorted_X_,
+                self.sorted_y_,
+                self.sorted_sample_weight_,
+                num_bw_candidates,
+                bandwidth_selection_method,
+                custom_bw_candidates,
+                cv_folds,
+            )
         else:
             self.bandwidth_ = float(bandwidth)
 
@@ -362,22 +410,23 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
             # Create uniform grid within the range of input X
             self.obs_grid_ = np.linspace(x_min, x_max, self.n_interp_points)
 
-        # Fit polynomial at grid points
-        self._polyfit1d_func = polyfit1d_f32 if self._input_dtype == np.float32 else polyfit1d_f64
         try:
             self.obs_fitted_values_ = self._polyfit1d_func(
-                X_sorted, y_sorted, sample_weight_sorted, self.obs_grid_, self.bandwidth_, self.kernel_type.value, self.degree, self.deriv
+                self.sorted_X_,
+                self.sorted_y_,
+                self.sorted_sample_weight_,
+                self.obs_grid_,
+                self.bandwidth_,
+                self.kernel_type.value,
+                self.degree,
+                self.deriv,
             )
         except Exception as e:
             raise ValueError(f"Error in polyfit1d: {e!s}") from e
 
         return self
 
-    def predict(
-        self,
-        X: Union[np.ndarray, List[float]],
-        use_model_interp: bool = True
-    ) -> np.ndarray:
+    def predict(self, X: Union[np.ndarray, List[float]], use_model_interp: bool = True) -> np.ndarray:
         """
         Predict using the 1D polynomial model via interpolation.
 
@@ -411,13 +460,17 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
             except Exception as e:
                 raise ValueError(f"Error during interpolation: {e!s}") from e
         else:
-            X_sorted = self.X_[self._sort_idx]
-            y_sorted = self.y_[self._sort_idx]
-            sample_weight_sorted = self.sample_weight_[self._sort_idx]
             # Predict using direct polyfit1d call
             try:
                 y_pred = self._polyfit1d_func(
-                    X_sorted, y_sorted, sample_weight_sorted, X[ord], self.bandwidth_, self.kernel_type.value, self.degree, self.deriv
+                    self.sorted_X_,
+                    self.sorted_y_,
+                    self.sorted_sample_weight_,
+                    X[ord],
+                    self.bandwidth_,
+                    self.kernel_type.value,
+                    self.degree,
+                    self.deriv,
                 )
             except Exception as e:
                 raise ValueError(f"Error in polyfit1d: {e!s}") from e
@@ -538,12 +591,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         self.n_interp_points = n_interp_points
         self.interp_kind = interp_kind
 
-    def _generate_bandwidth_candidates(
-        self,
-        X: np.ndarray,
-        y: np.ndarray,
-        sample_weight: np.ndarray
-    ) -> List[Tuple[float, float]]:
+    def _generate_bandwidth_candidates(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray) -> List[Tuple[float, float]]:
         """
         Generate bandwidth candidates for 2D selection.
 
@@ -568,13 +616,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         return [(bw1, bw2) for bw1 in bw1_candidates for bw2 in bw2_candidates]
 
     def _compute_cv_score(
-        self,
-        X: np.ndarray,
-        y: np.ndarray,
-        sample_weight: np.ndarray,
-        bandwidth1: float,
-        bandwidth2: float,
-        cv_folds: int = 5
+        self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray, bandwidth1: float, bandwidth2: float, cv_folds: int = 5
     ) -> float:
         """
         Compute cross-validation score for given bandwidths.
@@ -603,14 +645,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         # This is a placeholder - you'll provide the actual implementation
         return np.random.rand()  # Example random score
 
-    def _compute_gcv_score(
-        self,
-        X: np.ndarray,
-        y: np.ndarray,
-        sample_weight: np.ndarray,
-        bandwidth1: float,
-        bandwidth2: float
-    ) -> float:
+    def _compute_gcv_score(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray, bandwidth1: float, bandwidth2: float) -> float:
         """
         Compute Generalized Cross-Validation score for given bandwidths.
 
@@ -637,12 +672,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         return np.random.rand()  # Example random score
 
     def _select_bandwidth(
-        self,
-        X: np.ndarray,
-        y: np.ndarray,
-        sample_weight: np.ndarray,
-        method: Literal["cv", "gcv"] = "gcv",
-        cv_folds: int = 5
+        self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray, method: Literal["cv", "gcv"] = "gcv", cv_folds: int = 5
     ) -> Tuple[float, float]:
         """
         Select bandwidths using cross-validation.
@@ -690,7 +720,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         bandwidth1: Optional[float] = None,
         bandwidth2: Optional[float] = None,
         bandwidth_selection: Literal["cv", "gcv"] = "gcv",
-        cv_folds: int = 5
+        cv_folds: int = 5,
     ) -> "Polyfit2DModel":
         """
         Fit the 2D polynomial model.
@@ -775,11 +805,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         # TODO: Complete implementation for 2D model
         return self
 
-    def predict(
-        self,
-        X: Union[np.ndarray, List[List[float]]],
-        use_model_interp: bool = True
-    ) -> np.ndarray:
+    def predict(self, X: Union[np.ndarray, List[List[float]]], use_model_interp: bool = True) -> np.ndarray:
         """
         Predict using the 2D polynomial model via interpolation.
 
