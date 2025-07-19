@@ -5,12 +5,12 @@
 
 from pflm.smooth.cov_smooth import cov_smooth, diag_cov_smooth
 from pflm.smooth.kernel import KernelType
-from pflm.smooth.polyfit import polyfit1d, polyfit2d
+from pflm.smooth.polyfit_model import Polyfit1DModel, Polyfit2DModel
 
 __all__ = [
     "KernelType",
+    "Polyfit1DModel",
+    "Polyfit2DModel",
     "cov_smooth",
     "diag_cov_smooth",
-    "polyfit1d",
-    "polyfit2d",
 ]
