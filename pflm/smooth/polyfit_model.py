@@ -121,9 +121,9 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         if sorted_unique_support.size <= self.degree + 1:
             raise ValueError(f"Not enough unique support points ({sorted_unique_support.size}) to fit a polynomial of degree {self.degree}.")
 
-        dstar = np.max(np.diff(sorted_unique_support, n=self.degree + 1))
+        d_star = np.max(np.diff(sorted_unique_support, n=self.degree + 1))
         r = sorted_unique_support[-1] - sorted_unique_support[0]
-        h0 = min(1.5 * dstar, r)
+        h0 = min(1.5 * d_star, r)
         h1 = r / math.sqrt(2.0 * math.pi)
         min_bw = min(h0, h1)
         max_bw = max(h0, h1)
@@ -596,7 +596,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         self.interp_kind = interp_kind
         self.rng = np.random.default_rng(random_seed)
 
-    def _generate_bandwidth_candidates(self, sorted_grid_pairs: np.ndarray, num_bw_candidates: int) -> List[Tuple[float, float]]:
+    def _generate_bandwidth_candidates(self, sorted_grid_pairs: np.ndarray, num_bw_candidates: int) -> np.ndarray:
         """
         Generate bandwidth candidates for 2D selection.
 
@@ -612,11 +612,20 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         List[Tuple[float, float]]
             List of bandwidth candidate pairs (bandwidth1, bandwidth2).
         """
-        # TODO: Implement 2D bandwidth candidate generation
-        # This is a placeholder - you'll provide the actual implementation
-        bw1_candidates = np.linspace(0.1, 10.0, 100)
-        bw2_candidates = np.linspace(0.1, 10.0, 100)
-        return [(bw1, bw2) for bw1 in bw1_candidates for bw2 in bw2_candidates]
+        if sorted_grid_pairs.shape[0] <= self.degree + 1:
+            raise ValueError(f"Not enough unique support points ({sorted_grid_pairs.shape[0]}) to fit a polynomial of degree {self.degree}.")
+
+        d_star = np.max(np.diff(sorted_grid_pairs, n=self.degree + 1))
+        r = sorted_grid_pairs[-1] - sorted_grid_pairs[0]
+        h0 = min(1.5 * d_star, r)
+        h1 = r / math.sqrt(2.0 * math.pi)
+        min_bw = min(h0, h1)
+        max_bw = max(h0, h1)
+        if self.kernel_type.value < 100:
+            min_bw *= 0.25
+            max_bw *= 0.75
+        q = math.pow(max_bw / min_bw, 1.0 / (num_bw_candidates - 1))
+        return min_bw * q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates)
 
     def _compute_cv_score(
         self, sorted_grid_pairs: np.ndarray, bandwidth1: np.floating, bandwidth2: np.floating, cv_folds: int = 5
@@ -841,7 +850,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
 
         # sort training data by X for polyfit2d requirement
         sort_idx = np.lexsort((X[:, 1], X[:, 0]))
-        self.sorted_X_ = X[sort_idx]
+        self.sorted_X_ = X[sort_idx, :]
         self.sorted_y_ = y[sort_idx]
         self.sorted_sample_weight_ = sample_weight[sort_idx]
 
@@ -896,7 +905,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
 
         try:
             self.obs_fitted_values_ = self._polyfit2d_func(
-                self.sorted_X_,
+                np.ascontiguousarray(self.sorted_X_.T),
                 self.sorted_y_,
                 self.sorted_sample_weight_,
                 self.obs_grid1_,
@@ -913,14 +922,16 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
 
         return self
 
-    def predict(self, X: Union[np.ndarray, List[List[float]]], use_model_interp: bool = True) -> np.ndarray:
+    def predict(self, X1: np.ndarray, X2: np.ndarray, use_model_interp: bool = True) -> np.ndarray:
         """
         Predict using the 2D polynomial model via interpolation.
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, 2)
-            Samples to predict.
+        X1 : array-like of shape (n_samples,)
+            First feature to predict.
+        X2 : array-like of shape (n_samples,)
+            Second feature to predict.
         use_model_interp : bool, default=True
             If True, use the model's interpolation grid for prediction.
             If False, use direct polyfit2d call for prediction.
@@ -933,24 +944,28 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         check_is_fitted(self, ["obs_fitted_values_", "obs_grid1_", "obs_grid2_", "bandwidth1_", "bandwidth2_"])
 
         # Handle input validation
-        X = check_array(X, ensure_2d=True, dtype=self._input_dtype)
-        if X.shape[1] != 2:
-            raise ValueError(f"X must have exactly 2 features for 2D model, got {X.shape[1]}")
-        ord = np.lexsort((X[:, 1], X[:, 0]))
+        X1 = check_array(X1, ensure_2d=False, dtype=self._input_dtype)
+        X2 = check_array(X2, ensure_2d=False, dtype=self._input_dtype)
+        if X1.ndim != 1 or X2.ndim != 1:
+            raise ValueError(f"X1 and X2 must be 1D arrays, got {X1.ndim}D and {X2.ndim}D")
+        if X1.shape[0] != X2.shape[0]:
+            raise ValueError(f"X1 and X2 must have the same number of samples, got {X1.shape[0]} and {X2.shape[0]}")
 
+        X1_ord = np.argsort(X1)
+        X2_ord = np.argsort(X2)
         if use_model_interp:
             try:
-                y_pred = interp2d(self.obs_grid1_, self.obs_grid2_, self.obs_fitted_values_, X[ord, 0], X[ord, 1], self.interp_kind)
+                y_pred = interp2d(self.obs_grid1_, self.obs_grid2_, self.obs_fitted_values_, X1[X1_ord], X2[X2_ord], self.interp_kind)
             except Exception as e:
                 raise ValueError(f"Error during interpolation: {e!s}") from e
         else:
             try:
                 y_pred = self._polyfit2d_func(
-                    self.sorted_X_,
+                    np.ascontiguousarray(self.sorted_X_.T),
                     self.sorted_y_,
                     self.sorted_sample_weight_,
-                    X[ord, 0],
-                    X[ord, 1],
+                    X1[X1_ord],
+                    X2[X2_ord],
                     self.bandwidth1_,
                     self.bandwidth2_,
                     self.kernel_type.value,
@@ -961,8 +976,9 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             except Exception as e:
                 raise ValueError(f"Error in polyfit2d: {e!s}") from e
 
-        inverse_sort_idx = np.argsort(ord)
-        return y_pred[inverse_sort_idx]
+        inverse_X1_sort_idx = np.argsort(X1_ord)
+        inverse_X2_sort_idx = np.argsort(X2_ord)
+        return y_pred[inverse_X1_sort_idx, :][:, inverse_X2_sort_idx]
 
     def get_fitted_grids(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """

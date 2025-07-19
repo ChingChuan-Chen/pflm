@@ -70,7 +70,7 @@ def test_polyfit1d_happy_case(dtype):
     # fmt: on
 
     for kernel_type, expected in expected_results.items():
-        model = Polyfit1DModel(kernel_type=kernel_type, obs_grid=x_new, degree=1, deriv=0)
+        model = Polyfit1DModel(kernel_type=kernel_type, obs_grid=x_new)
         model.fit(x, y, sample_weight=w, bandwidth=bw)
         y_pred = model.predict(x_new)
         assert_allclose(y_pred, expected, rtol=1e-5, atol=1e-6, err_msg=f"Failed for kernel {kernel_type} with dtype {dtype}")
@@ -88,30 +88,6 @@ def test_polyfit1d_big(dtype):
     xs = x[sorted_idx]
     ys = y[sorted_idx]
     ws = w[sorted_idx]
-
-    # Test configurations: (kernel_type, degree, deriv)
-    test_configs = [
-        (KernelType.GAUSSIAN, 1, 0),
-        (KernelType.GAUSSIAN, 3, 1),
-        (KernelType.LOGISTIC, 1, 0),
-        (KernelType.LOGISTIC, 3, 1),
-        (KernelType.SIGMOID, 1, 0),
-        (KernelType.SIGMOID, 3, 1),
-        (KernelType.RECTANGULAR, 1, 0),
-        (KernelType.RECTANGULAR, 3, 1),
-        (KernelType.TRIANGULAR, 1, 0),
-        (KernelType.TRIANGULAR, 3, 1),
-        (KernelType.EPANECHNIKOV, 1, 0),
-        (KernelType.EPANECHNIKOV, 3, 1),
-        (KernelType.BIWEIGHT, 1, 0),
-        (KernelType.BIWEIGHT, 3, 1),
-        (KernelType.TRIWEIGHT, 1, 0),
-        (KernelType.TRIWEIGHT, 3, 1),
-        (KernelType.TRICUBE, 1, 0),
-        (KernelType.TRICUBE, 3, 1),
-        (KernelType.COSINE, 1, 0),
-        (KernelType.COSINE, 3, 1),
-    ]
 
     # fmt: off
     expected_results = {
@@ -289,6 +265,42 @@ def test_polyfit1d_big(dtype):
             atol=1e-6,
             err_msg=f"Failed for kernel {kernel_type} with dtype {dtype} and degree {degree} and deriv {deriv}",
         )
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_polyfit1d_predict_random_order(dtype):
+    bw = 1.35789
+    x = np.array([1.0, 2.0, 3.0, 4.5, 5.0, 7.0], dtype=dtype)
+    y = np.linspace(0.0, 1.0, 6, dtype=dtype)
+    w = np.ones_like(x, dtype=dtype)
+    x_new = np.array([3.0, 4.0, 6.0, 5.0, 5.5, 6.5], dtype=dtype)
+
+    expected_results = np.array(
+        [0.381629932858, 0.561082911319, 0.875183582904, 0.730103450143, 0.805520165855, 0.941180911169],
+        dtype=dtype,
+    )
+    model = Polyfit1DModel(kernel_type=KernelType.GAUSSIAN, obs_grid=x_new)
+    model.fit(x, y, sample_weight=w, bandwidth=bw)
+    y_pred = model.predict(x_new)
+    assert_allclose(y_pred, expected_results, rtol=1e-5, atol=1e-6, err_msg=f"Failed for dtype {dtype} with random order")
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_polyfit1d_predict_nonunit_weight(dtype):
+    bw = 1.35789
+    x = np.array([1.0, 2.0, 3.0, 4.5, 5.0, 7.0], dtype=dtype)
+    y = np.linspace(0.0, 1.0, 6, dtype=dtype)
+    w = np.array([1.0, 1.0, 3.0, 4.0, 1.5, 2.5], dtype=dtype)
+    x_new = np.array([3.0, 4.0, 6.0, 5.0, 5.5, 6.5], dtype=dtype)
+
+    expected_results = np.array(
+        [0.380560427220, 0.548544553298, 0.861230453851, 0.710492023351, 0.787257842890, 0.933244651929],
+        dtype=dtype,
+    )
+    model = Polyfit1DModel(kernel_type=KernelType.GAUSSIAN, obs_grid=x_new)
+    model.fit(x, y, sample_weight=w, bandwidth=bw)
+    y_pred = model.predict(x_new)
+    assert_allclose(y_pred, expected_results, rtol=1e-5, atol=1e-6, err_msg=f"Failed for dtype {dtype} with random order")
 
 
 def make_test_inputs():
