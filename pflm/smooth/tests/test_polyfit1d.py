@@ -76,6 +76,36 @@ def test_polyfit1d_happy_case(dtype):
         assert_allclose(y_pred, expected, rtol=1e-5, atol=1e-6, err_msg=f"Failed for kernel {kernel_type} with dtype {dtype}")
 
 
+@pytest.mark.parametrize("order", ['C', 'F'])
+def test_polyfit1d_different_order_array(order):
+    if order == 'C':
+        x = np.ascontiguousarray(np.linspace(0.0, 1.0, 11))
+    else:
+        x = np.asfortranarray(np.linspace(0.0, 1.0, 11))
+
+    y = 2.0 * x**2 + 3 * x
+    w = np.ones_like(x, order=order, dtype=x.dtype)
+    if order == 'C':
+        x_new = np.ascontiguousarray(np.linspace(0.0, 1.0, 11))
+    else:
+        x_new = np.asfortranarray(np.linspace(0.0, 1.0, 11))
+
+    # fmt: off
+    expected_results = np.array([
+        -0.059162939216, 0.325036778510, 0.731014910930, 1.161759855632,
+        1.619430366873, 2.105204388503, 2.619430366873, 3.161759855632,
+        3.731014910930, 4.325036778510, 4.940837060784
+    ], order=order, dtype=x.dtype)
+    # fmt: on
+
+    model = Polyfit1DModel(obs_grid=x_new, kernel_type=KernelType.GAUSSIAN)
+    model.fit(x, y, sample_weight=w, bandwidth=0.25)
+    y_pred = model.predict(x_new)
+    assert y_pred.shape == (len(x_new),)
+    assert np.all(np.isfinite(y_pred)), "Prediction contains NaN or Inf values"
+    assert_allclose(y_pred, expected_results, rtol=1e-5, atol=1e-6, err_msg=f"Failed for kernel {KernelType.GAUSSIAN} with dtype {x.dtype} and order {order}")
+
+
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_polyfit1d_big(dtype):
     bw = 5.445
@@ -630,3 +660,4 @@ def test_polyfit1d_unable_generate_bandwidth_candidates():
     model = Polyfit1DModel(obs_grid=x, random_seed=100)
     with pytest.raises(ValueError, match="Not enough unique support points"):
         model.fit(x, y, sample_weight=w)
+
