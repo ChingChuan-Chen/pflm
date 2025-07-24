@@ -616,12 +616,10 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             np.max(sorted_grid_pairs[lag:, 0] - sorted_grid_pairs[:-lag, 0]),
             np.max(sorted_grid_pairs[lag:, 1] - sorted_grid_pairs[:-lag, 1])
         ]
+        # sqrt(2) because the window is circular.
         r1 = (sorted_grid_pairs[-1, 0] - sorted_grid_pairs[0, 0]) * math.sqrt(2.0)
         r2 = (np.max(sorted_grid_pairs[:, 1]) - np.min(sorted_grid_pairs[:, 1])) * math.sqrt(2.0)
-        bw1_candidates = self._get_bandwidth_candidates(d_stars[0], r1)
-        bw2_candidates = self._get_bandwidth_candidates(d_stars[1], r2)
-
-        bw1v, bw2v = np.meshgrid(bw1_candidates, bw2_candidates)
+        bw1v, bw2v = np.meshgrid(self._get_bandwidth_candidates(d_stars[0], r1), self._get_bandwidth_candidates(d_stars[1], r2))
         return np.vstack((bw2v.ravel(), bw1v.ravel()))
 
     def _compute_cv_score(
