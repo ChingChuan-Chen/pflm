@@ -38,10 +38,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         The degree of the polynomial. Must be >= 1.
     deriv : int, default=0
         The derivative order to compute. Must be >= 0 and <= degree.
-    obs_grid : array-like, default=None
-        Custom grid points for interpolation. If None, will create uniform grid.
-        Must be within the range of input X.
-    n_interp_points : int, default=100
+    n_points_reg_grid : int, default=100
         Number of points to use for interpolation grid (only used if obs_grid is None).
     interp_kind : str, default='linear'
         Type of interpolation ('linear', 'spline').
@@ -58,10 +55,12 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         The sample weights from the last fit.
     n_features_in_ : int
         Number of features seen during fit (always 1 for 1D).
-    obs_grid_ : ndarray
+    reg_grid_ : ndarray
         The interpolation grid points.
-    obs_fitted_values_ : ndarray
+    reg_fitted_values_ : ndarray
         The fitted values at interpolation grid points.
+    obs_grid_ : ndarray
+        The unique observed grid points from the input data.
     bandwidth_ : float
         The bandwidth used for kernel smoothing. It might be selected automatically or provided by the user.
     bandwidth_selection_results_ : dict, optional
@@ -74,8 +73,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         kernel_type: KernelType = KernelType.GAUSSIAN,
         degree: int = 1,
         deriv: int = 0,
-        obs_grid: Optional[Union[np.ndarray, List[float]]] = None,
-        n_interp_points: int = 100,
+        n_points_reg_grid: int = 100,
         interp_kind: Literal["linear", "spline"] = "linear",
         random_seed: Optional[int] = None,
     ) -> None:
@@ -97,8 +95,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         self.kernel_type = kernel_type
         self.degree = degree
         self.deriv = deriv
-        self.obs_grid_ = obs_grid
-        self.n_interp_points = n_interp_points
+        self.n_points_reg_grid = n_points_reg_grid
         self.interp_kind = interp_kind
         self.rng = np.random.default_rng(random_seed)
 
@@ -283,6 +280,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         y: Union[np.ndarray, List[float]],
         sample_weight: Optional[Union[np.ndarray, List[float]]] = None,
         bandwidth: Optional[float] = None,
+        reg_grid: Optional[Union[np.ndarray, List[float]]] = None,
         num_bw_candidates: int = 21,
         bandwidth_selection_method: Literal["cv", "gcv"] = "gcv",
         custom_bw_candidates: Optional[np.ndarray] = None,
@@ -302,6 +300,8 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         bandwidth : float, default=None
             The bandwidth parameter for kernel smoothing. If None, will be selected
             using the method specified in bandwidth_selection_method.
+        reg_grid: Optional[Union[np.ndarray, List[float]]], default=None
+            Custom grid points for interpolation. If None, will create a uniform grid.
         num_bw_candidates : int, default=21
             Number of bandwidth candidates to generate.
         bandwidth_selection_method : str, default='gcv'
@@ -373,6 +373,31 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         self.sorted_y_ = y[sort_idx]
         self.sorted_sample_weight_ = sample_weight[sort_idx]
 
+        # Create interpolation grid
+        x_min, x_max = np.min(X), np.max(X)
+
+        # create reg_grid_
+        if reg_grid is not None:
+            # Use custom grid
+            self.reg_grid_ = check_array(reg_grid, ensure_2d=False, dtype=self._input_dtype)
+            if self.reg_grid_.ndim != 1:
+                raise ValueError("reg_grid must be a 1D array")
+            if len(self.reg_grid_) < 2:
+                raise ValueError("reg_grid must have at least 2 points")
+
+            # Check if grid is within the range of input X
+            if np.min(self.reg_grid_) < x_min or np.max(self.reg_grid_) > x_max:
+                raise ValueError(
+                    f"reg_grid must be within the range of input X [{x_min:.6f}, {x_max:.6f}]. "
+                    f"Got reg_grid range [{np.min(self.reg_grid_):.6f}, {np.max(self.reg_grid_):.6f}]"
+                )
+        else:
+            # Create uniform grid within the range of input X
+            self.reg_grid_ = np.linspace(x_min, x_max, self.n_points_reg_grid)
+
+        # create obs_grid_
+        self.obs_grid_ = np.sort(np.unique(X))
+
         # Select bandwidth if needed
         if bandwidth is None:
             if custom_bw_candidates is not None:
@@ -390,33 +415,12 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         else:
             self.bandwidth_ = float(bandwidth)
 
-        # Create interpolation grid
-        x_min, x_max = np.min(X), np.max(X)
-
-        if self.obs_grid_ is not None:
-            # Use custom grid
-            self.obs_grid_ = check_array(self.obs_grid_, ensure_2d=False, dtype=self._input_dtype)
-            if self.obs_grid_.ndim != 1:
-                raise ValueError("obs_grid must be a 1D array")
-            if len(self.obs_grid_) < 2:
-                raise ValueError("obs_grid must have at least 2 points")
-
-            # Check if grid is within the range of input X
-            if np.min(self.obs_grid_) < x_min or np.max(self.obs_grid_) > x_max:
-                raise ValueError(
-                    f"obs_grid must be within the range of input X [{x_min:.6f}, {x_max:.6f}]. "
-                    f"Got obs_grid range [{np.min(self.obs_grid_):.6f}, {np.max(self.obs_grid_):.6f}]"
-                )
-        else:
-            # Create uniform grid within the range of input X
-            self.obs_grid_ = np.linspace(x_min, x_max, self.n_interp_points)
-
         try:
-            self.obs_fitted_values_ = self._polyfit1d_func(
+            self.reg_fitted_values_ = self._polyfit1d_func(
                 self.sorted_X_,
                 self.sorted_y_,
                 self.sorted_sample_weight_,
-                self.obs_grid_,
+                self.reg_grid_,
                 self.bandwidth_,
                 self.kernel_type.value,
                 self.degree,
@@ -444,7 +448,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         np.ndarray
             Predicted values of shape (n_samples,).
         """
-        check_is_fitted(self, ["obs_fitted_values_", "obs_grid_", "bandwidth_"])
+        check_is_fitted(self, ["reg_fitted_values_", "reg_grid_", "bandwidth_"])
 
         # Handle both (n_samples,) and (n_samples, 1) input shapes
         X = check_array(X, ensure_2d=False, dtype=self._input_dtype)
@@ -457,7 +461,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         # Use pflm.interp.interp1d for interpolation
         if use_model_interp:
             try:
-                y_pred = interp1d(self.obs_grid_, self.obs_fitted_values_, X[ord], self.interp_kind)
+                y_pred = interp1d(self.reg_grid_, self.reg_fitted_values_, X[ord], self.interp_kind)
             except Exception as e:
                 raise ValueError(f"Error during interpolation: {e!s}") from e
         else:
@@ -490,8 +494,8 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
             - obs_grid: The interpolation grid points.
             - obs_fitted_values: The fitted values at interpolation grid points.
         """
-        check_is_fitted(self, ["obs_fitted_values_", "obs_grid_", "bandwidth_"])
-        return self.obs_grid_.copy(), self.obs_fitted_values_.copy()
+        check_is_fitted(self, ["reg_fitted_values_", "reg_grid_", "bandwidth_"])
+        return self.reg_grid_.copy(), self.reg_fitted_values_.copy()
 
 
 class Polyfit2DModel(BaseEstimator, RegressorMixin):
@@ -508,13 +512,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         The derivative order for the first dimension.
     deriv2 : int, default=0
         The derivative order for the second dimension.
-    obs_grid1 : array-like, default=None
-        Custom grid points for interpolation in the first dimension. If None, will create uniform grid.
-        Must be within the range of the first dimension of input X.
-    obs_grid2 : np.ndarray, default=None
-        Custom grid points for interpolation in the second dimension. If None, will create uniform grid.
-        Must be within the range of the second dimension of input Y.
-    n_interp_points : int, default=100
+    n_points_reg_grid : int, default=100
         Number of points for interpolation grid in each dimension (only used if obs_grid is None).
     interp_kind : str, default='linear'
         Interpolation method ('linear', 'cubic', 'quintic').
@@ -554,9 +552,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         degree: int = 1,
         deriv1: int = 0,
         deriv2: int = 0,
-        obs_grid1: Optional[Union[np.ndarray, List[float]]] = None,
-        obs_grid2: Optional[Union[np.ndarray, List[float]]] = None,
-        n_interp_points: int = 100,
+        n_points_reg_grid: int = 100,
         interp_kind: Literal["linear", "spline"] = "linear",
         random_seed: Optional[int] = None,
     ) -> None:
@@ -581,9 +577,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         self.degree = degree
         self.deriv1 = deriv1
         self.deriv2 = deriv2
-        self.obs_grid1_ = obs_grid1
-        self.obs_grid2_ = obs_grid2
-        self.n_interp_points = n_interp_points
+        self.n_points_reg_grid = n_points_reg_grid
         self.interp_kind = interp_kind
         self.rng = np.random.default_rng(random_seed)
 
@@ -625,15 +619,16 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         return np.vstack((bw2v.ravel(), bw1v.ravel()))
 
     def _compute_cv_score(
-        self, sorted_grid_pairs: np.ndarray, bandwidth1: np.floating, bandwidth2: np.floating, cv_folds: int = 5
+        self,
+        bandwidth1: np.floating,
+        bandwidth2: np.floating,
+        cv_folds: int = 5,
     ) -> np.floating:
         """
         Compute cross-validation score for given bandwidths.
 
         Parameters
         ----------
-        sorted_grid_pairs : np.ndarray
-            Sorted unique pairs of grid points.
         bandwidth1 : float
             Bandwidth for first dimension.
         bandwidth2 : float
@@ -651,15 +646,17 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         return np.random.rand()  # Example random score
 
     def _compute_gcv_score(
-        self, sorted_grid_pairs: np.ndarray, bandwidth1: np.floating, bandwidth2: np.floating, unique_idx: np.ndarray, k0: float, r: np.floating
+        self,
+        bandwidth1: np.floating,
+        bandwidth2: np.floating,
+        k0: float,
+        r: np.floating,
     ) -> np.floating:
         """
         Compute Generalized Cross-Validation score for given bandwidths.
 
         Parameters
         ----------
-        sorted_grid_pairs : np.ndarray
-            Sorted unique pairs of grid points.
         bandwidth1 : float
             Bandwidth for first dimension.
         bandwidth2 : float
@@ -674,6 +671,22 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         float
             GCV score.
         """
+        y_pred = self._polyfit2d_func(
+            self.sorted_X_,
+            self.sorted_y_,
+            self.sorted_sample_weight_,
+            self.obs_grid1_,
+            self.obs_grid2_,
+            bandwidth1,
+            bandwidth2,
+            self.kernel_type.value,
+            self.degree,
+            self.deriv1,
+            self.deriv2,
+        )
+        if np.isnan(y_pred).any():
+            return np.inf
+
         # TODO: Implement 2D GCV score calculation
         # This is a placeholder - you'll provide the actual implementation
         return np.random.rand()  # Example random score
@@ -685,7 +698,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         same_bandwidth_for_2dim: bool = False,
         custom_bw_candidates: Optional[np.ndarray] = None,
         cv_folds: int = 5,
-    ) -> Tuple[np.floating, np.floating]:
+    ) -> Tuple[float, float]:
         """
         Select bandwidths using cross-validation.
 
@@ -727,13 +740,11 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         if method == "cv":
             cv_scores = np.zeros(bandwidth_candidates_.shape[0], dtype=self._input_dtype)
             for i in range(bandwidth_candidates_.shape[0]):
-                cv_scores[i] = self._compute_cv_score(
-                    sorted_unique_X, bandwidth_candidates_[i, 0], bandwidth_candidates_[i, 1], unique_idx, cv_folds
-                )
+                cv_scores[i] = self._compute_cv_score(bandwidth_candidates_[i, 0], bandwidth_candidates_[i, 1], cv_folds)
             if (~np.isfinite(cv_scores)).all():
                 raise ValueError("All CV scores are non-finite. Check your data and bandwidth candidates.")
             self.bandwidth_selection_results_["cv_scores"] = cv_scores
-            self.bandwidth_selection_results_["best_bandwidth"] = bandwidth_candidates_[np.argmin(cv_scores)]
+            self.bandwidth_selection_results_["best_bandwidth"] = bandwidth_candidates_[np.argmin(cv_scores), :]
             self.bandwidth_selection_results_["cv_folds"] = cv_folds
         elif method == "gcv":
             k0 = (
@@ -744,15 +755,13 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             r = sorted_unique_X[-1] - sorted_unique_X[0]
             gcv_scores = np.zeros(bandwidth_candidates_.shape[0], dtype=self._input_dtype)
             for i in range(bandwidth_candidates_.shape[0]):
-                gcv_scores[i] = self._compute_gcv_score(
-                    sorted_unique_X, unique_idx, bandwidth_candidates_[i, 0], bandwidth_candidates_[i, 1], k0, r
-                )
+                gcv_scores[i] = self._compute_gcv_score(bandwidth_candidates_[i, 0], bandwidth_candidates_[i, 1], k0, r)
             if (~np.isfinite(gcv_scores)).all():
                 raise ValueError("All GCV scores are non-finite. Check your data and bandwidth candidates.")
             self.bandwidth_selection_results_["gcv_scores"] = gcv_scores
-            self.bandwidth_selection_results_["best_bandwidth"] = bandwidth_candidates_[np.argmin(gcv_scores)]
+            self.bandwidth_selection_results_["best_bandwidth"] = bandwidth_candidates_[np.argmin(gcv_scores), :]
 
-        return self.bandwidth_selection_results_["best_bandwidth"]
+        return self.bandwidth_selection_results_["best_bandwidth"][0], self.bandwidth_selection_results_["best_bandwidth"][1]
 
     def fit(
         self,
@@ -766,7 +775,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         same_bandwidth_for_2dim: bool = False,
         custom_bw_candidates: Optional[np.ndarray] = None,
         cv_folds: int = 5,
-    ) -> "Polyfit2DModel":
+    ):
         """
         Fit the 2D polynomial model.
 
@@ -865,6 +874,45 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         self.sorted_y_ = y[sort_idx]
         self.sorted_sample_weight_ = sample_weight[sort_idx]
 
+        # Create regression grids
+        x1_min, x1_max = np.min(X[:, 0]), np.max(X[:, 0])
+        x2_min, x2_max = np.min(X[:, 1]), np.max(X[:, 1])
+        if reg_grid1_ is not None:
+            # Use custom grid for first dimension
+            self.reg_grid1_ = check_array(self.reg_grid1_, ensure_2d=False, dtype=self._input_dtype)
+            if self.reg_grid1_.ndim != 1:
+                raise ValueError("reg_grid1 must be a 1D array")
+            if len(self.reg_grid1_) < 2:
+                raise ValueError("reg_grid1 must have at least 2 points")
+            if np.min(self.reg_grid1_) < x1_min or np.max(self.reg_grid1_) > x1_max:
+                raise ValueError(
+                    f"reg_grid1_ must be within the range of input X[:, 0] [{x1_min:.6f}, {x1_max:.6f}]. "
+                    f"Got reg_grid1_ range [{np.min(self.reg_grid1_):.6f}, {np.max(self.reg_grid1_):.6f}]"
+                )
+        else:
+            # Create uniform grid for first dimension
+            self.reg_grid1_ = np.linspace(x1_min, x1_max, self.n_points_reg_grid)
+
+        if reg_grid2_ is not None:
+            # Use custom grid for second dimension
+            self.reg_grid2_ = check_array(self.reg_grid2_, ensure_2d=False, dtype=self._input_dtype)
+            if self.reg_grid2_.ndim != 1:
+                raise ValueError("reg_grid2 must be a 1D array")
+            if len(self.reg_grid2_) < 2:
+                raise ValueError("reg_grid2 must have at least 2 points")
+            if np.min(self.reg_grid2_) < x2_min or np.max(self.reg_grid2_) > x2_max:
+                raise ValueError(
+                    f"reg_grid2 must be within the range of input X[:, 1] [{x2_min:.6f}, {x2_max:.6f}]. "
+                    f"Got reg_grid2 range [{np.min(self.reg_grid2_):.6f}, {np.max(self.reg_grid2_):.6f}]"
+                )
+        else:
+            # Create uniform grid for second dimension
+            self.reg_grid2_ = np.linspace(x2_min, x2_max, self.n_points_reg_grid)
+
+        # create observation grids
+        self.obs_grid1_ = np.sort(np.unique(self.sorted_X_[:, 0]))
+        self.obs_grid2_ = np.sort(np.unique(self.sorted_X_[:, 1]))
+
         # Select bandwidths if needed
         if bandwidth1 is None or bandwidth2 is None:
             if bandwidth1 is not None or bandwidth2 is not None:
@@ -880,47 +928,13 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             self.bandwidth1_ = float(bandwidth1)
             self.bandwidth2_ = float(bandwidth2)
 
-        # Create interpolation grids
-        x1_min, x1_max = np.min(X[:, 0]), np.max(X[:, 0])
-        x2_min, x2_max = np.min(X[:, 1]), np.max(X[:, 1])
-        if self.obs_grid1_ is not None:
-            # Use custom grid for first dimension
-            self.obs_grid1_ = check_array(self.obs_grid1_, ensure_2d=False, dtype=self._input_dtype)
-            if self.obs_grid1_.ndim != 1:
-                raise ValueError("obs_grid1 must be a 1D array")
-            if len(self.obs_grid1_) < 2:
-                raise ValueError("obs_grid1 must have at least 2 points")
-            if np.min(self.obs_grid1_) < x1_min or np.max(self.obs_grid1_) > x1_max:
-                raise ValueError(
-                    f"obs_grid1 must be within the range of input X[:, 0] [{x1_min:.6f}, {x1_max:.6f}]. "
-                    f"Got obs_grid1 range [{np.min(self.obs_grid1_):.6f}, {np.max(self.obs_grid1_):.6f}]"
-                )
-        else:
-            # Create uniform grid for first dimension
-            self.obs_grid1_ = np.linspace(x1_min, x1_max, self.n_interp_points)
-        if self.obs_grid2_ is not None:
-            # Use custom grid for second dimension
-            self.obs_grid2_ = check_array(self.obs_grid2_, ensure_2d=False, dtype=self._input_dtype)
-            if self.obs_grid2_.ndim != 1:
-                raise ValueError("obs_grid2 must be a 1D array")
-            if len(self.obs_grid2_) < 2:
-                raise ValueError("obs_grid2 must have at least 2 points")
-            if np.min(self.obs_grid2_) < x2_min or np.max(self.obs_grid2_) > x2_max:
-                raise ValueError(
-                    f"obs_grid2 must be within the range of input X[:, 1] [{x2_min:.6f}, {x2_max:.6f}]. "
-                    f"Got obs_grid2 range [{np.min(self.obs_grid2_):.6f}, {np.max(self.obs_grid2_):.6f}]"
-                )
-        else:
-            # Create uniform grid for second dimension
-            self.obs_grid2_ = np.linspace(x2_min, x2_max, self.n_interp_points)
-
         try:
-            self.obs_fitted_values_ = self._polyfit2d_func(
+            self.reg_fitted_values_ = self._polyfit2d_func(
                 np.ascontiguousarray(self.sorted_X_.T),
                 self.sorted_y_,
                 self.sorted_sample_weight_,
-                self.obs_grid1_,
-                self.obs_grid2_,
+                self.reg_grid1_,
+                self.reg_grid2_,
                 self.bandwidth1_,
                 self.bandwidth2_,
                 self.kernel_type.value,
@@ -952,7 +966,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         np.ndarray
             Predicted values of shape (n_samples,).
         """
-        check_is_fitted(self, ["obs_fitted_values_", "obs_grid1_", "obs_grid2_", "bandwidth1_", "bandwidth2_"])
+        check_is_fitted(self, ["reg_fitted_values_", "reg_grid1_", "reg_grid2_", "bandwidth1_", "bandwidth2_"])
 
         # Handle input validation
         X1 = check_array(X1, ensure_2d=False, dtype=self._input_dtype)
@@ -966,7 +980,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         X2_ord = np.argsort(X2)
         if use_model_interp:
             try:
-                y_pred = interp2d(self.obs_grid1_, self.obs_grid2_, self.obs_fitted_values_, X1[X1_ord], X2[X2_ord], self.interp_kind)
+                y_pred = interp2d(self.reg_grid1_, self.reg_grid2_, self.reg_fitted_values_, X1[X1_ord], X2[X2_ord], self.interp_kind)
             except Exception as e:
                 raise ValueError(f"Error during interpolation: {e!s}") from e
         else:
@@ -999,9 +1013,9 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         -------
         Tuple[np.ndarray, np.ndarray, np.ndarray]
             A tuple containing:
-            - obs_grid1: The interpolation grid points for the first dimension.
-            - obs_grid2: The interpolation grid points for the second dimension.
-            - obs_fitted_values: The fitted values at interpolation grid points.
+            - reg_grid1: The interpolation grid points for the first dimension.
+            - reg_grid2: The interpolation grid points for the second dimension.
+            - reg_fitted_values: The fitted values at interpolation grid points.
         """
-        check_is_fitted(self, ["obs_fitted_values_", "obs_grid1_", "obs_grid2_", "bandwidth1_", "bandwidth2_"])
-        return self.obs_grid1_.copy(), self.obs_grid2_.copy(), self.obs_fitted_values_.copy()
+        check_is_fitted(self, ["reg_fitted_values_", "reg_grid1_", "reg_grid2_", "bandwidth1_", "bandwidth2_"])
+        return self.reg_grid1_.copy(), self.reg_grid2_.copy(), self.reg_fitted_values_.copy()

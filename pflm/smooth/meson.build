@@ -2,15 +2,13 @@ polyfit_cython_tree = [
     pflm_root_cython_tree,
     fs.copyfile('__init__.py'),
     fs.copyfile('__init__.pxd'),
-    fs.copyfile('_polyfit.pxd'),
-    fs.copyfile('src/polyfit_helper.h')
+    fs.copyfile('_polyfit.pxd')
 ]
 
 polyfit_extension_metadata = {
     '_polyfit': {
         'sources': [
-            cython_gen_cpp.process('_polyfit.pyx'),
-            'src' / 'polyfit_helper.cpp'
+            cython_gen_cpp.process('_polyfit.pyx')
         ],
         'dependencies': [np_dep, openmp_dep],
     },

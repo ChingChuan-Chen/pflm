@@ -72,8 +72,8 @@ def test_polyfit1d_happy_case(dtype):
     # fmt: on
 
     for kernel_type, expected in expected_results.items():
-        model = Polyfit1DModel(kernel_type=kernel_type, obs_grid=x_new)
-        model.fit(x, y, sample_weight=w, bandwidth=bw)
+        model = Polyfit1DModel(kernel_type=kernel_type)
+        model.fit(x, y, sample_weight=w, bandwidth=bw, reg_grid=x_new)
         y_pred = model.predict(x_new)
         assert_allclose(y_pred, expected, rtol=1e-5, atol=1e-6, err_msg=f"Failed for kernel {kernel_type} with dtype {dtype}")
 
@@ -100,8 +100,8 @@ def test_polyfit1d_different_order_array(order):
     ], order=order, dtype=x.dtype)
     # fmt: on
 
-    model = Polyfit1DModel(obs_grid=x_new, kernel_type=KernelType.GAUSSIAN)
-    model.fit(x, y, sample_weight=w, bandwidth=0.25)
+    model = Polyfit1DModel(kernel_type=KernelType.GAUSSIAN)
+    model.fit(x, y, sample_weight=w, bandwidth=0.25, reg_grid=x_new)
     y_pred = model.predict(x_new)
     assert y_pred.shape == (len(x_new),)
     assert np.all(np.isfinite(y_pred)), "Prediction contains NaN or Inf values"
@@ -289,8 +289,8 @@ def test_polyfit1d_big(dtype):
     # fmt: on
 
     for (kernel_type, degree, deriv), expected in expected_results.items():
-        model = Polyfit1DModel(kernel_type=kernel_type, obs_grid=x_new, degree=degree, deriv=deriv)
-        model.fit(xs, ys, sample_weight=ws, bandwidth=bw)
+        model = Polyfit1DModel(kernel_type=kernel_type, degree=degree, deriv=deriv)
+        model.fit(xs, ys, sample_weight=ws, bandwidth=bw, reg_grid=x_new)
         y_pred = model.predict(x_new)
         assert_allclose(
             y_pred,
@@ -313,8 +313,8 @@ def test_polyfit1d_predict_random_order(dtype):
         [0.381629932858, 0.561082911319, 0.875183582904, 0.730103450143, 0.805520165855, 0.941180911169],
         dtype=dtype,
     )
-    model = Polyfit1DModel(kernel_type=KernelType.GAUSSIAN, obs_grid=x_new)
-    model.fit(x, y, sample_weight=w, bandwidth=bw)
+    model = Polyfit1DModel(kernel_type=KernelType.GAUSSIAN)
+    model.fit(x, y, sample_weight=w, bandwidth=bw, reg_grid=x_new)
     y_pred = model.predict(x_new)
     assert_allclose(y_pred, expected_results, rtol=1e-5, atol=1e-6, err_msg=f"Failed for dtype {dtype} with random order")
 
@@ -331,8 +331,8 @@ def test_polyfit1d_predict_nonunit_weight(dtype):
         [0.380560427220, 0.548544553298, 0.861230453851, 0.710492023351, 0.787257842890, 0.933244651929],
         dtype=dtype,
     )
-    model = Polyfit1DModel(kernel_type=KernelType.GAUSSIAN, obs_grid=x_new)
-    model.fit(x, y, sample_weight=w, bandwidth=bw)
+    model = Polyfit1DModel(kernel_type=KernelType.GAUSSIAN)
+    model.fit(x, y, sample_weight=w, bandwidth=bw, reg_grid=x_new)
     y_pred = model.predict(x_new)
     assert_allclose(y_pred, expected_results, rtol=1e-5, atol=1e-6, err_msg=f"Failed for dtype {dtype} with random order")
 
@@ -349,85 +349,85 @@ def test_polyfit1d_x_not_1d():
     x, y, w, x_new = make_test_inputs()
 
     # valid 2D input
-    model = Polyfit1DModel(obs_grid=x_new)
-    model.fit(x.reshape(-1, 1), y, sample_weight=w, bandwidth=0.1)
+    model = Polyfit1DModel()
+    model.fit(x.reshape(-1, 1), y, sample_weight=w, bandwidth=0.1, reg_grid=x_new)
     result = model.predict(x_new)
     assert result.shape == (len(x_new),)
 
     x = np.array([[0.1, 0.2], [0.3, 0.4]])  # Not 1D
-    model = Polyfit1DModel(obs_grid=x_new)
+    model = Polyfit1DModel()
     with pytest.raises(ValueError, match="X must have exactly 1 feature"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1)
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=x_new)
 
 
 def test_polyfit1d_y_not_1d():
     x, y, w, x_new = make_test_inputs()
     y = np.array([[0.1, 0.2], [0.3, 0.4]])  # Not 1D
-    model = Polyfit1DModel(obs_grid=x_new)
+    model = Polyfit1DModel()
     with pytest.raises(ValueError, match="y must have the same size as X."):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1)
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=x_new)
 
 
 def test_polyfit1d_w_not_1d():
     x, y, w, x_new = make_test_inputs()
 
     # valid None input
-    model = Polyfit1DModel(obs_grid=x_new)
-    model.fit(x, y, sample_weight=None, bandwidth=0.1)
+    model = Polyfit1DModel()
+    model.fit(x, y, sample_weight=None, bandwidth=0.1, reg_grid=x_new)
     result = model.predict(x_new)
     assert result.shape == (len(x_new),)
 
     w = np.array([[1.0, 1.0], [1.0, 1.0]])  # Not 1D
-    model = Polyfit1DModel(obs_grid=x_new)
+    model = Polyfit1DModel()
     with pytest.raises(ValueError, match="sample_weight must have the same length as y"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1)
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=x_new)
 
 
 def test_polyfit1d_x_y_size_mismatch():
     x, y, w, x_new = make_test_inputs()
     y = np.array([0.1, 0.2, 0.3])  # Different size than x
-    model = Polyfit1DModel(obs_grid=x_new)
+    model = Polyfit1DModel()
     with pytest.raises(ValueError, match="y must have the same size as X."):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1)
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=x_new)
 
 
 def test_polyfit1d_w_negative():
     x, y, w, x_new = make_test_inputs()
     w = np.array([-1.0, 1.0, 1.0, 2.0, 3.0])  # Negative weight
-    model = Polyfit1DModel(obs_grid=x_new)
+    model = Polyfit1DModel()
     with pytest.raises(ValueError, match="All sample weights must be non-negative"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1)
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=x_new)
 
 
 def test_polyfit1d_y_w_size_mismatch():
     x, y, w, x_new = make_test_inputs()
     w = np.array([1.0, 1.0, 1.0])  # Different size than y
-    model = Polyfit1DModel(obs_grid=x_new)
+    model = Polyfit1DModel()
     with pytest.raises(ValueError, match="sample_weight must have the same length as y"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1)
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=x_new)
 
 
 def test_polyfit1d_x_new_not_1d():
     x, y, w, _ = make_test_inputs()
     x_new = np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float64)
-    model = Polyfit1DModel(obs_grid=x_new)
-    with pytest.raises(ValueError, match="obs_grid must be a 1D array"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1)
+    model = Polyfit1DModel()
+    with pytest.raises(ValueError, match="reg_grid must be a 1D array"):
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=x_new)
 
 
 def test_polyfit1d_x_new_empty():
     x, y, w, _ = make_test_inputs()
     x_new = np.array([], dtype=np.float64)
-    model = Polyfit1DModel(obs_grid=x_new)
+    model = Polyfit1DModel()
     with pytest.raises(ValueError, match="Found array with 0 sample"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1)
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=x_new)
 
 
 def test_polyfit1d_bandwidth_non_positive():
     x, y, w, x_new = make_test_inputs()
-    model = Polyfit1DModel(obs_grid=x_new)
+    model = Polyfit1DModel()
     with pytest.raises(ValueError, match="bandwidth must be positive"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.0)
+        model.fit(x, y, sample_weight=w, bandwidth=0.0, reg_grid=x_new)
 
 
 def test_polyfit1d_kernel_type_invalid():
@@ -485,17 +485,17 @@ def test_polyfit1d_nan_inputs(dtype):
 @pytest.mark.parametrize("bad_type", [float("nan"), np.nan])
 def test_polyfit1d_bandwidth_nan(bad_type):
     x, y, w, x_new = make_test_inputs()
-    model = Polyfit1DModel(obs_grid=x_new)
+    model = Polyfit1DModel()
     with pytest.raises(ValueError, match="bandwidth.*NaN|bandwidth must be positive"):
-        model.fit(x, y, sample_weight=w, bandwidth=bad_type)
+        model.fit(x, y, sample_weight=w, bandwidth=bad_type, reg_grid=x_new)
 
 
 @pytest.mark.parametrize("bad_type", ["2", [1], (2,), {"a": 1}])
 def test_polyfit1d_bandwidth_non_numeric_type(bad_type):
     x, y, w, x_new = make_test_inputs()
-    model = Polyfit1DModel(obs_grid=x_new)
+    model = Polyfit1DModel()
     with pytest.raises((TypeError, ValueError), match="bandwidth.*should be.*number|bandwidth must be positive"):
-        model.fit(x, y, sample_weight=w, bandwidth=bad_type)
+        model.fit(x, y, sample_weight=w, bandwidth=bad_type, reg_grid=x_new)
 
 
 @pytest.mark.parametrize("bad_type", [1.5, "2", float("nan"), np.nan, None, [1], (2,), {"a": 1}])
@@ -512,8 +512,8 @@ def test_polyfit1d_deriv_non_int_type(bad_type):
 
 def test_polyfit1d_model_predict_wrong_2d_input():
     x, y, w, x_new = make_test_inputs()
-    model = Polyfit1DModel(obs_grid=x_new)
-    model.fit(x, y, sample_weight=w, bandwidth=0.1)
+    model = Polyfit1DModel()
+    model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=x_new)
 
     # Test with 2D input
     with pytest.raises(ValueError, match="X must have exactly 1 feature"):
@@ -523,8 +523,8 @@ def test_polyfit1d_model_predict_wrong_2d_input():
 def test_polyfit1d_model_predict_2d_input():
     x, y, w, x_new = make_test_inputs()
     # Test with 2D input
-    model = Polyfit1DModel(obs_grid=x_new)
-    model.fit(x, y, sample_weight=w, bandwidth=0.1)
+    model = Polyfit1DModel()
+    model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=x_new)
     y_pred = model.predict(x_new.reshape(-1, 1))
     assert y_pred.shape == (len(x_new),)
     assert np.all(np.isfinite(y_pred)), "Prediction contains NaN or Inf values"
@@ -536,15 +536,15 @@ def test_polyfit1d_model_predict_2d_input():
 
 def test_polyfit1d_model_predict_without_fit():
     x, y, w, x_new = make_test_inputs()
-    model = Polyfit1DModel(obs_grid=x_new)
+    model = Polyfit1DModel()
     with pytest.raises(ValueError, match="This .* instance is not fitted yet|Model must be fitted"):
         model.predict(x_new)
 
 
 def test_polyfit1d_model_get_fitted_grids():
     x, y, w, x_new = make_test_inputs()
-    model = Polyfit1DModel(obs_grid=x_new)
-    model.fit(x, y, sample_weight=w, bandwidth=0.1)
+    model = Polyfit1DModel()
+    model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=x_new)
 
     # Test if fitted grids are returned correctly
     obs_grid, obs_fitted_values = model.get_fitted_grids()
@@ -553,92 +553,92 @@ def test_polyfit1d_model_get_fitted_grids():
     assert np.all(np.isfinite(obs_fitted_values)), "Fitted values contain NaN or Inf"
 
 
-def test_polyfit1d_model_custom_obs_grid():
+def test_polyfit1d_model_custom_reg_grid():
     x, y, w, x_new = make_test_inputs()
-    # Test with custom observation grid
-    obs_grid = np.array([0.1, 0.15, 0.2])
-    model = Polyfit1DModel(obs_grid=obs_grid)
-    model.fit(x, y, sample_weight=w, bandwidth=0.1)
+    # Test with custom regression grid
+    reg_grid = np.array([0.1, 0.15, 0.2])
+    model = Polyfit1DModel()
+    model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=reg_grid)
     y_pred = model.predict(x_new)
     assert len(y_pred) == len(x_new)
 
 
-def test_polyfit1d_model_obs_grid_out_of_range():
+def test_polyfit1d_model_reg_grid_out_of_range():
     x, y, w, _ = make_test_inputs()
-    # Test with observation grid outside input range
-    obs_grid = np.array([0.0, 0.3])  # Outside [0.1, 0.2]
-    model = Polyfit1DModel(obs_grid=obs_grid)
-    with pytest.raises(ValueError, match="obs_grid must be within the range of input X"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1)
+    # Test with regression grid outside input range
+    reg_grid = np.array([0.0, 0.3])  # Outside [0.1, 0.2]
+    model = Polyfit1DModel()
+    with pytest.raises(ValueError, match="reg_grid must be within the range of input X"):
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=reg_grid)
 
 
-def test_polyfit1d_model_obs_grid_wrong_shape():
+def test_polyfit1d_model_reg_grid_wrong_shape():
     x, y, w, _ = make_test_inputs()
-    # Test with 2D observation grid
-    obs_grid = np.array([[0.1, 0.15], [0.2, 0.25]])
-    model = Polyfit1DModel(obs_grid=obs_grid)
-    with pytest.raises(ValueError, match="obs_grid must be a 1D array"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1)
+    # Test with 2D regression grid
+    reg_grid = np.array([[0.1, 0.15], [0.2, 0.25]])
+    model = Polyfit1DModel()
+    with pytest.raises(ValueError, match="reg_grid must be a 1D array"):
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=reg_grid)
 
 
-def test_polyfit1d_model_obs_grid_too_few_points():
+def test_polyfit1d_model_reg_grid_too_few_points():
     x, y, w, _ = make_test_inputs()
-    # Test with observation grid with too few points
-    obs_grid = np.array([0.15])  # Only 1 point
-    model = Polyfit1DModel(obs_grid=obs_grid)
-    with pytest.raises(ValueError, match="obs_grid must have at least 2 points"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1)
+    # Test with regression grid with too few points
+    reg_grid = np.array([0.15])  # Only 1 point
+    model = Polyfit1DModel()
+    with pytest.raises(ValueError, match="reg_grid must have at least 2 points"):
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=reg_grid)
 
 
-def test_polyfit1d_model_obs_grid_with_nan():
+def test_polyfit1d_model_reg_grid_with_nan():
     x, y, w, _ = make_test_inputs()
-    # Test with observation grid containing NaN
-    obs_grid = np.array([0.1, np.nan, 0.2])
-    model = Polyfit1DModel(obs_grid=obs_grid)
+    # Test with regression grid containing NaN
+    reg_grid = np.array([0.1, np.nan, 0.2])
+    model = Polyfit1DModel()
     with pytest.raises(ValueError, match="Input contains NaN"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1)
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=reg_grid)
 
 
 def test_polyfit1d_wrong_interp_kind():
     x, y, w, x_new = make_test_inputs()
     with pytest.raises(ValueError, match="interp_kind must be one of"):
-        model = Polyfit1DModel(obs_grid=x_new, interp_kind="invalid")
+        model = Polyfit1DModel(interp_kind="invalid")
 
 
 def test_polyfit1d_wrong_bandwidth_selection_method():
     x, y, w, x_new = make_test_inputs()
-    model = Polyfit1DModel(obs_grid=x_new)
+    model = Polyfit1DModel()
     with pytest.raises(ValueError, match="bandwidth_selection_method must be one of"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1, bandwidth_selection_method="invalid")
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, bandwidth_selection_method="invalid", reg_grid=x_new)
 
 
 def test_polyfit1d_num_bw_candidates():
     x, y, w, x_new = make_test_inputs()
-    model = Polyfit1DModel(obs_grid=x_new)
+    model = Polyfit1DModel()
     with pytest.raises(TypeError, match="Number of bandwidth candidates, num_bw_candidates, should be an integer"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1, num_bw_candidates=1.5)
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, num_bw_candidates=1.5, reg_grid=x_new)
     with pytest.raises(ValueError, match="Number of bandwidth candidates, num_bw_candidates, should be at least 2"):
-        model.fit(x, y, sample_weight=w, bandwidth=0.1, num_bw_candidates=1)
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, num_bw_candidates=1, reg_grid=x_new)
 
 
 def test_polyfit1d_cv_folds():
     x, y, w, x_new = make_test_inputs()
-    model = Polyfit1DModel(obs_grid=x_new)
+    model = Polyfit1DModel()
     with pytest.raises(ValueError, match="Number of cross-validation folds, cv_folds, should be at least 2"):
         model.fit(x, y, sample_weight=w, bandwidth=0.1, bandwidth_selection_method="cv", cv_folds=1)
 
 
 def test_polyfit1d_custom_bw_candidates():
     x, y, w, x_new = make_test_inputs()
-    model = Polyfit1DModel(obs_grid=x_new, random_seed=100, kernel_type=KernelType.EPANECHNIKOV)
+    model = Polyfit1DModel(random_seed=100, kernel_type=KernelType.EPANECHNIKOV)
     model.fit(x, y, sample_weight=w, custom_bw_candidates=np.array([[0.1], [0.2]]))
     assert model.bandwidth_ == np.float64(0.2)
     with pytest.raises(ValueError, match="All CV scores are non-finite."):
-        model.fit(x, y, sample_weight=w, bandwidth_selection_method="cv", custom_bw_candidates=np.array([[0.005], [0.006]]))
+        model.fit(x, y, sample_weight=w, bandwidth_selection_method="cv", custom_bw_candidates=np.array([[0.005], [0.006]]), reg_grid=x_new)
     with pytest.raises(ValueError, match="All GCV scores are non-finite."):
-        model.fit(x, y, sample_weight=w, custom_bw_candidates=np.array([0.005, 0.006]))
+        model.fit(x, y, sample_weight=w, custom_bw_candidates=np.array([0.005, 0.006]), reg_grid=x_new)
     with pytest.raises(ValueError, match="custom_bw_candidates must have exactly 1 feature"):
-        model.fit(x, y, sample_weight=w, custom_bw_candidates=np.array([[0.1, 0.2]]))
+        model.fit(x, y, sample_weight=w, custom_bw_candidates=np.array([[0.1, 0.2]]), reg_grid=x_new)
 
 
 def test_polyfit1d_gcv_bandwidth_selection():
@@ -646,9 +646,9 @@ def test_polyfit1d_gcv_bandwidth_selection():
     y = x**2 - x * 3 + 0.5
     w = np.ones_like(x)
     x_new = np.linspace(0, 1, 21)
-    model = Polyfit1DModel(obs_grid=x_new, random_seed=100, kernel_type=KernelType.EPANECHNIKOV)
-    model.fit(x, y, sample_weight=w, bandwidth_selection_method="gcv")
-    assert math.fabs(model.bandwidth_ - 0.2) < 1e-5
+    model = Polyfit1DModel(random_seed=100, kernel_type=KernelType.EPANECHNIKOV)
+    model.fit(x, y, sample_weight=w, bandwidth_selection_method="gcv", reg_grid=x_new)
+    assert math.fabs(model.bandwidth_ - 0.15) < 1e-5
     assert "bandwidth_selection_results_" in model.__dict__, "bandwidth_selection_results_ should be set after fitting with gcv method"
 
 
@@ -657,8 +657,8 @@ def test_polyfit1d_cv_bandwidth_selection():
     y = x**2 - x * 3 + 0.5
     w = np.ones_like(x)
     x_new = np.linspace(0, 1, 21)
-    model = Polyfit1DModel(obs_grid=x_new, random_seed=100, kernel_type=KernelType.EPANECHNIKOV)
-    model.fit(x, y, sample_weight=w, bandwidth_selection_method="cv", cv_folds=5)
+    model = Polyfit1DModel(random_seed=100, kernel_type=KernelType.EPANECHNIKOV)
+    model.fit(x, y, sample_weight=w, bandwidth_selection_method="cv", cv_folds=5, reg_grid=x_new)
     assert math.fabs(model.bandwidth_ - 0.25) < 1e-5
     assert "bandwidth_selection_results_" in model.__dict__, "bandwidth_selection_results_ should be set after fitting with cv method"
 
@@ -667,6 +667,6 @@ def test_polyfit1d_unable_generate_bandwidth_candidates():
     x = np.array([0.1, 0.2, 0.2])
     y = np.array([0.1, 0.2, 0.3])
     w = np.array([1.0, 1.0, 1.0])
-    model = Polyfit1DModel(obs_grid=x, random_seed=100)
+    model = Polyfit1DModel(random_seed=100)
     with pytest.raises(ValueError, match="Not enough unique support points"):
-        model.fit(x, y, sample_weight=w)
+        model.fit(x, y, sample_weight=w, reg_grid=x)
