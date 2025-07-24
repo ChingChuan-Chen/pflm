@@ -121,17 +121,12 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         if sorted_unique_support.size <= self.degree + 1:
             raise ValueError(f"Not enough unique support points ({sorted_unique_support.size}) to fit a polynomial of degree {self.degree}.")
 
-        d_star = np.max(np.diff(sorted_unique_support, n=self.degree + 1))
+        lag = self.degree + 1
+        d_star = np.max(sorted_unique_support[lag:] - sorted_unique_support[:-lag])
         r = sorted_unique_support[-1] - sorted_unique_support[0]
         h0 = min(1.5 * d_star, r)
-        h1 = r / math.sqrt(2.0 * math.pi)
-        min_bw = min(h0, h1)
-        max_bw = max(h0, h1)
-        if self.kernel_type.value < 100:
-            min_bw *= 0.25
-            max_bw *= 0.75
-        q = math.pow(max_bw / min_bw, 1.0 / (num_bw_candidates - 1))
-        return min_bw * q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates)
+        q = math.pow(0.25 * r / h0, 1.0 / (num_bw_candidates - 1))
+        return h0 * (q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates))
 
     def _compute_cv_score(self, sorted_unique_X: np.ndarray, bandwidth: np.floating, unique_idx: np.ndarray, cv_folds: int = 5) -> np.floating:
         """
@@ -151,8 +146,6 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         float
             Cross-validation score.
         """
-        if np.isnan(bandwidth) or bandwidth <= 0:
-            return np.inf
 
         cv_index = np.arange(len(self.X_)) % cv_folds
         self.rng.shuffle(cv_index)
@@ -205,8 +198,6 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         float
             GCV score.
         """
-        if np.isnan(bandwidth) or bandwidth <= 0:
-            return np.inf
 
         y_pred = self._polyfit1d_func(
             self.sorted_X_,
@@ -596,6 +587,11 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         self.interp_kind = interp_kind
         self.rng = np.random.default_rng(random_seed)
 
+    def _get_bandwidth_candidates(self, d_star: float, r: float) -> np.ndarray:
+        h0 = min(2.0 * d_star, r)
+        q = math.pow(0.25 * r / h0, 1.0 / (num_bw_candidates - 1))
+        return h0 * (q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates))
+
     def _generate_bandwidth_candidates(self, sorted_grid_pairs: np.ndarray, num_bw_candidates: int) -> np.ndarray:
         """
         Generate bandwidth candidates for 2D selection.
@@ -615,17 +611,18 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         if sorted_grid_pairs.shape[0] <= self.degree + 1:
             raise ValueError(f"Not enough unique support points ({sorted_grid_pairs.shape[0]}) to fit a polynomial of degree {self.degree}.")
 
-        d_star = np.max(np.diff(sorted_grid_pairs, n=self.degree + 1))
-        r = sorted_grid_pairs[-1] - sorted_grid_pairs[0]
-        h0 = min(1.5 * d_star, r)
-        h1 = r / math.sqrt(2.0 * math.pi)
-        min_bw = min(h0, h1)
-        max_bw = max(h0, h1)
-        if self.kernel_type.value < 100:
-            min_bw *= 0.25
-            max_bw *= 0.75
-        q = math.pow(max_bw / min_bw, 1.0 / (num_bw_candidates - 1))
-        return min_bw * q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates)
+        lag = self.degree + 1
+        d_stars = [
+            np.max(sorted_grid_pairs[lag:, 0] - sorted_grid_pairs[:-lag, 0]),
+            np.max(sorted_grid_pairs[lag:, 1] - sorted_grid_pairs[:-lag, 1])
+        ]
+        r1 = (sorted_grid_pairs[-1, 0] - sorted_grid_pairs[0, 0]) * math.sqrt(2.0)
+        r2 = (np.max(sorted_grid_pairs[:, 1]) - np.min(sorted_grid_pairs[:, 1])) * math.sqrt(2.0)
+        bw1_candidates = self._get_bandwidth_candidates(d_stars[0], r1)
+        bw2_candidates = self._get_bandwidth_candidates(d_stars[1], r2)
+
+        bw1v, bw2v = np.meshgrid(bw1_candidates, bw2_candidates)
+        return np.vstack((bw2v.ravel(), bw1v.ravel()))
 
     def _compute_cv_score(
         self, sorted_grid_pairs: np.ndarray, bandwidth1: np.floating, bandwidth2: np.floating, cv_folds: int = 5
@@ -685,6 +682,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         self,
         num_bw_candidates: int = 21,
         method: Literal["cv", "gcv"] = "gcv",
+        same_bandwidth_for_2dim: bool = False,
         custom_bw_candidates: Optional[np.ndarray] = None,
         cv_folds: int = 5,
     ) -> Tuple[np.floating, np.floating]:
@@ -698,6 +696,9 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         method : str, default='gcv'
             Method for bandwidth selection. Options: 'cv', 'gcv'.
             If 'cv', uses cross-validation; if 'gcv', uses Generalized Cross-Validation.
+        same_bandwidth_for_2dim: bool, default=False
+            If True, use the same bandwidth for both dimensions.
+            If False, use separate bandwidths for each dimension.
         custom_bw_candidates: Optional[np.ndarray], default=None
             Custom bandwidth candidates to use instead of generating them.
         cv_folds : int, default=5
@@ -713,6 +714,9 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             bandwidth_candidates_ = custom_bw_candidates
         else:
             bandwidth_candidates_ = self._generate_bandwidth_candidates(sorted_unique_X, num_bw_candidates)
+
+        if same_bandwidth_for_2dim:
+            bandwidth_candidates_ = bandwidth_candidates_[bandwidth_candidates_[:, 0] == bandwidth_candidates_[:, 1], :]
 
         # Store for inspection
         self.bandwidth_selection_results_ = {
@@ -759,6 +763,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         bandwidth2: Optional[float] = None,
         num_bw_candidates: int = 21,
         bandwidth_selection_method: Literal["cv", "gcv"] = "gcv",
+        same_bandwidth_for_2dim: bool = False,
         custom_bw_candidates: Optional[np.ndarray] = None,
         cv_folds: int = 5,
     ) -> "Polyfit2DModel":
@@ -777,8 +782,14 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             The bandwidth parameter for the first dimension.
         bandwidth2 : float, default=None
             The bandwidth parameter for the second dimension.
+        num_bw_candidates : int, default=21
+            Number of bandwidth candidates to generate.
+            Only used if custom_bw_candidates is None.
         bandwidth_selection_method : str, default='gcv'
             Method for bandwidth selection. Options: 'cv', 'gcv'.
+        same_bandwidth_for_2dim: bool, default=False
+            If True, use the same bandwidth for both dimensions.
+            If False, use separate bandwidths for each dimension.
         custom_bw_candidates: Optional[np.ndarray], default=None
             Custom bandwidth candidates to use instead of generating them.
         cv_folds : int, default=5
@@ -863,7 +874,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
                 if custom_bw_candidates.shape[1] != 2:
                     raise ValueError(f"custom_bw_candidates must have exactly 2 features, got {custom_bw_candidates.shape[1]}")
             self.bandwidth1_, self.bandwidth2_ = self._select_bandwidth(
-                num_bw_candidates, bandwidth_selection_method, custom_bw_candidates, cv_folds
+                num_bw_candidates, bandwidth_selection_method, same_bandwidth_for_2dim, custom_bw_candidates, cv_folds
             )
         else:
             self.bandwidth1_ = float(bandwidth1)

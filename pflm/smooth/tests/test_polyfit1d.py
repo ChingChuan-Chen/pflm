@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
@@ -626,7 +627,7 @@ def test_polyfit1d_cv_folds():
 
 def test_polyfit1d_custom_bw_candidates():
     x, y, w, x_new = make_test_inputs()
-    model = Polyfit1DModel(obs_grid=x_new, random_seed=100)
+    model = Polyfit1DModel(obs_grid=x_new, random_seed=100, kernel_type=KernelType.EPANECHNIKOV)
     model.fit(x, y, sample_weight=w, custom_bw_candidates=np.array([[0.1], [0.2]]))
     assert model.bandwidth_ == np.float64(0.2)
     with pytest.raises(ValueError, match="All CV scores are non-finite."):
@@ -638,18 +639,24 @@ def test_polyfit1d_custom_bw_candidates():
 
 
 def test_polyfit1d_gcv_bandwidth_selection():
-    x, y, w, x_new = make_test_inputs()
-    model = Polyfit1DModel(obs_grid=x_new, random_seed=100)
+    x = np.concatenate([np.linspace(0, 1, 21), np.linspace(0, 1, 21)])
+    y = x ** 2 - x * 3 + 0.5
+    w = np.ones_like(x)
+    x_new = np.linspace(0, 1, 21)
+    model = Polyfit1DModel(obs_grid=x_new, random_seed=100, kernel_type=KernelType.EPANECHNIKOV)
     model.fit(x, y, sample_weight=w, bandwidth_selection_method="gcv")
-    assert model.bandwidth_ == np.float64(0.019500705768392176)  # Assuming the GCV method selects this bandwidth
+    assert math.fabs(model.bandwidth_ - 0.2) < 1e-5
     assert "bandwidth_selection_results_" in model.__dict__, "bandwidth_selection_results_ should be set after fitting with gcv method"
 
 
 def test_polyfit1d_cv_bandwidth_selection():
-    x, y, w, x_new = make_test_inputs()
-    model = Polyfit1DModel(obs_grid=x_new, random_seed=100)
-    model.fit(x, y, sample_weight=w, bandwidth_selection_method="cv", cv_folds=3)
-    assert model.bandwidth_ == np.float64(0.11968268412043005)  # Assuming the CV method selects this bandwidth
+    x = np.concatenate([np.linspace(0, 1, 21), np.linspace(0, 1, 21)])
+    y = x ** 2 - x * 3 + 0.5
+    w = np.ones_like(x)
+    x_new = np.linspace(0, 1, 21)
+    model = Polyfit1DModel(obs_grid=x_new, random_seed=100, kernel_type=KernelType.EPANECHNIKOV)
+    model.fit(x, y, sample_weight=w, bandwidth_selection_method="cv", cv_folds=5)
+    assert math.fabs(model.bandwidth_ - 0.25) < 1e-5
     assert "bandwidth_selection_results_" in model.__dict__, "bandwidth_selection_results_ should be set after fitting with cv method"
 
 
@@ -660,4 +667,3 @@ def test_polyfit1d_unable_generate_bandwidth_candidates():
     model = Polyfit1DModel(obs_grid=x, random_seed=100)
     with pytest.raises(ValueError, match="Not enough unique support points"):
         model.fit(x, y, sample_weight=w)
-

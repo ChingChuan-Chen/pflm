@@ -1,7 +1,6 @@
+from libc.stddef cimport ptrdiff_t
 import numpy as np
 cimport numpy as np
-from libc.stddef cimport ptrdiff_t
-
 
 cdef extern from "src/interp.cpp" nogil:
     pass
