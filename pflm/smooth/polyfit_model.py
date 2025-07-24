@@ -587,7 +587,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         self.interp_kind = interp_kind
         self.rng = np.random.default_rng(random_seed)
 
-    def _get_bandwidth_candidates(self, d_star: float, r: float) -> np.ndarray:
+    def _get_bandwidth_candidates(self, d_star: float, r: float, num_bw_candidates: int) -> np.ndarray:
         h0 = min(2.0 * d_star, r)
         q = math.pow(0.25 * r / h0, 1.0 / (num_bw_candidates - 1))
         return h0 * (q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates))
@@ -614,12 +614,14 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         lag = self.degree + 1
         d_stars = [
             np.max(sorted_grid_pairs[lag:, 0] - sorted_grid_pairs[:-lag, 0]),
-            np.max(sorted_grid_pairs[lag:, 1] - sorted_grid_pairs[:-lag, 1])
+            np.max(sorted_grid_pairs[lag:, 1] - sorted_grid_pairs[:-lag, 1]),
         ]
         # sqrt(2) because the window is circular.
         r1 = (sorted_grid_pairs[-1, 0] - sorted_grid_pairs[0, 0]) * math.sqrt(2.0)
         r2 = (np.max(sorted_grid_pairs[:, 1]) - np.min(sorted_grid_pairs[:, 1])) * math.sqrt(2.0)
-        bw1v, bw2v = np.meshgrid(self._get_bandwidth_candidates(d_stars[0], r1), self._get_bandwidth_candidates(d_stars[1], r2))
+        bw1v, bw2v = np.meshgrid(
+            self._get_bandwidth_candidates(d_stars[0], r1, num_bw_candidates), self._get_bandwidth_candidates(d_stars[1], r2, num_bw_candidates)
+        )
         return np.vstack((bw2v.ravel(), bw1v.ravel()))
 
     def _compute_cv_score(

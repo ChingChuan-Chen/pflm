@@ -199,19 +199,19 @@ def test_polyfit2d(dtype):
         assert_allclose(y_pred, expected, rtol=1e-5, atol=1e-6, err_msg=f"Failed for kernel {kernel_type} with dtype {dtype}")
 
 
-@pytest.mark.parametrize("order", ['C', 'F'])
+@pytest.mark.parametrize("order", ["C", "F"])
 def test_polyfit2d_different_order_array(order):
     x = np.linspace(0.0, 1.0, 11)
     x1v, x2v = np.meshgrid(x, x)
     x_grid = np.hstack((x2v.ravel(), x1v.ravel())).reshape(2, -1).T
-    if order == 'C':
+    if order == "C":
         x_grid = np.ascontiguousarray(x_grid)
     else:
         x_grid = np.asfortranarray(x_grid)
 
     y = x_grid[:, 0] ** 2 + x_grid[:, 1] ** 2 + 6.0 * x_grid[:, 0] + 6.0 * x_grid[:, 1] + 2.0
     w = np.ones(len(y), order=order, dtype=x.dtype)
-    if order == 'C':
+    if order == "C":
         x_new1 = np.ascontiguousarray(np.linspace(0.0, 1.0, 11, dtype=x.dtype))
         x_new2 = np.ascontiguousarray(np.linspace(0.0, 1.0, 11, dtype=x.dtype))
     else:

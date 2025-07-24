@@ -1,4 +1,5 @@
 import math
+
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
@@ -77,16 +78,16 @@ def test_polyfit1d_happy_case(dtype):
         assert_allclose(y_pred, expected, rtol=1e-5, atol=1e-6, err_msg=f"Failed for kernel {kernel_type} with dtype {dtype}")
 
 
-@pytest.mark.parametrize("order", ['C', 'F'])
+@pytest.mark.parametrize("order", ["C", "F"])
 def test_polyfit1d_different_order_array(order):
-    if order == 'C':
+    if order == "C":
         x = np.ascontiguousarray(np.linspace(0.0, 1.0, 11))
     else:
         x = np.asfortranarray(np.linspace(0.0, 1.0, 11))
 
     y = 2.0 * x**2 + 3 * x
     w = np.ones_like(x, order=order, dtype=x.dtype)
-    if order == 'C':
+    if order == "C":
         x_new = np.ascontiguousarray(np.linspace(0.0, 1.0, 11))
     else:
         x_new = np.asfortranarray(np.linspace(0.0, 1.0, 11))
@@ -104,7 +105,9 @@ def test_polyfit1d_different_order_array(order):
     y_pred = model.predict(x_new)
     assert y_pred.shape == (len(x_new),)
     assert np.all(np.isfinite(y_pred)), "Prediction contains NaN or Inf values"
-    assert_allclose(y_pred, expected_results, rtol=1e-5, atol=1e-6, err_msg=f"Failed for kernel {KernelType.GAUSSIAN} with dtype {x.dtype} and order {order}")
+    assert_allclose(
+        y_pred, expected_results, rtol=1e-5, atol=1e-6, err_msg=f"Failed for kernel {KernelType.GAUSSIAN} with dtype {x.dtype} and order {order}"
+    )
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -640,7 +643,7 @@ def test_polyfit1d_custom_bw_candidates():
 
 def test_polyfit1d_gcv_bandwidth_selection():
     x = np.concatenate([np.linspace(0, 1, 21), np.linspace(0, 1, 21)])
-    y = x ** 2 - x * 3 + 0.5
+    y = x**2 - x * 3 + 0.5
     w = np.ones_like(x)
     x_new = np.linspace(0, 1, 21)
     model = Polyfit1DModel(obs_grid=x_new, random_seed=100, kernel_type=KernelType.EPANECHNIKOV)
@@ -651,7 +654,7 @@ def test_polyfit1d_gcv_bandwidth_selection():
 
 def test_polyfit1d_cv_bandwidth_selection():
     x = np.concatenate([np.linspace(0, 1, 21), np.linspace(0, 1, 21)])
-    y = x ** 2 - x * 3 + 0.5
+    y = x**2 - x * 3 + 0.5
     w = np.ones_like(x)
     x_new = np.linspace(0, 1, 21)
     model = Polyfit1DModel(obs_grid=x_new, random_seed=100, kernel_type=KernelType.EPANECHNIKOV)
