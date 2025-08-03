@@ -39,7 +39,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
     deriv : int, default=0
         The derivative order to compute. Must be >= 0 and <= degree.
     n_points_reg_grid : int, default=100
-        Number of points to use for interpolation grid (only used if obs_grid is None).
+        Number of points to use for interpolation grid (only used if reg_grid is None).
     interp_kind : str, default='linear'
         Type of interpolation ('linear', 'spline').
     random_seed : int, default=None
@@ -491,8 +491,8 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         -------
         Tuple[np.ndarray, np.ndarray]
             A tuple containing:
-            - obs_grid: The interpolation grid points.
-            - obs_fitted_values: The fitted values at interpolation grid points.
+            - reg_grid: The interpolation grid points.
+            - reg_fitted_values: The fitted values at interpolation grid points.
         """
         check_is_fitted(self, ["reg_fitted_values_", "reg_grid_", "bandwidth_"])
         return self.reg_grid_.copy(), self.reg_fitted_values_.copy()
@@ -513,7 +513,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
     deriv2 : int, default=0
         The derivative order for the second dimension.
     n_points_reg_grid : int, default=100
-        Number of points for interpolation grid in each dimension (only used if obs_grid is None).
+        Number of points for interpolation grid in each dimension (only used if reg_grid is None).
     interp_kind : str, default='linear'
         Interpolation method ('linear', 'cubic', 'quintic').
     random_seed : int, default=None
@@ -529,11 +529,11 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         The sample weights from the last fit.
     n_features_in_ : int
         Number of features seen during fit (always 2 for 2D).
-    obs_grid1_ : ndarray
+    reg_grid1_ : ndarray
         The interpolation grid points in the first dimension.
-    obs_grid2_ : ndarray
+    reg_grid2_ : ndarray
         The interpolation grid points in the second dimension.
-    obs_fitted_values_ : ndarray
+    reg_fitted_values_ : ndarray
         A 2D array of fitted values at the interpolation grid points.
     bandwidth1_ : float
         The selected bandwidth for the first dimension after fitting.
@@ -675,8 +675,8 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             self.sorted_X_,
             self.sorted_y_,
             self.sorted_sample_weight_,
-            self.obs_grid1_,
-            self.obs_grid2_,
+            self.reg_grid1_,
+            self.reg_grid2_,
             bandwidth1,
             bandwidth2,
             self.kernel_type.value,
@@ -770,6 +770,8 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         sample_weight: Optional[Union[np.ndarray, List[float]]] = None,
         bandwidth1: Optional[float] = None,
         bandwidth2: Optional[float] = None,
+        reg_grid1: Optional[Union[np.ndarray, List[float]]] = None,
+        reg_grid2: Optional[Union[np.ndarray, List[float]]] = None,
         num_bw_candidates: int = 21,
         bandwidth_selection_method: Literal["cv", "gcv"] = "gcv",
         same_bandwidth_for_2dim: bool = False,
@@ -791,6 +793,12 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             The bandwidth parameter for the first dimension.
         bandwidth2 : float, default=None
             The bandwidth parameter for the second dimension.
+        reg_grid1: Optional[Union[np.ndarray, List[float]]], default=None
+            Custom grid points for interpolation in the first dimension.
+            If None, will create a uniform grid.
+        reg_grid2: Optional[Union[np.ndarray, List[float]]], default=None
+            Custom grid points for interpolation in the second dimension.
+            If None, will create a uniform grid.
         num_bw_candidates : int, default=21
             Number of bandwidth candidates to generate.
             Only used if custom_bw_candidates is None.
@@ -877,25 +885,25 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         # Create regression grids
         x1_min, x1_max = np.min(X[:, 0]), np.max(X[:, 0])
         x2_min, x2_max = np.min(X[:, 1]), np.max(X[:, 1])
-        if reg_grid1_ is not None:
+        if reg_grid1 is not None:
             # Use custom grid for first dimension
-            self.reg_grid1_ = check_array(self.reg_grid1_, ensure_2d=False, dtype=self._input_dtype)
+            self.reg_grid1_ = check_array(reg_grid1, ensure_2d=False, dtype=self._input_dtype)
             if self.reg_grid1_.ndim != 1:
                 raise ValueError("reg_grid1 must be a 1D array")
             if len(self.reg_grid1_) < 2:
                 raise ValueError("reg_grid1 must have at least 2 points")
             if np.min(self.reg_grid1_) < x1_min or np.max(self.reg_grid1_) > x1_max:
                 raise ValueError(
-                    f"reg_grid1_ must be within the range of input X[:, 0] [{x1_min:.6f}, {x1_max:.6f}]. "
-                    f"Got reg_grid1_ range [{np.min(self.reg_grid1_):.6f}, {np.max(self.reg_grid1_):.6f}]"
+                    f"reg_grid1 must be within the range of input X[:, 0] [{x1_min:.6f}, {x1_max:.6f}]. "
+                    f"Got reg_grid1 range [{np.min(self.reg_grid1_):.6f}, {np.max(self.reg_grid1_):.6f}]"
                 )
         else:
             # Create uniform grid for first dimension
             self.reg_grid1_ = np.linspace(x1_min, x1_max, self.n_points_reg_grid)
 
-        if reg_grid2_ is not None:
+        if reg_grid2 is not None:
             # Use custom grid for second dimension
-            self.reg_grid2_ = check_array(self.reg_grid2_, ensure_2d=False, dtype=self._input_dtype)
+            self.reg_grid2_ = check_array(reg_grid2, ensure_2d=False, dtype=self._input_dtype)
             if self.reg_grid2_.ndim != 1:
                 raise ValueError("reg_grid2 must be a 1D array")
             if len(self.reg_grid2_) < 2:
