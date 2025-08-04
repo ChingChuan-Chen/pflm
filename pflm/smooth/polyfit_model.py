@@ -99,14 +99,12 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         self.interp_kind = interp_kind
         self.rng = np.random.default_rng(random_seed)
 
-    def _generate_bandwidth_candidates(self, sorted_unique_support: np.ndarray, num_bw_candidates: int) -> np.ndarray:
+    def _generate_bandwidth_candidates(self, num_bw_candidates: int) -> np.ndarray:
         """
         Generate bandwidth candidates for selection.
 
         Parameters
         ----------
-        sorted_unique_support : np.ndarray
-            Sorted unique values of X for support calculation.
         num_bw_candidates : int
             Number of bandwidth candidates to generate.
 
@@ -115,24 +113,22 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         np.ndarray
             Array of bandwidth candidates.
         """
-        if sorted_unique_support.size <= self.degree + 1:
-            raise ValueError(f"Not enough unique support points ({sorted_unique_support.size}) to fit a polynomial of degree {self.degree}.")
+        if self.obs_grid_.size <= self.degree + 1:
+            raise ValueError(f"Not enough unique support points ({self.obs_grid_.size}) to fit a polynomial of degree {self.degree}.")
 
         lag = self.degree + 1
-        d_star = np.max(sorted_unique_support[lag:] - sorted_unique_support[:-lag])
-        r = sorted_unique_support[-1] - sorted_unique_support[0]
+        d_star = np.max(self.obs_grid_[lag:] - self.obs_grid_[:-lag])
+        r = self.obs_grid_[-1] - self.obs_grid_[0]
         h0 = min(1.5 * d_star, r)
         q = math.pow(0.25 * r / h0, 1.0 / (num_bw_candidates - 1))
         return h0 * (q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates))
 
-    def _compute_cv_score(self, sorted_unique_X: np.ndarray, bandwidth: np.floating, unique_idx: np.ndarray, cv_folds: int = 5) -> np.floating:
+    def _compute_cv_score(self, bandwidth: np.floating, cv_folds: int = 5) -> np.floating:
         """
         Compute cross-validation score for a given bandwidth.
 
         Parameters
         ----------
-        sorted_unique_X : np.ndarray
-            Sorted unique values of X.
         bandwidth : float
             Bandwidth parameter.
         cv_folds : int, default=5
@@ -156,7 +152,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
                 self.sorted_X_[train_mask],
                 self.sorted_y_[train_mask],
                 self.sorted_sample_weight_[train_mask],
-                sorted_unique_X,
+                self.obs_grid_,
                 bandwidth,
                 self.kernel_type.value,
                 self.degree,
@@ -167,24 +163,20 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
                 return np.inf
 
             cv_scores[fold] = sum(
-                self.sorted_sample_weight_[unique_idx[test_mask]] * (self.sorted_y_[unique_idx[test_mask]] - y_pred[unique_idx[test_mask]]) ** 2
+                self.sorted_sample_weight_[self.obs_grid_idx_[test_mask]] * (self.sorted_y_[self.obs_grid_idx_[test_mask]] - y_pred[self.obs_grid_idx_[test_mask]]) ** 2
             )
         return np.mean(cv_scores) / self._sum_sample_weight
 
     def _compute_gcv_score(
-        self, sorted_unique_X: np.ndarray, bandwidth: np.floating, unique_idx: np.ndarray, k0: float, r: np.floating
+        self, bandwidth: np.floating, k0: float, r: np.floating
     ) -> np.floating:
         """
         Compute Generalized Cross-Validation score for a given bandwidth.
 
         Parameters
         ----------
-        sorted_unique_X : np.ndarray
-            Sorted unique values of X.
         bandwidth : float
             Bandwidth parameter.
-        unique_idx : np.ndarray
-            Indices of the original X values in the sorted unique array.
         k0 : float
             Kernel value at zero.
         r : float
@@ -200,7 +192,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
             self.sorted_X_,
             self.sorted_y_,
             self.sorted_sample_weight_,
-            sorted_unique_X,
+            self.obs_grid_,
             bandwidth,
             self.kernel_type.value,
             self.degree,
@@ -208,7 +200,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         )
         if np.isnan(y_pred).any():
             return np.inf
-        numerator = sum(self.sorted_sample_weight_ * (self.sorted_y_ - y_pred[unique_idx]) ** 2)
+        numerator = sum(self.sorted_sample_weight_ * (self.sorted_y_ - y_pred[self.obs_grid_idx_]) ** 2)
         denominator = math.pow(1.0 - r * k0 / bandwidth / self._sum_sample_weight, 2.0)
         return numerator / denominator
 
@@ -239,11 +231,10 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         float
             The bandwidth with the best score.
         """
-        sorted_unique_X, unique_idx = np.unique(self.sorted_X_, return_inverse=True)
         if custom_bw_candidates is not None:
             bandwidth_candidates_ = custom_bw_candidates
         else:
-            bandwidth_candidates_ = self._generate_bandwidth_candidates(sorted_unique_X, num_bw_candidates)
+            bandwidth_candidates_ = self._generate_bandwidth_candidates(num_bw_candidates)
 
         # Store for inspection
         self.bandwidth_selection_results_ = {
@@ -253,7 +244,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
 
         self._sum_sample_weight = np.sum(self.sample_weight_)
         if method == "cv":
-            cv_scores = np.array([self._compute_cv_score(sorted_unique_X, bw, unique_idx, cv_folds) for bw in bandwidth_candidates_])
+            cv_scores = np.array([self._compute_cv_score(bw, cv_folds) for bw in bandwidth_candidates_])
             if (~np.isfinite(cv_scores)).all():
                 raise ValueError("All CV scores are non-finite. Check your data and bandwidth candidates.")
             self.bandwidth_selection_results_["cv_scores"] = cv_scores
@@ -265,8 +256,8 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
                 if self._input_dtype == np.float32
                 else calculate_kernel_value_f64(0, self.kernel_type.value)
             )
-            r = sorted_unique_X[-1] - sorted_unique_X[0]
-            gcv_scores = np.array([self._compute_gcv_score(sorted_unique_X, bw, unique_idx, k0, r) for bw in bandwidth_candidates_])
+            r = self.obs_grid_[-1] - self.obs_grid_[0]
+            gcv_scores = np.array([self._compute_gcv_score(bw, k0, r) for bw in bandwidth_candidates_])
             if (~np.isfinite(gcv_scores)).all():
                 raise ValueError("All GCV scores are non-finite. Check your data and bandwidth candidates.")
             self.bandwidth_selection_results_["gcv_scores"] = gcv_scores
@@ -396,7 +387,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
             self.reg_grid_ = np.linspace(x_min, x_max, self.n_points_reg_grid)
 
         # create obs_grid_
-        self.obs_grid_ = np.sort(np.unique(X))
+        self.obs_grid_, self.obs_grid_idx_ = np.unique(self.sorted_X_, return_inverse=True, sorted=True)
 
         # Select bandwidth if needed
         if bandwidth is None:
@@ -581,42 +572,46 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         self.interp_kind = interp_kind
         self.rng = np.random.default_rng(random_seed)
 
-    def _get_bandwidth_candidates(self, d_star: float, r: float, num_bw_candidates: int) -> np.ndarray:
+    def _get_bandwidth_candidates(self, sorted_unique_support: np.ndarray, num_bw_candidates: int, lag: int) -> np.ndarray:
+        d_star = np.max(sorted_unique_support[lag:] - sorted_unique_support[:-lag])
+        r = sorted_unique_support[-1] - sorted_unique_support[0]
         h0 = min(2.0 * d_star, r)
         q = math.pow(0.25 * r / h0, 1.0 / (num_bw_candidates - 1))
         return h0 * (q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates))
 
-    def _generate_bandwidth_candidates(self, sorted_grid_pairs: np.ndarray, num_bw_candidates: int) -> np.ndarray:
+    def _generate_bandwidth_candidates(self, num_bw_candidates: int, same_bandwidth_for_2dim: bool = False) -> np.ndarray:
         """
         Generate bandwidth candidates for 2D selection.
 
         Parameters
         ----------
-        sorted_grid_pairs : np.ndarray
-            Sorted unique pairs of grid points.
         num_bw_candidates : int
             Number of bandwidth candidates to generate.
+        same_bandwidth_for_2dim: bool, default=False
+            If True, use the same bandwidth for both dimensions.
+            If False, use separate bandwidths for each dimension.
 
         Returns
         -------
-        List[Tuple[float, float]]
-            List of bandwidth candidate pairs (bandwidth1, bandwidth2).
+        np.ndarray
+            2D array of shape (2, num_bw_candidates) containing bandwidth candidates.
+            Each column is a pair (bandwidth1, bandwidth2).
         """
-        if sorted_grid_pairs.shape[0] <= self.degree + 1:
-            raise ValueError(f"Not enough unique support points ({sorted_grid_pairs.shape[0]}) to fit a polynomial of degree {self.degree}.")
+        if self.obs_grid1_.shape[0] <= self.degree + 1:
+            raise ValueError(f"Not enough unique support points ({self.obs_grid1_.shape[0]}) to fit a polynomial of degree {self.degree}.")
+        if self.obs_grid2_.shape[0] <= self.degree + 1:
+            raise ValueError(f"Not enough unique support points ({self.obs_grid2_.shape[0]}) to fit a polynomial of degree {self.degree}.")
 
-        lag = self.degree + 1
-        d_stars = [
-            np.max(sorted_grid_pairs[lag:, 0] - sorted_grid_pairs[:-lag, 0]),
-            np.max(sorted_grid_pairs[lag:, 1] - sorted_grid_pairs[:-lag, 1]),
-        ]
-        # sqrt(2) because the window is circular.
-        r1 = (sorted_grid_pairs[-1, 0] - sorted_grid_pairs[0, 0]) * math.sqrt(2.0)
-        r2 = (np.max(sorted_grid_pairs[:, 1]) - np.min(sorted_grid_pairs[:, 1])) * math.sqrt(2.0)
-        bw1v, bw2v = np.meshgrid(
-            self._get_bandwidth_candidates(d_stars[0], r1, num_bw_candidates), self._get_bandwidth_candidates(d_stars[1], r2, num_bw_candidates)
-        )
-        return np.vstack((bw2v.ravel(), bw1v.ravel()))
+        # return bandwidth candidates
+        bw1_candidates = self._get_bandwidth_candidates(self.obs_grid1_, num_bw_candidates, self.degree + 1)
+        bw2_candidates = self._get_bandwidth_candidates(self.obs_grid2_, num_bw_candidates, self.degree + 1)
+
+        # return candidates
+        if same_bandwidth_for_2dim:
+            return np.vstack((bw1_candidates, bw2_candidates))
+        else:
+            bw1v, bw2v = np.meshgrid(bw1_candidates, bw2_candidates)
+            return np.vstack((bw1v.ravel(), bw2v.ravel()))
 
     def _compute_cv_score(
         self,
@@ -650,7 +645,8 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         bandwidth1: np.floating,
         bandwidth2: np.floating,
         k0: float,
-        r: np.floating,
+        r1: np.floating,
+        r2: np.floating,
     ) -> np.floating:
         """
         Compute Generalized Cross-Validation score for given bandwidths.
@@ -663,8 +659,10 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             Bandwidth for second dimension.
         k0 : float
             Kernel value at zero.
-        r : float
-            Range of the sorted unique grid pairs.
+        r1 : float
+            Range of the sorted unique grid pairs in the first dimension.
+        r2 : float
+            Range of the sorted unique grid pairs in the second dimension.
 
         Returns
         -------
@@ -675,8 +673,8 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             self.sorted_X_,
             self.sorted_y_,
             self.sorted_sample_weight_,
-            self.reg_grid1_,
-            self.reg_grid2_,
+            self.obs_grid1_,
+            self.obs_grid2_,
             bandwidth1,
             bandwidth2,
             self.kernel_type.value,
@@ -722,14 +720,12 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         Tuple[float, float]
             The bandwidth pair with the best score.
         """
-        sorted_unique_X, unique_idx = np.unique(self.sorted_X_, return_inverse=True)
         if custom_bw_candidates is not None:
             bandwidth_candidates_ = custom_bw_candidates
+            if same_bandwidth_for_2dim:
+                bandwidth_candidates_ = bandwidth_candidates_[bandwidth_candidates_[:, 0] == bandwidth_candidates_[:, 1], :]
         else:
-            bandwidth_candidates_ = self._generate_bandwidth_candidates(sorted_unique_X, num_bw_candidates)
-
-        if same_bandwidth_for_2dim:
-            bandwidth_candidates_ = bandwidth_candidates_[bandwidth_candidates_[:, 0] == bandwidth_candidates_[:, 1], :]
+            bandwidth_candidates_ = self._generate_bandwidth_candidates(num_bw_candidates, same_bandwidth_for_2dim)
 
         # Store for inspection
         self.bandwidth_selection_results_ = {
@@ -738,9 +734,10 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         }
 
         if method == "cv":
-            cv_scores = np.zeros(bandwidth_candidates_.shape[0], dtype=self._input_dtype)
-            for i in range(bandwidth_candidates_.shape[0]):
-                cv_scores[i] = self._compute_cv_score(bandwidth_candidates_[i, 0], bandwidth_candidates_[i, 1], cv_folds)
+            cv_scores = np.array([
+                self._compute_cv_score(bandwidth_candidates_[i, 0], bandwidth_candidates_[i, 1], cv_folds)
+                for i in range(bandwidth_candidates_.shape[0])
+            ])
             if (~np.isfinite(cv_scores)).all():
                 raise ValueError("All CV scores are non-finite. Check your data and bandwidth candidates.")
             self.bandwidth_selection_results_["cv_scores"] = cv_scores
@@ -752,10 +749,12 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
                 if self._input_dtype == np.float32
                 else calculate_kernel_value_f64(0, self.kernel_type.value)
             )
-            r = sorted_unique_X[-1] - sorted_unique_X[0]
-            gcv_scores = np.zeros(bandwidth_candidates_.shape[0], dtype=self._input_dtype)
-            for i in range(bandwidth_candidates_.shape[0]):
-                gcv_scores[i] = self._compute_gcv_score(bandwidth_candidates_[i, 0], bandwidth_candidates_[i, 1], k0, r)
+            r1 = self.obs_grid1_[-1] - self.obs_grid1_[0]
+            r2 = self.obs_grid2_[-1] - self.obs_grid2_[0]
+            gcv_scores = np.array([
+                self._compute_gcv_score(bandwidth_candidates_[i, 0], bandwidth_candidates_[i, 1], k0, r1, r2)
+                for i in range(bandwidth_candidates_.shape[0])
+            ])
             if (~np.isfinite(gcv_scores)).all():
                 raise ValueError("All GCV scores are non-finite. Check your data and bandwidth candidates.")
             self.bandwidth_selection_results_["gcv_scores"] = gcv_scores
@@ -918,8 +917,8 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             self.reg_grid2_ = np.linspace(x2_min, x2_max, self.n_points_reg_grid)
 
         # create observation grids
-        self.obs_grid1_ = np.sort(np.unique(self.sorted_X_[:, 0]))
-        self.obs_grid2_ = np.sort(np.unique(self.sorted_X_[:, 1]))
+        self.obs_grid1_, self.obs_grid1_idx = np.unique(self.sorted_X_[:, 0], return_inverse=True, sorted=True)
+        self.obs_grid2_, self.obs_grid2_idx = np.unique(self.sorted_X_[:, 1], return_inverse=True, sorted=True)
 
         # Select bandwidths if needed
         if bandwidth1 is None or bandwidth2 is None:
