@@ -697,45 +697,87 @@ def test_polyfit2d_predict_with_direct_call() -> None:
 def test_polyfit2d_insufficient_data_for_degree() -> None:
     """Test that Polyfit2DModel raises error when there's insufficient data for the polynomial degree."""
     # Create minimal dataset
-    X = np.array([[0.1, 0.1], [0.2, 0.2]])
-    y = np.array([0.1, 0.2])
-    w = np.array([1.0, 1.0])
+    X = np.array([[0.1, 0.1], [0.2, 0.2], [0.2, 0.3]])
+    y = np.array([0.1, 0.2, 0.3])
+    w = np.array([1.0, 1.0, 1.0])
     x_new1 = np.array([0.1, 0.2])
     x_new2 = np.array([0.1, 0.2])
 
     # Try to fit with high degree that requires more data points
-    model = Polyfit2DModel(degree=5)
+    model = Polyfit2DModel(degree=1)
 
     # This should raise an error during bandwidth selection or fitting
     with pytest.raises(ValueError, match="Not enough unique support points"):
         model.fit(X, y, sample_weight=w, reg_grid1=x_new1, reg_grid2=x_new2)
 
+    # Create a dataset with insufficient unique support points for the second
+    X2 = np.array([[0.1, 0.1], [0.2, 0.2], [0.3, 0.2]])
+    with pytest.raises(ValueError, match="Not enough unique support points"):
+        model.fit(X2, y, sample_weight=w, reg_grid1=x_new1, reg_grid2=x_new2)
 
-# def test_polyfit2d_custom_bw_candidates() -> None:
-#     """Test Polyfit2DModel with custom bandwidth candidates."""
-#     X, y, w, x_new1, x_new2 = make_test_inputs_2d()
-#     model = Polyfit2DModel(random_seed=100)
+def test_polyfit2d_rectangle_surface() -> None:
+    """Test Polyfit2DModel with custom bandwidth candidates."""
+    x1 = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
+    x2 = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
+    X = np.column_stack([np.repeat(x1, len(x2)), np.tile(x2, len(x1))])
+    y = X[:, 0] + X[:, 1]  # Simple linear relationship
+    w = np.ones(len(y))
+    x_new1 = np.linspace(0.1, 0.5, 5)
+    x_new2 = np.linspace(0.1, 0.7, 8)
 
-#     # Test with 2D custom bandwidth candidates
-#     custom_bw = np.array([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3], [0.4, 0.4], [0.5, 0.5]])
-#     model.fit(X, y, sample_weight=w, custom_bw_candidates=custom_bw)
+    model = Polyfit2DModel(random_seed=100)
+    custom_bw_candidates = np.array([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3], [0.4, 0.4], [0.5, 0.5]])
+    model.fit(X, y, sample_weight=w, custom_bw_candidates=custom_bw_candidates, reg_grid1=x_new1, reg_grid2=x_new2)
+    assert hasattr(model, "bandwidth1_"), "bandwidth1_ should be set after fitting"
+    assert hasattr(model, "bandwidth2_"), "bandwidth2_ should be set after fitting"
+    assert hasattr(model, "bandwidth_selection_results_"), "bandwidth_selection_results_ should be set after fitting"
 
-#     # Test invalid shape for custom_bw_candidates
-#     custom_bw_1d = np.array([0.1, 0.2, 0.3])
-#     with pytest.raises(ValueError, match="custom_bw_candidates must have exactly 2 features"):
-#         model.fit(X, y, sample_weight=w, custom_bw_candidates=custom_bw_1d.reshape(-1, 1), reg_grid1=x_new1, reg_grid2=x_new2)
+    X_new = np.column_stack([np.repeat(x_new1, len(x_new2)), np.tile(x_new2, len(x_new1))])
+    y_pred = model.predict(x_new1, x_new2)  # Ensure predict works after fitting
+    assert y_pred.shape == (len(x_new2), len(x_new1)), "Prediction shape mismatch"
+    assert np.all(np.isfinite(y_pred)), "Prediction contains NaN or Inf values"
 
 
-# @pytest.mark.parametrize("method", ["cv", "gcv"])
-# def test_polyfit2d_bandwidth_selection(method: str) -> None:
-#     X, y, w, x_new1, x_new2 = make_test_inputs_2d()
-#     model = Polyfit2DModel(random_seed=100)
+def test_polyfit2d_custom_bw_candidates() -> None:
+    """Test Polyfit2DModel with custom bandwidth candidates."""
+    X, y, w, x_new1, x_new2 = make_test_inputs_2d()
+    model = Polyfit2DModel(random_seed=100)
 
-#     # Note: Since 2D bandwidth selection is not fully implemented yet,
-#     # we expect these to work with the placeholder implementation
-#     try:
-#         model.fit(X, y, sample_weight=w, bandwidth_selection_method=method, reg_grid1=x_new1, reg_grid2=x_new2)
-#         assert hasattr(model, "bandwidth1_"), "bandwidth1_ should be set after fitting"
-#         assert hasattr(model, "bandwidth2_"), "bandwidth2_ should be set after fitting"
-#     except NotImplementedError:
-#         pytest.skip(f"2D {method} bandwidth selection not yet implemented")
+    # Test with 2D custom bandwidth candidates
+    custom_bw = np.array([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3], [0.4, 0.4], [0.5, 0.5]])
+    model.fit(X, y, sample_weight=w, custom_bw_candidates=custom_bw)
+
+    # Test invalid shape for custom_bw_candidates
+    custom_bw_1d = np.array([0.1, 0.2, 0.3])
+    with pytest.raises(ValueError, match="custom_bw_candidates must have exactly 2 features"):
+        model.fit(X, y, sample_weight=w, custom_bw_candidates=custom_bw_1d.reshape(-1, 1), reg_grid1=x_new1, reg_grid2=x_new2)
+
+
+@pytest.mark.parametrize("method", ["cv", "gcv"])
+def test_polyfit2d_bandwidth_selection(method: str) -> None:
+    X, y, w, x_new1, x_new2 = make_test_inputs_2d()
+    model = Polyfit2DModel(random_seed=100)
+
+    model.fit(X, y, sample_weight=w, bandwidth_selection_method=method, reg_grid1=x_new1, reg_grid2=x_new2)
+    assert hasattr(model, "bandwidth1_"), "bandwidth1_ should be set after fitting"
+    assert hasattr(model, "bandwidth2_"), "bandwidth2_ should be set after fitting"
+    assert hasattr(model, "bandwidth_selection_results_"), "bandwidth_selection_results_ should be set after fitting"
+
+
+@pytest.mark.parametrize("same_bandwidth_for_2dim", [True, False])
+def test_polyfit2d_bandwidth_selection_2dim(same_bandwidth_for_2dim: bool) -> None:
+    X, y, w, x_new1, x_new2 = make_test_inputs_2d()
+    model = Polyfit2DModel(random_seed=100)
+
+    model.fit(
+        X,
+        y,
+        sample_weight=w,
+        reg_grid1=x_new1,
+        reg_grid2=x_new2,
+        same_bandwidth_for_2dim=same_bandwidth_for_2dim,
+    )
+
+    assert hasattr(model, "bandwidth1_"), "bandwidth1_ should be set after fitting"
+    assert hasattr(model, "bandwidth2_"), "bandwidth2_ should be set after fitting"
+    assert hasattr(model, "bandwidth_selection_results_"), "bandwidth_selection_results_ should be set after fitting"

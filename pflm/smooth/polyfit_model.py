@@ -163,13 +163,12 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
                 return np.inf
 
             cv_scores[fold] = sum(
-                self.sorted_sample_weight_[self.obs_grid_idx_[test_mask]] * (self.sorted_y_[self.obs_grid_idx_[test_mask]] - y_pred[self.obs_grid_idx_[test_mask]]) ** 2
+                self.sorted_sample_weight_[test_mask] * (self.sorted_y_[test_mask] - y_pred[self.obs_grid_idx_[test_mask]]) ** 2
             )
+
         return np.mean(cv_scores) / self._sum_sample_weight
 
-    def _compute_gcv_score(
-        self, bandwidth: np.floating, k0: float, r: np.floating
-    ) -> np.floating:
+    def _compute_gcv_score(self, bandwidth: np.floating, k0: float, r: np.floating) -> np.floating:
         """
         Compute Generalized Cross-Validation score for a given bandwidth.
 
@@ -200,9 +199,18 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         )
         if np.isnan(y_pred).any():
             return np.inf
-        numerator = sum(self.sorted_sample_weight_ * (self.sorted_y_ - y_pred[self.obs_grid_idx_]) ** 2)
-        denominator = math.pow(1.0 - r * k0 / bandwidth / self._sum_sample_weight, 2.0)
-        return numerator / denominator
+
+        # GCV score = n * RSS / tr(I - S)^2, where RSS is the residual sum of squares
+        # x_i belongs [a, b], kernel is symmetric, so S_{ii} will be approximately K(0) / (h * n / r) = K(0) * r / (h * n)
+        # where h is bandwidth, n is number of points, r is range of x_i
+        # So, tr(S) = sum_i S_{ii} = n * K(0) * r / (h * n) = K(0) * r / h, then tr(I - S) = n - tr(S)
+        # Last, the GCV score can be computed as n * RSS / (n - K(0) * r / h) ^ 2 = RSS / n / (1 - K(0) * r / (h * n)) ^ 2
+        # We substitute n with the sum of sample weights to account for weighted regression
+        # and we can ignore the n factor in the denominator for the comparison.
+        rss = sum(self.sorted_sample_weight_ * (self.sorted_y_ - y_pred[self.obs_grid_idx_]) ** 2)
+        trace_s = k0 * r / bandwidth
+        denominator = math.pow(max(1.0 - trace_s / self._sum_sample_weight, 0.0), 2.0)
+        return rss / denominator if denominator > 0 else np.inf
 
     def _select_bandwidth(
         self,
@@ -636,9 +644,37 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         float
             Cross-validation score.
         """
-        # TODO: Implement 2D CV score calculation
-        # This is a placeholder - you'll provide the actual implementation
-        return np.random.rand()  # Example random score
+        cv_index = np.arange(len(self.X_)) % cv_folds
+        self.rng.shuffle(cv_index)
+
+        cv_scores = np.zeros(cv_folds, dtype=self._input_dtype)
+        for fold in range(cv_folds):
+            train_mask = cv_index != fold
+            test_mask = cv_index == fold
+
+            y_pred = self._polyfit2d_func(
+                np.ascontiguousarray(self.sorted_X_[train_mask, :].T),
+                self.sorted_y_[train_mask],
+                self.sorted_sample_weight_[train_mask],
+                self.obs_grid1_,
+                self.obs_grid2_,
+                bandwidth1,
+                bandwidth2,
+                self.kernel_type.value,
+                self.degree,
+                self.deriv1,
+                self.deriv2,
+            )
+
+            if np.isnan(y_pred).any():
+                return np.inf
+
+            cv_scores[fold] = np.sum(
+                self.sorted_sample_weight_[test_mask]
+                * (self.sorted_y_[test_mask] - y_pred[self.obs_grid2_idx_[test_mask], self.obs_grid1_idx_[test_mask]]) ** 2
+            )
+
+        return np.mean(cv_scores) / self._sum_sample_weight
 
     def _compute_gcv_score(
         self,
@@ -670,7 +706,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             GCV score.
         """
         y_pred = self._polyfit2d_func(
-            self.sorted_X_,
+            np.ascontiguousarray(self.sorted_X_.T),
             self.sorted_y_,
             self.sorted_sample_weight_,
             self.obs_grid1_,
@@ -685,9 +721,19 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         if np.isnan(y_pred).any():
             return np.inf
 
-        # TODO: Implement 2D GCV score calculation
-        # This is a placeholder - you'll provide the actual implementation
-        return np.random.rand()  # Example random score
+        # As in 1D, we compute the GCV score as follows:
+        # GCV score = n * RSS / tr(I - S)^2, where RSS is the residual sum of squares
+        # In 1D, it was an approximation of the trace of S in the first-order accuracy.
+        # In 2D, we use the second-order accuracy approximation.
+        # tr(S) = n * K(0) * K(0) * r1 * r2 / (h1 * h2 * n^2) * 3
+        # tr(I - S) = n - tr(S)
+        # Last, the GCV score can be computed as n * RSS / (n - tr(S))^2 = RSS / n / (1 - tr(S) / n)^2
+        # We substitute n with the sum of sample weights to account for weighted regression
+        # and we can ignore the n factor in the denominator for the comparison.
+        rss = np.sum((self.sorted_y_ - y_pred[self.obs_grid2_idx_, self.obs_grid1_idx_]) ** 2 * self.sorted_sample_weight_)
+        trace_s = k0 * k0 * r1 * r2 / bandwidth1 / bandwidth2 * 3
+        denominator = math.pow(max(1.0 - trace_s / self._sum_sample_weight, 0.0), 2.0)
+        return rss / denominator if denominator > 0 else np.inf
 
     def _select_bandwidth(
         self,
@@ -733,11 +779,14 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             "bandwidth_selection_method": method,
         }
 
+        self._sum_sample_weight = np.sum(self.sample_weight_)
         if method == "cv":
-            cv_scores = np.array([
-                self._compute_cv_score(bandwidth_candidates_[i, 0], bandwidth_candidates_[i, 1], cv_folds)
-                for i in range(bandwidth_candidates_.shape[0])
-            ])
+            cv_scores = np.array(
+                [
+                    self._compute_cv_score(bandwidth_candidates_[i, 0], bandwidth_candidates_[i, 1], cv_folds)
+                    for i in range(bandwidth_candidates_.shape[0])
+                ]
+            )
             if (~np.isfinite(cv_scores)).all():
                 raise ValueError("All CV scores are non-finite. Check your data and bandwidth candidates.")
             self.bandwidth_selection_results_["cv_scores"] = cv_scores
@@ -751,10 +800,12 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             )
             r1 = self.obs_grid1_[-1] - self.obs_grid1_[0]
             r2 = self.obs_grid2_[-1] - self.obs_grid2_[0]
-            gcv_scores = np.array([
-                self._compute_gcv_score(bandwidth_candidates_[i, 0], bandwidth_candidates_[i, 1], k0, r1, r2)
-                for i in range(bandwidth_candidates_.shape[0])
-            ])
+            gcv_scores = np.array(
+                [
+                    self._compute_gcv_score(bandwidth_candidates_[i, 0], bandwidth_candidates_[i, 1], k0, r1, r2)
+                    for i in range(bandwidth_candidates_.shape[0])
+                ]
+            )
             if (~np.isfinite(gcv_scores)).all():
                 raise ValueError("All GCV scores are non-finite. Check your data and bandwidth candidates.")
             self.bandwidth_selection_results_["gcv_scores"] = gcv_scores
@@ -917,8 +968,8 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             self.reg_grid2_ = np.linspace(x2_min, x2_max, self.n_points_reg_grid)
 
         # create observation grids
-        self.obs_grid1_, self.obs_grid1_idx = np.unique(self.sorted_X_[:, 0], return_inverse=True, sorted=True)
-        self.obs_grid2_, self.obs_grid2_idx = np.unique(self.sorted_X_[:, 1], return_inverse=True, sorted=True)
+        self.obs_grid1_, self.obs_grid1_idx_ = np.unique(self.sorted_X_[:, 0], return_inverse=True, sorted=True)
+        self.obs_grid2_, self.obs_grid2_idx_ = np.unique(self.sorted_X_[:, 1], return_inverse=True, sorted=True)
 
         # Select bandwidths if needed
         if bandwidth1 is None or bandwidth2 is None:
@@ -960,10 +1011,10 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
 
         Parameters
         ----------
-        X1 : array-like of shape (n_samples,)
-            First feature to predict.
-        X2 : array-like of shape (n_samples,)
-            Second feature to predict.
+        X1: np.ndarray
+            Samples for the first dimension of shape (n_samples_X1,).
+        X2: np.ndarray
+            Samples for the second dimension of shape (n_samples_X2,).
         use_model_interp : bool, default=True
             If True, use the model's interpolation grid for prediction.
             If False, use direct polyfit2d call for prediction.
@@ -971,7 +1022,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         Returns
         -------
         np.ndarray
-            Predicted values of shape (n_samples,).
+            Predicted values of shape (n_samples_X2, n_samples_X1).
         """
         check_is_fitted(self, ["reg_fitted_values_", "reg_grid1_", "reg_grid2_", "bandwidth1_", "bandwidth2_"])
 
@@ -980,8 +1031,6 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         X2 = check_array(X2, ensure_2d=False, dtype=self._input_dtype)
         if X1.ndim != 1 or X2.ndim != 1:
             raise ValueError(f"X1 and X2 must be 1D arrays, got {X1.ndim}D and {X2.ndim}D")
-        if X1.shape[0] != X2.shape[0]:
-            raise ValueError(f"X1 and X2 must have the same number of samples, got {X1.shape[0]} and {X2.shape[0]}")
 
         X1_ord = np.argsort(X1)
         X2_ord = np.argsort(X2)
@@ -1010,7 +1059,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
 
         inverse_X1_sort_idx = np.argsort(X1_ord)
         inverse_X2_sort_idx = np.argsort(X2_ord)
-        return y_pred[inverse_X1_sort_idx, :][:, inverse_X2_sort_idx]
+        return y_pred[inverse_X2_sort_idx, :][:, inverse_X1_sort_idx]
 
     def get_fitted_grids(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """

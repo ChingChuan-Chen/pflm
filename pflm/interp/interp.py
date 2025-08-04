@@ -79,9 +79,9 @@ def interp2d(x: np.ndarray, y: np.ndarray, v: np.ndarray, x_new: np.ndarray, y_n
     v : array_like
         2D array of values at the grid points defined by x and y.
     x_new : array_like
-        1D array of x-coordinates where the interpolation is evaluated.
+        1D array of x-coordinates where the interpolation is evaluated with shape (n_new_x,).
     y_new : array_like
-        1D array of y-coordinates where the interpolation is evaluated.
+        1D array of y-coordinates where the interpolation is evaluated with shape (n_new_y,).
     method : str, optional
         The interpolation method. Default is 'linear'.
         The interpolation method:
@@ -91,7 +91,7 @@ def interp2d(x: np.ndarray, y: np.ndarray, v: np.ndarray, x_new: np.ndarray, y_n
     Returns
     -------
     v_new: array_like
-        2D array of interpolated values at the grid points defined by x_new and y_new.
+        The shape (n_new_y, n_new_x) 2D array of interpolated values at the grid points defined by x_new and y_new.
 
     See Also
     --------

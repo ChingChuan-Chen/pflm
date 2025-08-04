@@ -659,7 +659,7 @@ def test_polyfit1d_cv_bandwidth_selection():
     x_new = np.linspace(0, 1, 21)
     model = Polyfit1DModel(random_seed=100, kernel_type=KernelType.EPANECHNIKOV)
     model.fit(x, y, sample_weight=w, bandwidth_selection_method="cv", cv_folds=5, reg_grid=x_new)
-    assert math.fabs(model.bandwidth_ - 0.25) < 1e-5
+    assert math.fabs(model.bandwidth_ - 0.15) < 1e-5
     assert "bandwidth_selection_results_" in model.__dict__, "bandwidth_selection_results_ should be set after fitting with cv method"
 
 
