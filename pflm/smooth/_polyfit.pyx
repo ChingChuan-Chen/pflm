@@ -316,7 +316,7 @@ def polyfit2d_f64(
     int deriv2
 ) -> np.ndarray[np.float64_t]:
     cdef ptrdiff_t n1 = x_new1.shape[0], n2 = x_new2.shape[0]
-    cdef np.ndarray[np.float64_t, ndim=2] mu = np.empty((n2, n1), dtype=np.float64)
+    cdef np.ndarray[np.float64_t, ndim=2] mu = np.empty((n2, n1), order='C', dtype=np.float64)
     cdef np.float64_t[:, ::1] x_grid_view = x_grid
     cdef np.float64_t[:] y_view = y
     cdef np.float64_t[:] w_view = w
@@ -324,7 +324,7 @@ def polyfit2d_f64(
     cdef np.float64_t[:] x_new2_view = x_new2
     cdef np.float64_t[:, ::1] mu_view = mu
     polyfit2d_memview(x_grid_view, y_view, w_view, x_new1_view, x_new2_view, mu_view, bandwidth1, bandwidth2, kernel_type, degree, deriv1, deriv2)
-    return mu
+    return mu.T
 
 
 def polyfit2d_f32(
@@ -341,7 +341,7 @@ def polyfit2d_f32(
     int deriv2
 ) -> np.ndarray[np.float32_t]:
     cdef ptrdiff_t n1 = x_new1.shape[0], n2 = x_new2.shape[0]
-    cdef np.ndarray[np.float32_t, ndim=2] mu = np.empty((n2, n1), dtype=np.float32)
+    cdef np.ndarray[np.float32_t, ndim=2] mu = np.empty((n2, n1), order='C', dtype=np.float32)
     cdef np.float32_t[:, ::1] x_grid_view = x_grid
     cdef np.float32_t[:] y_view = y
     cdef np.float32_t[:] w_view = w
@@ -349,4 +349,4 @@ def polyfit2d_f32(
     cdef np.float32_t[:] x_new2_view = x_new2
     cdef np.float32_t[:, ::1] mu_view = mu
     polyfit2d_memview(x_grid_view, y_view, w_view, x_new1_view, x_new2_view, mu_view, bandwidth1, bandwidth2, kernel_type, degree, deriv1, deriv2)
-    return mu
+    return mu.T

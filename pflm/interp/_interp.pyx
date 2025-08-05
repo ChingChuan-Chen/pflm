@@ -26,9 +26,7 @@ def find_le_indices_memview_f64(
     return result
 
 
-def find_le_indices_memview_f32(
-    np.float32_t[:] a, np.float32_t[:] b
-) -> np.ndarray[np.int64_t]:
+def find_le_indices_memview_f32(np.float32_t[:] a, np.float32_t[:] b) -> np.ndarray[np.int64_t]:
     """find_le_indices_memview_f32(a, b) -> np.ndarray[np.int64_t] (test only)"""
     cdef ptrdiff_t n = a.shape[0], m = b.shape[0]
     cdef np.ndarray[np.int64_t] result = np.empty(m, dtype=np.int64)

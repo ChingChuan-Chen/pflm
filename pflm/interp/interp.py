@@ -23,6 +23,11 @@ Functions
 def interp1d(x: np.ndarray, y: np.ndarray, x_new: np.ndarray, method: str = "linear") -> np.ndarray:
     """Interpolate 1D data using linear or spline interpolation.
 
+    This function is aligned with MATLAB's `interp1` function and Python's `scipy.interpolate.interp1d`.
+    It returns a 1D array of interpolated values at the new x-coordinates `x_new`.
+    The input arrays `x` and `y` must be 1D arrays of the same length, where `x` contains the x-coordinates
+    and `y` contains the corresponding y-coordinates. The interpolation method can be either 'linear' or 'spline'.
+
     Parameters
     ----------
     x : np.ndarray
@@ -70,14 +75,20 @@ def interp1d(x: np.ndarray, y: np.ndarray, x_new: np.ndarray, method: str = "lin
 def interp2d(x: np.ndarray, y: np.ndarray, v: np.ndarray, x_new: np.ndarray, y_new: np.ndarray, method: str = "linear") -> np.ndarray:
     """Interpolate 2D data using linear or spline interpolation.
 
+    MATLAB's `interp2` function returns a 2D array of interpolated values at the grid points defined by `x_new` and `y_new`.
+    The output array `v_new` has the shape (n_new_x, n_new_y), where n_new_x is the length of `x_new` and n_new_y is the length of `y_new`.
+    This function is aligned with the Python `scipy.interpolate.interp2d` function.
+    The shape of `v` should be (n_x, n_y), where n_x is the length of `x` and n_y is the length of `y`.
+    The shape of output `v_new` will be (n_new_x, n_new_y).
+
     Parameters
     ----------
     x : array_like
-        1D array of x-coordinates of the data points.
+        1D array of x-coordinates of the data points with shape (n_x,).
     y : array_like
-        1D array of y-coordinates of the data points.
+        1D array of y-coordinates of the data points with shape (n_y,).
     v : array_like
-        2D array of values at the grid points defined by x and y.
+        2D array of values at the grid points defined by x and y with shape (n_x, n_y).
     x_new : array_like
         1D array of x-coordinates where the interpolation is evaluated with shape (n_new_x,).
     y_new : array_like
@@ -91,7 +102,7 @@ def interp2d(x: np.ndarray, y: np.ndarray, v: np.ndarray, x_new: np.ndarray, y_n
     Returns
     -------
     v_new: array_like
-        The shape (n_new_y, n_new_x) 2D array of interpolated values at the grid points defined by x_new and y_new.
+        The shape (n_new_x, n_new_y) 2D array of interpolated values at the grid points defined by x_new and y_new.
 
     See Also
     --------
@@ -101,9 +112,9 @@ def interp2d(x: np.ndarray, y: np.ndarray, v: np.ndarray, x_new: np.ndarray, y_n
         raise ValueError("x, y, and v must be 1D and 2D arrays respectively.")
     if x.size == 0 or y.size == 0 or v.size == 0 or x_new.size == 0 or y_new.size == 0:
         raise ValueError("x, y, v, x_new, and y_new must not be empty.")
-    if x.size != v.shape[1]:
+    if x.size != v.shape[0]:
         raise ValueError("x must have the same length as the first dimension of v")
-    if y.size != v.shape[0]:
+    if y.size != v.shape[1]:
         raise ValueError("y must have the same length as the second dimension of v")
     # NaN check
     if np.isnan(x).any():
@@ -122,5 +133,9 @@ def interp2d(x: np.ndarray, y: np.ndarray, v: np.ndarray, x_new: np.ndarray, y_n
     interp_func = interp2d_f32 if x.dtype == np.float32 else interp2d_f64
     x_unique, idx_x = np.unique(x, return_index=True)
     y_unique, idx_y = np.unique(y.astype(x.dtype, copy=False), return_index=True)
-    v_unique = v[np.ix_(idx_y, idx_x)].astype(x.dtype, copy=False)
-    return interp_func(x_unique, y_unique, v_unique, x_new.astype(x.dtype, copy=False), y_new.astype(x.dtype, copy=False), method_mapping[method])
+    # C++ Function takes x as the second dimension and y as the first dimension for v
+    v_unique = np.ascontiguousarray(v[np.ix_(idx_x, idx_y)].astype(x.dtype, copy=False).T)
+    v_new = interp_func(
+        x_unique, y_unique, v_unique, x_new.astype(x.dtype, copy=False), y_new.astype(x.dtype, copy=False), method_mapping[method]
+    ).T
+    return v_new

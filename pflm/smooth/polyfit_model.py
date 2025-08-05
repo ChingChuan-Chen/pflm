@@ -121,7 +121,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         r = self.obs_grid_[-1] - self.obs_grid_[0]
         h0 = min(1.5 * d_star, r)
         q = math.pow(0.25 * r / h0, 1.0 / (num_bw_candidates - 1))
-        return h0 * (q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates))
+        return h0 * (q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates, dtype=self._input_dtype))
 
     def _compute_cv_score(self, bandwidth: np.floating, cv_folds: int = 5) -> np.floating:
         """
@@ -240,7 +240,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
             The bandwidth with the best score.
         """
         if custom_bw_candidates is not None:
-            bandwidth_candidates_ = custom_bw_candidates
+            bandwidth_candidates_ = check_array(custom_bw_candidates, ensure_2d=False, dtype=self._input_dtype)
         else:
             bandwidth_candidates_ = self._generate_bandwidth_candidates(num_bw_candidates)
 
@@ -392,7 +392,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
                 )
         else:
             # Create uniform grid within the range of input X
-            self.reg_grid_ = np.linspace(x_min, x_max, self.n_points_reg_grid)
+            self.reg_grid_ = np.linspace(x_min, x_max, self.n_points_reg_grid, dtype=self._input_dtype)
 
         # create obs_grid_
         self.obs_grid_, self.obs_grid_idx_ = np.unique(self.sorted_X_, return_inverse=True, sorted=True)
@@ -585,7 +585,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         r = sorted_unique_support[-1] - sorted_unique_support[0]
         h0 = min(2.0 * d_star, r)
         q = math.pow(0.25 * r / h0, 1.0 / (num_bw_candidates - 1))
-        return h0 * (q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates))
+        return h0 * (q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates, dtype=self._input_dtype))
 
     def _generate_bandwidth_candidates(self, num_bw_candidates: int, same_bandwidth_for_2dim: bool = False) -> np.ndarray:
         """
@@ -671,7 +671,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
 
             cv_scores[fold] = np.sum(
                 self.sorted_sample_weight_[test_mask]
-                * (self.sorted_y_[test_mask] - y_pred[self.obs_grid2_idx_[test_mask], self.obs_grid1_idx_[test_mask]]) ** 2
+                * (self.sorted_y_[test_mask] - y_pred[self.obs_grid1_idx_[test_mask], self.obs_grid2_idx_[test_mask]]) ** 2
             )
 
         return np.mean(cv_scores) / self._sum_sample_weight
@@ -730,7 +730,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         # Last, the GCV score can be computed as n * RSS / (n - tr(S))^2 = RSS / n / (1 - tr(S) / n)^2
         # We substitute n with the sum of sample weights to account for weighted regression
         # and we can ignore the n factor in the denominator for the comparison.
-        rss = np.sum((self.sorted_y_ - y_pred[self.obs_grid2_idx_, self.obs_grid1_idx_]) ** 2 * self.sorted_sample_weight_)
+        rss = np.sum((self.sorted_y_ - y_pred[self.obs_grid1_idx_, self.obs_grid2_idx_]) ** 2 * self.sorted_sample_weight_)
         trace_s = k0 * k0 * r1 * r2 / bandwidth1 / bandwidth2 * 3
         denominator = math.pow(max(1.0 - trace_s / self._sum_sample_weight, 0.0), 2.0)
         return rss / denominator if denominator > 0 else np.inf
@@ -767,7 +767,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             The bandwidth pair with the best score.
         """
         if custom_bw_candidates is not None:
-            bandwidth_candidates_ = custom_bw_candidates
+            bandwidth_candidates_ = check_array(custom_bw_candidates, ensure_2d=True, dtype=self._input_dtype)
             if same_bandwidth_for_2dim:
                 bandwidth_candidates_ = bandwidth_candidates_[bandwidth_candidates_[:, 0] == bandwidth_candidates_[:, 1], :]
         else:
@@ -949,7 +949,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
                 )
         else:
             # Create uniform grid for first dimension
-            self.reg_grid1_ = np.linspace(x1_min, x1_max, self.n_points_reg_grid)
+            self.reg_grid1_ = np.linspace(x1_min, x1_max, self.n_points_reg_grid, dtype=self._input_dtype)
 
         if reg_grid2 is not None:
             # Use custom grid for second dimension
@@ -965,7 +965,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
                 )
         else:
             # Create uniform grid for second dimension
-            self.reg_grid2_ = np.linspace(x2_min, x2_max, self.n_points_reg_grid)
+            self.reg_grid2_ = np.linspace(x2_min, x2_max, self.n_points_reg_grid, dtype=self._input_dtype)
 
         # create observation grids
         self.obs_grid1_, self.obs_grid1_idx_ = np.unique(self.sorted_X_[:, 0], return_inverse=True, sorted=True)
@@ -1059,7 +1059,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
 
         inverse_X1_sort_idx = np.argsort(X1_ord)
         inverse_X2_sort_idx = np.argsort(X2_ord)
-        return y_pred[inverse_X2_sort_idx, :][:, inverse_X1_sort_idx]
+        return y_pred[inverse_X1_sort_idx, :][:, inverse_X2_sort_idx]
 
     def get_fitted_grids(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """

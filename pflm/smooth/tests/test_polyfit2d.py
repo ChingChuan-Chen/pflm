@@ -715,26 +715,27 @@ def test_polyfit2d_insufficient_data_for_degree() -> None:
     with pytest.raises(ValueError, match="Not enough unique support points"):
         model.fit(X2, y, sample_weight=w, reg_grid1=x_new1, reg_grid2=x_new2)
 
-def test_polyfit2d_rectangle_surface() -> None:
+
+@pytest.mark.parametrize("use_model_interp, dtype", [(True, np.float32), (False, np.float64)])
+def test_polyfit2d_rectangle_surface(use_model_interp: bool, dtype: np.dtype) -> None:
     """Test Polyfit2DModel with custom bandwidth candidates."""
-    x1 = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
-    x2 = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
+    x1 = np.array([0.1, 0.2, 0.3, 0.4, 0.5], dtype=dtype)
+    x2 = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7], dtype=dtype)
     X = np.column_stack([np.repeat(x1, len(x2)), np.tile(x2, len(x1))])
     y = X[:, 0] + X[:, 1]  # Simple linear relationship
-    w = np.ones(len(y))
-    x_new1 = np.linspace(0.1, 0.5, 5)
-    x_new2 = np.linspace(0.1, 0.7, 8)
+    w = np.ones(len(y), dtype=dtype)
+    x_new1 = np.linspace(0.1, 0.5, 5, dtype=dtype)
+    x_new2 = np.linspace(0.1, 0.7, 8, dtype=dtype)
 
     model = Polyfit2DModel(random_seed=100)
-    custom_bw_candidates = np.array([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3], [0.4, 0.4], [0.5, 0.5]])
+    custom_bw_candidates = np.array([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3], [0.4, 0.4], [0.5, 0.5]], dtype=dtype)
     model.fit(X, y, sample_weight=w, custom_bw_candidates=custom_bw_candidates, reg_grid1=x_new1, reg_grid2=x_new2)
     assert hasattr(model, "bandwidth1_"), "bandwidth1_ should be set after fitting"
     assert hasattr(model, "bandwidth2_"), "bandwidth2_ should be set after fitting"
     assert hasattr(model, "bandwidth_selection_results_"), "bandwidth_selection_results_ should be set after fitting"
 
-    X_new = np.column_stack([np.repeat(x_new1, len(x_new2)), np.tile(x_new2, len(x_new1))])
-    y_pred = model.predict(x_new1, x_new2)  # Ensure predict works after fitting
-    assert y_pred.shape == (len(x_new2), len(x_new1)), "Prediction shape mismatch"
+    y_pred = model.predict(x_new1, x_new2, use_model_interp=use_model_interp)  # Ensure predict works after fitting
+    assert y_pred.shape == (len(x_new1), len(x_new2)), "Prediction shape mismatch"
     assert np.all(np.isfinite(y_pred)), "Prediction contains NaN or Inf values"
 
 
