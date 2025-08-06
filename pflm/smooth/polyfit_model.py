@@ -892,11 +892,6 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         if num_bw_candidates < 2:
             raise ValueError("Number of bandwidth candidates, num_bw_candidates, should be at least 2.")
 
-        if num_bw_candidates is None or not isinstance(num_bw_candidates, int):
-            raise TypeError("Number of bandwidth candidates, num_bw_candidates, should be an integer.")
-        if num_bw_candidates < 2:
-            raise ValueError("Number of bandwidth candidates, num_bw_candidates, should be at least 2.")
-
         xp, *_ = get_namespace_and_device(X, y, sample_weight)
 
         # Handle input validation
