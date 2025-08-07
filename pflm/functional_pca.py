@@ -15,9 +15,9 @@ from pflm.smooth import KernelType, Polyfit1DModel
 from pflm.utils.utility import flatten_and_sort_data_matrices
 
 
-class FPCASmoothingParams:
+class FunctionalPCAMuCovParams:
     """
-    Parameters for smoothing in Functional PCA.
+    Parameters for mean and covariance functions in Functional PCA.
 
     Parameters
     ----------
@@ -93,7 +93,7 @@ class FPCASmoothingParams:
             f"FPCASmoothingParams(bw_mu={self.bw_mu}, bw_cov={self.bw_cov}, estimate_method='{self.estimate_method}', "
             f"kernel_type={self.kernel_type}, method_select_mu_bw='{self.method_select_mu_bw}', "
             f"method_select_cov_bw='{self.method_select_cov_bw}', apply_geo_avg_cov_bw={self.apply_geo_avg_cov_bw}, "
-            f"k_fold_mu={self.k_fold_mu}, k_fold_cov={self.k_fold_cov}, random_seed={self.random_seed})"
+            f"k_fold_mu={self.cv_folds_mu}, k_fold_cov={self.cv_folds_cov}, random_seed={self.random_seed})"
         )
 
 
@@ -175,8 +175,8 @@ class FunctionalPCA(BaseEstimator):
         Whether to assume measurement error in the dataset.
     num_n_points_reg_grid : int, default=51
         Number of points in the regular grid for regression.
-    smoothing_params : FPCASmoothingParams, default=FPCASmoothingParams()
-        Parameters for smoothing the functional data.
+    mu_cov_params : FunctionalPCAMuCovParams, default=FunctionalPCAMuCovParams()
+        Parameters for mean and covariance functions.
     user_params : FunctionalPCAUserDefinedParams, default=FunctionalPCAUserDefinedParams()
         User-defined parameters for mean and covariance functions.
     verbose : bool, default=False
@@ -216,7 +216,7 @@ class FunctionalPCA(BaseEstimator):
         *,
         assume_measurement_error: bool = True,
         num_points_reg_grid: int = 51,
-        smoothing_params: FPCASmoothingParams = FPCASmoothingParams(),
+        mu_cov_params: FunctionalPCAMuCovParams = FunctionalPCAMuCovParams(),
         user_params: FunctionalPCAUserDefinedParams = FunctionalPCAUserDefinedParams(),
         verbose: bool = False,
     ) -> None:
@@ -224,8 +224,8 @@ class FunctionalPCA(BaseEstimator):
             raise ValueError("assume_measurement_error must be a boolean value.")
         if not isinstance(num_points_reg_grid, int) or num_points_reg_grid <= 0:
             raise ValueError("num_n_points_reg_grid must be a positive integer.")
-        if not isinstance(smoothing_params, FPCASmoothingParams):
-            raise ValueError("smoothing_params must be an instance of FPCASmoothingParams.")
+        if not isinstance(mu_cov_params, FunctionalPCAMuCovParams):
+            raise ValueError("mu_cov_params must be an instance of FunctionalPCAMuCovParams.")
         if not isinstance(user_params, FunctionalPCAUserDefinedParams):
             raise ValueError("user_params must be an instance of FunctionalPCAUserDefinedParams.")
         if not isinstance(verbose, bool):
@@ -234,7 +234,7 @@ class FunctionalPCA(BaseEstimator):
         # Initialize parameters
         self.assume_measurement_error = assume_measurement_error
         self.num_points_reg_grid = num_points_reg_grid
-        self.smoothing_params = smoothing_params
+        self.mu_cov_params = mu_cov_params
         self.user_params = user_params
         self.verbose = verbose
 
@@ -384,21 +384,21 @@ class FunctionalPCA(BaseEstimator):
             if t_mu.size != mu.size:
                 raise ValueError("t_mu and mu must have the same length.")
             self.mu_ = interp1d(t_mu, mu, self.reg_grid_, method='spline')
-        elif self.smoothing_params.estimate_method == "smooth":
+        elif self.mu_cov_params.estimate_method == "smooth":
             self.mean_func_fit_ = Polyfit1DModel(
-                kernel_type=self.smoothing_params.kernel_type,
+                kernel_type=self.mu_cov_params.kernel_type,
                 interp_kind='spline',
-                random_seed=self.smoothing_params.random_seed
+                random_seed=self.mu_cov_params.random_seed
             )
             self.mean_func_fit_.fit(
                 self.tt_, self.yy_, self.ww_,
-                bandwidth=self.smoothing_params.bw_mu,
+                bandwidth=self.mu_cov_params.bw_mu,
                 reg_grid=self.reg_grid_,
-                bandwidth_selection_method=self.smoothing_params.method_select_mu_bw,
-                cv_folds=self.smoothing_params.cv_folds_mu
+                bandwidth_selection_method=self.mu_cov_params.method_select_mu_bw,
+                cv_folds=self.mu_cov_params.cv_folds_mu
             )
             _, self.mu_ = self.mean_func_fit_.get_fitted_grids()
-        elif self.smoothing_params.estimate_method == "cross-sectional":
+        elif self.mu_cov_params.estimate_method == "cross-sectional":
             self.mu_ = np.bincount(self.tid_, self.yy_)
 
         self.xi, self.xi_var = self.fit_score(self.method_pcs_, self.method_select_num_pcs_, self.max_num_pcs_, self.impute_scores_, self.fve_threshold_)
