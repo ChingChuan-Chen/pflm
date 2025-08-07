@@ -1,18 +1,323 @@
+"""Functional Principal Component Analysis (FPCA) implementation."""
+
+# Authors: Ching-Chuan Chen
+# SPDX-License-Identifier: MIT
+
+from typing import List, Literal, Optional, Union
+
 import numpy as np
 from sklearn.base import BaseEstimator
-from pflm.interp import interp1d, interp2d
-from pflm.smooth import Polyfit1DModel, Polyfit2DModel
-from pflm.utils.utility import trapz
+from sklearn.utils.validation import check_array
+
+from pflm.smooth import KernelType
+
+
+class FPCASmoothingParams:
+    """
+    Parameters for smoothing in Functional PCA.
+
+    Parameters
+    ----------
+    bw_mu : float, optional
+        Bandwidth for the mean function. If None, it will be estimated.
+    bw_cov : float, optional
+        Bandwidth for the covariance function. If None, it will be estimated.
+    estimate_method : {'smooth', 'cross-sectional'}, default='smooth'
+        Method to estimate the mean and covariance functions.
+    kernel_type : KernelType, default=KernelType.EPANECHNIKOV
+        Type of kernel to use for smoothing.
+    method_select_mu_bw : {'cv', 'gcv'}, default='gcv'
+        Method to select bandwidth for the mean function.
+    method_select_cov_bw : {'cv', 'gcv'}, default='gcv'
+        Method to select bandwidth for the covariance function.
+    apply_geo_avg_cov_bw : bool, default=False
+        Whether to apply geometric averaging when selecting covariance bandwidth.
+    k_fold_mu : int, default=10
+        Number of folds for cross-validation when selecting bandwidth for the mean function.
+    k_fold_cov : int, default=10
+        Number of folds for cross-validation when selecting bandwidth for the covariance function.
+    random_seed : int, optional
+        Random seed for reproducibility which is used only in CV. If None, no seed is set.
+    """
+
+    def __init__(
+        self,
+        bw_mu: Optional[float] = None,
+        bw_cov: Optional[float] = None,
+        estimate_method: Literal["smooth", "cross-sectional"] = "smooth",
+        kernel_type: KernelType = KernelType.EPANECHNIKOV,
+        method_select_mu_bw: Literal["cv", "gcv"] = "gcv",
+        method_select_cov_bw: Literal["cv", "gcv"] = "gcv",
+        apply_geo_avg_cov_bw: bool = False,
+        k_fold_mu: int = 10,
+        k_fold_cov: int = 10,
+        random_seed: Optional[int] = None,
+    ):
+        if bw_mu is not None and bw_mu <= 0:
+            raise ValueError("Bandwidth for mean function bw_mu must be a positive scalar.")
+        if bw_cov is not None and bw_cov <= 0:
+            raise ValueError("Bandwidth for covariance function bw_cov must be a positive scalar.")
+        if estimate_method not in ["smooth", "cross-sectional"]:
+            raise ValueError("estimate_method must be either 'smooth' or 'cross-sectional'.")
+        if not isinstance(kernel_type, KernelType):
+            raise ValueError("kernel_type must be an instance of KernelType Enum.")
+        if method_select_mu_bw not in ["GCV", "CV"]:
+            raise ValueError("method_select_mu_bw must be either 'GCV' or 'CV'.")
+        if method_select_cov_bw not in ["GCV", "CV"]:
+            raise ValueError("method_select_cov_bw must be either 'GCV' or 'CV'.")
+        if not isinstance(apply_geo_avg_cov_bw, bool):
+            raise ValueError("apply_geo_avg_cov_bw must be a boolean value.")
+        if k_fold_mu <= 0 or not isinstance(k_fold_mu, int):
+            raise ValueError("k_fold_mu must be a positive integer.")
+        if k_fold_cov <= 0 or not isinstance(k_fold_cov, int):
+            raise ValueError("k_fold_cov must be a positive integer.")
+        if random_seed is not None and (not isinstance(random_seed, int) or random_seed < 0):
+            raise ValueError("random_seed must be a non-negative integer.")
+
+        self.bw_mu = bw_mu
+        self.bw_cov = bw_cov
+        self.estimate_method = estimate_method
+        self.kernel_type = kernel_type
+        self.method_select_mu_bw = method_select_mu_bw
+        self.method_select_cov_bw = method_select_cov_bw
+        self.apply_geo_avg_cov_bw = apply_geo_avg_cov_bw
+        self.k_fold_mu = k_fold_mu
+        self.k_fold_cov = k_fold_cov
+        self.random_seed = random_seed
+
+    def __repr__(self):
+        return (
+            f"FPCASmoothingParams(bw_mu={self.bw_mu}, bw_cov={self.bw_cov}, estimate_method='{self.estimate_method}', "
+            f"kernel_type={self.kernel_type}, method_select_mu_bw='{self.method_select_mu_bw}', "
+            f"method_select_cov_bw='{self.method_select_cov_bw}', apply_geo_avg_cov_bw={self.apply_geo_avg_cov_bw}, "
+            f"k_fold_mu={self.k_fold_mu}, k_fold_cov={self.k_fold_cov}, random_seed={self.random_seed})"
+        )
+
+
+class FunctionalPCAUserDefinedParams:
+    """
+    User-defined parameters for Functional PCA.
+
+    Parameters
+    ----------
+    t_mu : np.ndarray or List[float], optional
+        Time points for the mean function. If provided, must match the length of `mu`.
+    mu : np.ndarray or List[float], optional
+        Mean function values at the time points in `t_mu`.
+    t_cov : np.ndarray or List[float], optional
+        Time points for the covariance function. If provided, must match the dimensions of `cov`.
+    cov : np.ndarray or List[List[float]], optional
+        Covariance function values at the time points in `t_cov`.
+    sigma2 : float, optional
+        Variance of the measurement error.
+    rho : float, optional
+        Correlation parameter for the covariance function.
+        If provided, must be a non-negative scalar.
+    """
+
+    def __init__(
+        self,
+        t_mu: Union[np.ndarray, List[float]] = None,
+        mu: Union[np.ndarray, List[float]] = None,
+        t_cov: Union[np.ndarray, List[float]] = None,
+        cov: Union[np.ndarray, List[List[float]]] = None,
+        sigma2: Optional[float] = None,
+        rho: Optional[float] = None,
+    ):
+        if t_mu is not None and mu is not None:
+            t_mu = check_array(t_mu, ensure_2d=True, dtype=mu.dtype)
+            mu = check_array(mu, ensure_2d=True, dtype=mu.dtype)
+            if mu.ndim != 1 or mu.shape[0] != t_mu.shape[0]:
+                raise ValueError("Mean function mu must be a 1D array with the same length as t.")
+        else:
+            if t_mu is not None or mu is not None:
+                raise ValueError("Both t_mu and mu must be provided together.")
+
+        if t_cov is not None and cov is not None:
+            t_cov = check_array(t_cov, ensure_2d=True, dtype=t_cov.dtype)
+            cov = check_array(cov, ensure_2d=True, dtype=t_cov.dtype)
+            if cov.ndim != 2 or cov.shape[0] != t_cov.shape[0] or cov.shape[1] != t_cov.shape[0]:
+                raise ValueError("Covariance function cov must be a 2D square matrix with dimensions matching t.")
+        else:
+            if t_cov is not None or cov is not None:
+                raise ValueError("Both t_cov and cov must be provided together.")
+
+        if sigma2 is not None and (not isinstance(sigma2, (int, float)) or sigma2 < 0):
+            raise ValueError("Variance sigma2 must be a non-negative scalar.")
+
+        if rho is not None and (not isinstance(rho, (int, float)) or rho < 0):
+            raise ValueError("Correlation rho must be a non-negative scalar.")
+
+        self.t_mu = t_mu
+        self.mu = mu
+        self.t_cov = t_cov
+        self.cov = cov
+        self.sigma2 = float(sigma2) if sigma2 is not None else None
+        self.rho = float(rho) if rho is not None else None
+
+    def __repr__(self):
+        return (
+            f"FunctionalPCAUserDefinedParams(t_mu={self.t_mu}, mu={self.mu}, "
+            f"t_cov={self.t_cov}, cov={self.cov}, sigma2={self.sigma2}, rho={self.rho})"
+        )
 
 
 class FunctionalPCA(BaseEstimator):
+    """
+    Functional Principal Component Analysis (FPCA) for functional data.
+
+    Parameters
+    ----------
+    assume_measurement_error : bool, default=True
+        Whether to assume measurement error in the dataset.
+    num_n_points_reg_grid : int, default=51
+        Number of points in the regular grid for regression.
+    smoothing_params : FPCASmoothingParams, default=FPCASmoothingParams()
+        Parameters for smoothing the functional data.
+    user_params : FunctionalPCAUserDefinedParams, default=FunctionalPCAUserDefinedParams()
+        User-defined parameters for mean and covariance functions.
+    verbose : bool, default=False
+        Whether to print diagnostic messages during fitting.
+
+    Attributes
+    ----------
+    reg_grid_: np.ndarray
+        Regular grid points used for regression.
+    mu_: np.ndarray
+        Estimated mean function values at the regular grid points.
+    cov_: np.ndarray
+        Estimated covariance function values at the regular grid points.
+    fpca_eigen_results_: dict
+        Dictionary containing eigenvalues and eigenvectors of the covariance function.
+    num_pcs_: int
+        Number of principal components used in the model.
+    xi: np.ndarray
+        Principal component scores for the functional data.
+    xi_var: np.ndarray
+        Variance of the principal component scores.
+    fitted_y: List[np.ndarray]
+        Fitted values of the functional data based on the estimated mean and principal components.
+    rho_: float
+        Estimated correlation function value at the regular grid points.
+    sigma2_: float
+        Estimated variance function value at the regular grid points.
+
+    See Also
+    --------
+    FPCASmoothingParams : Class for smoothing parameters in FPCA.
+    FunctionalPCAUserDefinedParams : Class for user-defined parameters in FPCA.
+    """
+
     def __init__(
         self,
-
+        *,
+        assume_measurement_error: bool = True,
+        num_n_points_reg_grid: int = 51,
+        smoothing_params: FPCASmoothingParams = FPCASmoothingParams(),
+        user_params: FunctionalPCAUserDefinedParams = FunctionalPCAUserDefinedParams(),
+        verbose: bool = False,
     ) -> None:
-        pass
+        if not isinstance(assume_measurement_error, bool):
+            raise ValueError("assume_measurement_error must be a boolean value.")
+        if not isinstance(num_n_points_reg_grid, int) or num_n_points_reg_grid <= 0:
+            raise ValueError("num_n_points_reg_grid must be a positive integer.")
+        if not isinstance(smoothing_params, FPCASmoothingParams):
+            raise ValueError("smoothing_params must be an instance of FPCASmoothingParams.")
+        if not isinstance(user_params, FunctionalPCAUserDefinedParams):
+            raise ValueError("user_params must be an instance of FunctionalPCAUserDefinedParams.")
+        if not isinstance(verbose, bool):
+            raise ValueError("verbose must be a boolean value.")
 
-    def fit(self, t: np.ndarray, y: np.ndarray, w: np.ndarray = None) -> "FunctionalPCA":
+        # Initialize parameters
+        self.assume_measurement_error = assume_measurement_error
+        self.num_n_points_reg_grid = num_n_points_reg_grid
+        self.smoothing_params = smoothing_params
+        self.user_params = user_params
+        self.verbose = verbose
+
+        # Validate user-defined sigma2 and rho
+        if assume_measurement_error and user_params.sigma2 is not None and user_params.sigma2 > 0:
+            raise ValueError(
+                "Measurement error is assumed to be false, but user-defined sigma2 is provided and greater than 0. "
+                + "Please set assume_measurement_error to True or set sigma2 to None or 0."
+            )
+        if assume_measurement_error and user_params.rho is not None and user_params.rho > 0:
+            raise ValueError(
+                "Measurement error is assumed to be true, but user-defined rho is provided and greater than 0. "
+                + "Please set assume_measurement_error to True or set rho to None or 0."
+            )
+
+    def fit(
+        self,
+        t: List[Union[np.ndarray, List[float]]],
+        y: List[Union[np.ndarray, List[float]]],
+        *,
+        w: Optional[List[Union[np.ndarray, List[float]]]] = None,
+        method_pcs: Literal["IN", "CE"] = "CE",
+        method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
+        max_num_pcs: Optional[int] = None,
+        impute_scores: bool = True,
+        fve_threshold: float = 0.99,
+        reg_grid: Union[np.ndarray, List[float]] = None,
+    ) -> "FunctionalPCA":
+        """
+        Fit the functional PCA model to the data.
+
+        Parameters
+        ----------
+        t : a list of array-like
+            A 1D array of time points corresponding to the observations in `y`.
+        y : a list of array-like
+            A 2D array where each row corresponds to an observation at the time points in `t`.
+        w : a list of array-like, optional
+            A 1D array of weights for each observation. If None, equal weights are assumed.
+        method_pcs : {'IN', 'CE'}, default='CE'
+            Method to compute principal components. 'IN' for Numerical Integration, 'CE' for Conditional Expectation.
+        method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, optional
+            Method to select the number of principal components. If empty, it will be determined based on the explained variance.
+            If an integer is provided, it specifies the number of principal components to use.
+        fve_threshold : float, default=0.99
+            Threshold for the explained variance when using 'FVE' method to select the number of principal components.
+        max_num_pcs : int, optional
+            Maximum number of principal components to consider. If None, it will be set to the minimum of
+            (number of samples - 2, number of points in reg_grid - 2).
+        impute_scores : bool, default=True
+            Whether to impute missing scores in the functional data.
+        reg_grid : array-like, optional
+            Regular grid points for regression. If None, a default grid will be created.
+
+        Returns
+        -------
+        FunctionalPCA
+            The fitted model instance which will contain the estimated parameters such as mean function,
+            covariance function, and principal components scores.
+        """
+        if method_pcs not in ["IN", "CE"]:
+            raise ValueError("method_pcs must be either 'IN' (Numerical Integration) or 'CE' (Conditional Expectation).")
+        if not isinstance(method_select_num_pcs, (int, str)):
+            raise ValueError("method_select_num_pcs must be either a positive integer or one of 'FVE', 'AIC', 'BIC'.")
+        if isinstance(method_select_num_pcs, int) and method_select_num_pcs <= 0:
+            raise ValueError("If method_select_num_pcs is an integer, it must be a positive integer.")
+        if isinstance(method_select_num_pcs, str) and method_select_num_pcs not in ["FVE", "AIC", "BIC"]:
+            raise ValueError("method_select_num_pcs must be one of 'FVE', 'AIC', 'BIC' or a positive integer.")
+        if max_num_pcs is not None and (not isinstance(max_num_pcs, int) or max_num_pcs <= 0):
+            raise ValueError("max_num_pcs must be a positive integer.")
+        if max_num_pcs is None:
+            self.max_num_pcs = min(len(y) - 2, self.num_n_points_reg_grid - 2)
+        if not isinstance(fve_threshold, float) or fve_threshold <= 0 or fve_threshold > 1:
+            raise ValueError("fve_threshold must be a float between 0 and 1.")
+        if not isinstance(impute_scores, bool):
+            raise ValueError("impute_scores must be a boolean value.")
+
+        self.method_pcs_ = method_pcs
+        self.method_select_num_pcs_ = method_select_num_pcs
+        self.fve_threshold_ = fve_threshold
+        self.max_num_pcs_ = max_num_pcs
+        self.impute_scores_ = impute_scores
+
+        if len(y) <= 3:
+            Warning("The number of samples is less than or equal to 3. This may lead to unreliable results in functional PCA.")
+
         if w is None:
             w = np.ones_like(y)
             w[np.isnan(y)] = np.nan

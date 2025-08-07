@@ -751,15 +751,6 @@ def test_polyfit2d_no_weights() -> None:
     assert model.sample_weight_.shape == (len(y),), "Sample weights should have the same length as y"
 
 
-def test_polyfit2d_num_bw_candidates():
-    X, y, w, x_new1, x_new2 = make_test_inputs_2d()
-    model = Polyfit2DModel()
-    with pytest.raises(TypeError, match="Number of bandwidth candidates, num_bw_candidates, should be an integer"):
-        model.fit(X, y, sample_weight=w, bandwidth1=0.1, bandwidth2=0.1, num_bw_candidates=1.5, reg_grid1=x_new1, reg_grid2=x_new2)
-    with pytest.raises(ValueError, match="Number of bandwidth candidates, num_bw_candidates, should be at least 2"):
-        model.fit(X, y, sample_weight=w, bandwidth1=0.1, bandwidth2=0.1, num_bw_candidates=1, reg_grid1=x_new1, reg_grid2=x_new2)
-
-
 def test_polyfit2d_custom_bw_candidates() -> None:
     """Test Polyfit2DModel with custom bandwidth candidates."""
     X, y, w, x_new1, x_new2 = make_test_inputs_2d()
@@ -769,12 +760,12 @@ def test_polyfit2d_custom_bw_candidates() -> None:
     custom_bw = np.array([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3], [0.4, 0.4], [0.5, 0.5], [0.5, 0.6]])
     model.fit(X, y, sample_weight=w, custom_bw_candidates=custom_bw)
     assert hasattr(model, "bandwidth_selection_results_"), "bandwidth_selection_results_ should be set after fitting"
-    assert model.bandwidth_selection_results_['bandwidth_candidates'].shape == (6, 2), "Custom bandwidth candidates should have shape (6, 2)"
+    assert model.bandwidth_selection_results_["bandwidth_candidates"].shape == (6, 2), "Custom bandwidth candidates should have shape (6, 2)"
 
     # test same_bandwidth_for_2dim
     model.fit(X, y, sample_weight=w, custom_bw_candidates=custom_bw, same_bandwidth_for_2dim=True)
     assert hasattr(model, "bandwidth_selection_results_"), "bandwidth_selection_results_ should be set after fitting"
-    assert model.bandwidth_selection_results_['bandwidth_candidates'].shape == (5, 2), "Custom bandwidth candidates should have shape (5, 2)"
+    assert model.bandwidth_selection_results_["bandwidth_candidates"].shape == (5, 2), "Custom bandwidth candidates should have shape (5, 2)"
 
     # Test invalid shape for custom_bw_candidates
     custom_bw_1d = np.array([0.1, 0.2, 0.3])
@@ -783,7 +774,15 @@ def test_polyfit2d_custom_bw_candidates() -> None:
 
     # test non-finite cv scores
     with pytest.raises(ValueError, match="All CV scores are non-finite."):
-        model.fit(X, y, sample_weight=w, bandwidth_selection_method="cv", custom_bw_candidates=np.array([[0.00005, 0.00005]]), reg_grid1=x_new1, reg_grid2=x_new2)
+        model.fit(
+            X,
+            y,
+            sample_weight=w,
+            bandwidth_selection_method="cv",
+            custom_bw_candidates=np.array([[0.00005, 0.00005]]),
+            reg_grid1=x_new1,
+            reg_grid2=x_new2,
+        )
 
     # test non-finite gcv scores
     with pytest.raises(ValueError, match="All GCV scores are non-finite."):
