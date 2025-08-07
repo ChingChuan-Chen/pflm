@@ -245,6 +245,10 @@ def test_polyfit2d_different_order_array(order):
     assert y_pred.shape == (len(x_new1), len(x_new2))
     assert np.all(np.isfinite(y_pred)), "Prediction contains NaN or Inf values"
 
+    # Check if the predicted values match the expected results
+    fitted_value = model.fitted_values()
+    assert fitted_value.shape == (len(x_new1), len(x_new2))
+
 
 def make_test_inputs_2d() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """

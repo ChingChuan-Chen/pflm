@@ -2,68 +2,97 @@
 
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
-from typing import Tuple
+from typing import Tuple, List, Union
 
 import numpy as np
+from sklearn.utils.validation import check_array
 
 from pflm.utils import trapz
 
 
-def flatten_data_matrix(y: np.ndarray, t: np.ndarray, w: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def flatten_and_sort_data_matrices(
+    y: List[Union[np.ndarray, List[float]]],
+    t: List[Union[np.ndarray, List[float]]],
+    input_dtype: Union[str, np.dtype] = np.float64,
+    w: List[Union[np.ndarray, List[float]]] = None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Flatten and sort the data matrices.
 
     Parameters
     ----------
-    y : array_like
-        The response matrix of shape (n, nt), where n is the number of samples and
-        nt is the number of time points.
-        Each row corresponds to a sample and each column corresponds to a time point.
-        The values can be NaN, which will be ignored in the flattening process.
-    t : array_like
-        The time points of shape (nt,).
+    y : list of array_like
+        The response list, where each element is a 1D array of shape (nt_i,), i= 0, 1, ..., n-1.
+    t : list of array_like
+        The time points, where each element is a 1D array of shape (nt_i,), i= 0, 1, ..., n-1.
         It should be a 1D array where each element corresponds to a time point.
-    w : array_like, optional
-        The weights of shape (n,). If provided, it should have the same number of rows as `y`.
-        If not provided, a default weight of 1 will be used for all samples,
-        and NaN values in `y` will result in NaN weights.
+    input_dtype : str or np.dtype, optional
+        The data type of the input arrays. Defaults to np.float64.
+    w : list of array_like, optional
+        The weights for each sample. If provided, it should have the same number of rows as `y`.
 
     Returns
     -------
-    yy : array_like
+    sid : np.ndarray
+        A 1D array of sample indices, where each index corresponds to the sample in `y`.
+        The indices are sorted by time.
+    yy : np.ndarray
         A 1D array of the flattened response values, sorted by time.
-    tt : array_like
+    tt : np.ndarray
         A 1D array of the corresponding time points, sorted to match `yy`.
-    ww : array_like
+    ww : np.ndarray
         A 1D array of the weights corresponding to `yy`, sorted to match `yy`.
     """
-    if y.ndim != 2:
-        raise ValueError("y must be a 2D array.")
-    if t.ndim != 1:
-        raise ValueError("t must be a 1D array.")
-    if y.size == 0 or t.size == 0:
-        raise ValueError("y and t must not be empty.")
+    if not isinstance(y, list):
+        raise ValueError("y must be a list of arrays.")
+    if not isinstance(t, list):
+        raise ValueError("t must be a list of arrays.")
+    if len(y) != len(t):
+        raise ValueError("The length of y and t must be the same.")
 
-    if y.shape[1] != t.shape[0]:
-        raise ValueError("The number of columns of y must be equal to the length of t.")
-
-    if w is not None and y.shape[0] != w.shape[0]:
-        raise ValueError("The number of rows of y must be equal to the length of w.")
+    if w is not None and len(y) != len(w):
+        raise ValueError("The length of y and w must be the same.")
+    if w is not None and not isinstance(w, list):
+        raise ValueError("Weights w must be a list of 1D arrays.")
 
     if w is None:
-        w = np.ones_like(y)
-        w[np.isnan(y)] = np.nan
+        w = [np.ones_like(yi) for yi in y]
     else:
-        w = np.repeat(w.reshape((-1, 1)), y.shape[1], axis=1)
-        w[np.isnan(y)] = np.nan
+        w = [check_array(wi, ensure_2d=False, dtype=input_dtype) for wi in w]
+        for ti, wi in zip(t, w):
+            if ti.size != wi.size:
+                raise ValueError("Each element of t and w must have the same length.")
 
-    n = y.shape[0]
-    yy_temp = y.reshape((-1,))
-    tt_temp = np.repeat(t.reshape((1, -1)), n, 0).reshape((-1,))
-    sort_idx = np.argsort(tt_temp[~np.isnan(yy_temp)])
-    tt = tt_temp[~np.isnan(yy_temp)][sort_idx]
-    yy = y.reshape((-1,))[~np.isnan(yy_temp)][sort_idx]
-    ww = w.reshape((-1,))[~np.isnan(yy_temp)][sort_idx]
-    return yy, tt, ww
+    total_length = np.sum([yi.size for yi in y])
+    sid = np.empty(total_length, dtype=input_dtype)
+    yy = np.empty(total_length, dtype=input_dtype)
+    tt = np.empty(total_length, dtype=input_dtype)
+    ww = np.empty(total_length, dtype=input_dtype)
+
+    i = 0
+    idx = 0
+    for yi, ti, wi in zip(y, t, w):
+        if yi.size == 0 or ti.size == 0:
+            continue
+        if yi.ndim != 1 or ti.ndim != 1:
+            raise ValueError("Each element of y and t must be a 1D array.")
+        if yi.size != ti.size:
+            raise ValueError("Each element of y and t must have the same length.")
+
+        # Flatten and sort the data
+        sid[idx:idx + yi.size] = i
+        yy[idx:idx + yi.size] = yi
+        tt[idx:idx + ti.size] = ti
+        ww[idx:idx + wi.size] = wi
+        idx += yi.size
+        i += 1
+
+    # sort the flattened arrays by time
+    sort_idx = np.argsort(tt[~np.isnan(yy)])
+    sid = sid[~np.isnan(yy)][sort_idx]
+    tt = tt[~np.isnan(yy)][sort_idx]
+    ww = ww[~np.isnan(yy)][sort_idx]
+    yy = yy[~np.isnan(yy)][sort_idx]
+    return sid, yy, tt, ww
 
 
 def get_eigen_results(

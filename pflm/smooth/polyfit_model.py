@@ -38,7 +38,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         The degree of the polynomial. Must be >= 1.
     deriv : int, default=0
         The derivative order to compute. Must be >= 0 and <= degree.
-    n_points_reg_grid : int, default=100
+    num_points_reg_grid : int, default=100
         Number of points to use for interpolation grid (only used if reg_grid is None).
     interp_kind : str, default='linear'
         Type of interpolation ('linear', 'spline').
@@ -73,7 +73,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         kernel_type: KernelType = KernelType.GAUSSIAN,
         degree: int = 1,
         deriv: int = 0,
-        n_points_reg_grid: int = 100,
+        num_points_reg_grid: int = 100,
         interp_kind: Literal["linear", "spline"] = "linear",
         random_seed: Optional[int] = None,
     ) -> None:
@@ -95,7 +95,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         self.kernel_type = kernel_type
         self.degree = degree
         self.deriv = deriv
-        self.n_points_reg_grid = n_points_reg_grid
+        self.num_points_reg_grid = num_points_reg_grid
         self.interp_kind = interp_kind
         self.rng = np.random.default_rng(random_seed)
 
@@ -392,7 +392,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
                 )
         else:
             # Create uniform grid within the range of input X
-            self.reg_grid_ = np.linspace(x_min, x_max, self.n_points_reg_grid, dtype=self._input_dtype)
+            self.reg_grid_ = np.linspace(x_min, x_max, self.num_points_reg_grid, dtype=self._input_dtype)
 
         # create obs_grid_
         self.obs_grid_, self.obs_grid_idx_ = np.unique(self.sorted_X_, return_inverse=True, sorted=True)
@@ -482,6 +482,18 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         inverse_sort_idx = np.argsort(ord)
         return y_pred[inverse_sort_idx]
 
+    def fitted_values(self) -> np.ndarray:
+        """
+        Get the fitted values at the interpolation grid points.
+
+        Returns
+        -------
+        np.ndarray
+            The fitted values at the interpolation grid points.
+        """
+        check_is_fitted(self, ["reg_fitted_values_", "reg_grid_", "bandwidth_"])
+        return self.reg_fitted_values_.copy()
+
     def get_fitted_grids(self) -> Tuple[np.ndarray, np.ndarray]:
         """
         Get the fitted values at the interpolation grid points.
@@ -511,7 +523,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         The derivative order for the first dimension.
     deriv2 : int, default=0
         The derivative order for the second dimension.
-    n_points_reg_grid : int, default=100
+    num_points_reg_grid : int, default=100
         Number of points for interpolation grid in each dimension (only used if reg_grid is None).
     interp_kind : str, default='linear'
         Interpolation method ('linear', 'cubic', 'quintic').
@@ -551,7 +563,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         degree: int = 1,
         deriv1: int = 0,
         deriv2: int = 0,
-        n_points_reg_grid: int = 100,
+        num_points_reg_grid: int = 100,
         interp_kind: Literal["linear", "spline"] = "linear",
         random_seed: Optional[int] = None,
     ) -> None:
@@ -576,7 +588,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         self.degree = degree
         self.deriv1 = deriv1
         self.deriv2 = deriv2
-        self.n_points_reg_grid = n_points_reg_grid
+        self.num_points_reg_grid = num_points_reg_grid
         self.interp_kind = interp_kind
         self.rng = np.random.default_rng(random_seed)
 
@@ -944,7 +956,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
                 )
         else:
             # Create uniform grid for first dimension
-            self.reg_grid1_ = np.linspace(x1_min, x1_max, self.n_points_reg_grid, dtype=self._input_dtype)
+            self.reg_grid1_ = np.linspace(x1_min, x1_max, self.num_points_reg_grid, dtype=self._input_dtype)
 
         if reg_grid2 is not None:
             # Use custom grid for second dimension
@@ -960,7 +972,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
                 )
         else:
             # Create uniform grid for second dimension
-            self.reg_grid2_ = np.linspace(x2_min, x2_max, self.n_points_reg_grid, dtype=self._input_dtype)
+            self.reg_grid2_ = np.linspace(x2_min, x2_max, self.num_points_reg_grid, dtype=self._input_dtype)
 
         # create observation grids
         self.obs_grid1_, self.obs_grid1_idx_ = np.unique(self.sorted_X_[:, 0], return_inverse=True, sorted=True)
@@ -1055,6 +1067,18 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         inverse_X1_sort_idx = np.argsort(X1_ord)
         inverse_X2_sort_idx = np.argsort(X2_ord)
         return y_pred[inverse_X1_sort_idx, :][:, inverse_X2_sort_idx]
+
+    def fitted_values(self) -> np.ndarray:
+        """
+        Get the fitted values at the interpolation grid points.
+
+        Returns
+        -------
+        np.ndarray
+            A 2D array of fitted values at the interpolation grid points.
+        """
+        check_is_fitted(self, ["reg_fitted_values_", "reg_grid1_", "reg_grid2_", "bandwidth1_", "bandwidth2_"])
+        return self.reg_fitted_values_.copy()
 
     def get_fitted_grids(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """

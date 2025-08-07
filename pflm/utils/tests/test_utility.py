@@ -1,42 +1,92 @@
 import numpy as np
 import pytest
 
-from pflm.utils.utility import flatten_data_matrix, get_eigen_results
+from pflm.utils.utility import flatten_and_sort_data_matrices, get_eigen_results
 
 
-def test_flatten_data_matrix_basic_and_nan():
-    y = np.array([[1, 2, np.nan], [4, np.nan, 6]])
-    t = np.array([0, 1, 2])
-    # no weights
-    yy, tt, ww = flatten_data_matrix(y, t)
-    assert np.allclose(tt, np.sort(tt))
-    assert not np.isnan(yy).any()
-    assert not np.isnan(ww).any()
-    # with weights
-    w = np.array([0.5, 2.0])
-    yy2, tt2, ww2 = flatten_data_matrix(y, t, w)
-    assert np.allclose(tt2, np.sort(tt2))
-    assert not np.isnan(yy2).any()
-    assert not np.isnan(ww2).any()
+def test_flatten_and_sort_data_matrices_happy_path():
+    y = [np.array([1.0, 2.0]), np.array([3.0])]
+    t = [np.array([0.1, 0.2]), np.array([0.15])]
+    w = [np.array([1.0, 2.0]), np.array([3.0])]
+    sid, yy, tt, ww = flatten_and_sort_data_matrices(y, t, np.float64, w)
+    # 檢查長度
+    assert len(sid) == 3
+    assert len(yy) == 3
+    assert len(tt) == 3
+    assert len(ww) == 3
+    # 檢查排序
+    assert np.all(np.diff(tt) >= 0)
+    # 檢查 sid 對應
+    assert set(sid) == {0, 1}
 
 
-def test_flatten_data_matrix_shape_errors():
-    y = np.ones((2, 3))
-    t = np.ones(2)
-    with pytest.raises(ValueError):
-        flatten_data_matrix(y, t)
-    t = np.ones(3)
-    w = np.ones(3)
-    with pytest.raises(ValueError):
-        flatten_data_matrix(y, t, w)
-    with pytest.raises(ValueError):
-        flatten_data_matrix(y, t.reshape(-1, 1), w)
-    with pytest.raises(ValueError):
-        flatten_data_matrix(np.ones((2, 3, 1)), t)
-    with pytest.raises(ValueError):
-        flatten_data_matrix(np.empty((0, 3)), t)
-    with pytest.raises(ValueError):
-        flatten_data_matrix(y, np.empty(0))
+def test_flatten_and_sort_data_matrices_default_weights():
+    y = [np.array([1.0, 2.0]), np.array([3.0])]
+    t = [np.array([0.1, 0.2]), np.array([0.15])]
+    sid, yy, tt, ww = flatten_and_sort_data_matrices(y, t)
+    assert np.allclose(ww, [1.0, 1.0, 1.0])
+
+
+def test_flatten_and_sort_data_matrices_empty_sample():
+    y = [np.array([]), np.array([3.0])]
+    t = [np.array([]), np.array([0.15])]
+    sid, yy, tt, ww = flatten_and_sort_data_matrices(y, t)
+    assert len(sid) == 1
+    assert len(yy) == 1
+    assert len(tt) == 1
+    assert len(ww) == 1
+
+
+def test_flatten_and_sort_data_matrices_nan_handling():
+    y = [np.array([1.0, np.nan]), np.array([3.0])]
+    t = [np.array([0.1, 0.2]), np.array([0.15])]
+    sid, yy, tt, ww = flatten_and_sort_data_matrices(y, t)
+    # should only include non-NaN values
+    assert np.all(~np.isnan(yy))
+
+
+def test_flatten_and_sort_data_matrices_shape_mismatch():
+    y = [np.array([1.0, 2.0]), np.array([3.0])]
+    t = [np.array([0.1]), np.array([0.15])]
+    with pytest.raises(ValueError, match="Each element of y and t must have the same length."):
+        flatten_and_sort_data_matrices(y, t)
+
+    t2 = [np.array([0.1, 0.2])]
+    with pytest.raises(ValueError, match="The length of y and t must be the same."):
+        flatten_and_sort_data_matrices(y, t2)
+
+    t3 = [np.array([0.1, 0.2]), np.array([[0.15]])]
+    with pytest.raises(ValueError, match="Each element of y and t must be a 1D array."):
+        flatten_and_sort_data_matrices(y, t3)
+
+
+def test_flatten_and_sort_data_matrices_wrong_type():
+    y = np.array([1.0, 2.0])
+    t = [np.array([0.1, 0.2])]
+    with pytest.raises(ValueError, match="y must be a list of arrays."):
+        flatten_and_sort_data_matrices(y, t)
+
+    y = [np.array([1.0, 2.0])]
+    t = np.array([0.1, 0.2])
+    with pytest.raises(ValueError, match="t must be a list of arrays."):
+        flatten_and_sort_data_matrices(y, t)
+
+    t = [np.array([0.1, 0.2])]
+    w = np.array([1.0])
+    with pytest.raises(ValueError, match="Weights w must be a list of 1D arrays."):
+        flatten_and_sort_data_matrices(y, t, w=w)
+
+
+def test_flatten_and_sort_data_matrices_weight_shape_mismatch():
+    y = [np.array([1.0, 2.0]), np.array([3.0])]
+    t = [np.array([0.1, 0.2]), np.array([0.15])]
+    w = [np.array([1.0]), np.array([3.0])]
+    with pytest.raises(ValueError, match="Each element of t and w must have the same length."):
+        flatten_and_sort_data_matrices(y, t, w=w)
+
+    w2 = [np.array([1.0, 0.2])]
+    with pytest.raises(ValueError, match="The length of y and w must be the same."):
+        flatten_and_sort_data_matrices(y, t, w=w2)
 
 
 def test_get_eigen_results_all_branches():

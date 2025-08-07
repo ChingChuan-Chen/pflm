@@ -108,6 +108,8 @@ def test_polyfit1d_different_order_array(order):
     assert_allclose(
         y_pred, expected_results, rtol=1e-5, atol=1e-6, err_msg=f"Failed for kernel {KernelType.GAUSSIAN} with dtype {x.dtype} and order {order}"
     )
+    fitted_value = model.fitted_values()
+    assert fitted_value.shape == (len(x),)
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])

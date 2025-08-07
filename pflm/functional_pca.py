@@ -3,13 +3,16 @@
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 
-from typing import List, Literal, Optional, Union
+import warnings
+from typing import List, Literal, Optional, Union, Tuple
 
 import numpy as np
 from sklearn.base import BaseEstimator
-from sklearn.utils.validation import check_array
+from sklearn.utils.validation import check_array, check_is_fitted
 
-from pflm.smooth import KernelType
+from pflm.interp import interp1d
+from pflm.smooth import KernelType, Polyfit1DModel
+from pflm.utils.utility import flatten_and_sort_data_matrices
 
 
 class FPCASmoothingParams:
@@ -32,9 +35,9 @@ class FPCASmoothingParams:
         Method to select bandwidth for the covariance function.
     apply_geo_avg_cov_bw : bool, default=False
         Whether to apply geometric averaging when selecting covariance bandwidth.
-    k_fold_mu : int, default=10
+    cv_folds_mu : int, default=10
         Number of folds for cross-validation when selecting bandwidth for the mean function.
-    k_fold_cov : int, default=10
+    cv_folds_cov : int, default=10
         Number of folds for cross-validation when selecting bandwidth for the covariance function.
     random_seed : int, optional
         Random seed for reproducibility which is used only in CV. If None, no seed is set.
@@ -49,8 +52,8 @@ class FPCASmoothingParams:
         method_select_mu_bw: Literal["cv", "gcv"] = "gcv",
         method_select_cov_bw: Literal["cv", "gcv"] = "gcv",
         apply_geo_avg_cov_bw: bool = False,
-        k_fold_mu: int = 10,
-        k_fold_cov: int = 10,
+        cv_folds_mu: int = 10,
+        cv_folds_cov: int = 10,
         random_seed: Optional[int] = None,
     ):
         if bw_mu is not None and bw_mu <= 0:
@@ -67,10 +70,10 @@ class FPCASmoothingParams:
             raise ValueError("method_select_cov_bw must be either 'GCV' or 'CV'.")
         if not isinstance(apply_geo_avg_cov_bw, bool):
             raise ValueError("apply_geo_avg_cov_bw must be a boolean value.")
-        if k_fold_mu <= 0 or not isinstance(k_fold_mu, int):
-            raise ValueError("k_fold_mu must be a positive integer.")
-        if k_fold_cov <= 0 or not isinstance(k_fold_cov, int):
-            raise ValueError("k_fold_cov must be a positive integer.")
+        if cv_folds_mu <= 0 or not isinstance(cv_folds_mu, int):
+            raise ValueError("cv_folds_mu must be a positive integer.")
+        if cv_folds_cov <= 0 or not isinstance(cv_folds_cov, int):
+            raise ValueError("cv_folds_cov must be a positive integer.")
         if random_seed is not None and (not isinstance(random_seed, int) or random_seed < 0):
             raise ValueError("random_seed must be a non-negative integer.")
 
@@ -81,8 +84,8 @@ class FPCASmoothingParams:
         self.method_select_mu_bw = method_select_mu_bw
         self.method_select_cov_bw = method_select_cov_bw
         self.apply_geo_avg_cov_bw = apply_geo_avg_cov_bw
-        self.k_fold_mu = k_fold_mu
-        self.k_fold_cov = k_fold_cov
+        self.cv_folds_mu = cv_folds_mu
+        self.cv_folds_cov = cv_folds_cov
         self.random_seed = random_seed
 
     def __repr__(self):
@@ -212,14 +215,14 @@ class FunctionalPCA(BaseEstimator):
         self,
         *,
         assume_measurement_error: bool = True,
-        num_n_points_reg_grid: int = 51,
+        num_points_reg_grid: int = 51,
         smoothing_params: FPCASmoothingParams = FPCASmoothingParams(),
         user_params: FunctionalPCAUserDefinedParams = FunctionalPCAUserDefinedParams(),
         verbose: bool = False,
     ) -> None:
         if not isinstance(assume_measurement_error, bool):
             raise ValueError("assume_measurement_error must be a boolean value.")
-        if not isinstance(num_n_points_reg_grid, int) or num_n_points_reg_grid <= 0:
+        if not isinstance(num_points_reg_grid, int) or num_points_reg_grid <= 0:
             raise ValueError("num_n_points_reg_grid must be a positive integer.")
         if not isinstance(smoothing_params, FPCASmoothingParams):
             raise ValueError("smoothing_params must be an instance of FPCASmoothingParams.")
@@ -230,7 +233,7 @@ class FunctionalPCA(BaseEstimator):
 
         # Initialize parameters
         self.assume_measurement_error = assume_measurement_error
-        self.num_n_points_reg_grid = num_n_points_reg_grid
+        self.num_points_reg_grid = num_points_reg_grid
         self.smoothing_params = smoothing_params
         self.user_params = user_params
         self.verbose = verbose
@@ -246,6 +249,37 @@ class FunctionalPCA(BaseEstimator):
                 "Measurement error is assumed to be true, but user-defined rho is provided and greater than 0. "
                 + "Please set assume_measurement_error to True or set rho to None or 0."
             )
+
+    def __check_fit_params(
+        self,
+        method_pcs: Literal["IN", "CE"] = "CE",
+        method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
+        max_num_pcs: Optional[int] = None,
+        impute_scores: bool = True,
+        fve_threshold: float = 0.99,
+    ):
+        if method_pcs not in ["IN", "CE"]:
+            raise ValueError("method_pcs must be either 'IN' (Numerical Integration) or 'CE' (Conditional Expectation).")
+        if not isinstance(method_select_num_pcs, (int, str)):
+            raise ValueError("method_select_num_pcs must be either a positive integer or one of 'FVE', 'AIC', 'BIC'.")
+        if isinstance(method_select_num_pcs, int) and method_select_num_pcs <= 0:
+            raise ValueError("If method_select_num_pcs is an integer, it must be a positive integer.")
+        if isinstance(method_select_num_pcs, str) and method_select_num_pcs not in ["FVE", "AIC", "BIC"]:
+            raise ValueError("method_select_num_pcs must be one of 'FVE', 'AIC', 'BIC' or a positive integer.")
+        if max_num_pcs is not None and (not isinstance(max_num_pcs, int) or max_num_pcs <= 0):
+            raise ValueError("max_num_pcs must be a positive integer.")
+        if max_num_pcs is None:
+            self.max_num_pcs = min(len(y) - 2, self.num_points_reg_grid - 2)
+        if not isinstance(fve_threshold, float) or fve_threshold <= 0 or fve_threshold > 1:
+            raise ValueError("fve_threshold must be a float between 0 and 1.")
+        if not isinstance(impute_scores, bool):
+            raise ValueError("impute_scores must be a boolean value.")
+
+        self.method_pcs_ = method_pcs
+        self.method_select_num_pcs_ = method_select_num_pcs
+        self.fve_threshold_ = fve_threshold
+        self.max_num_pcs_ = max_num_pcs
+        self.impute_scores_ = impute_scores
 
     def fit(
         self,
@@ -268,7 +302,7 @@ class FunctionalPCA(BaseEstimator):
         t : a list of array-like
             A 1D array of time points corresponding to the observations in `y`.
         y : a list of array-like
-            A 2D array where each row corresponds to an observation at the time points in `t`.
+            A 2D array where each row corresponds to an observation at the time points in `t` which allow for missing values.
         w : a list of array-like, optional
             A 1D array of weights for each observation. If None, equal weights are assumed.
         method_pcs : {'IN', 'CE'}, default='CE'
@@ -292,36 +326,106 @@ class FunctionalPCA(BaseEstimator):
             The fitted model instance which will contain the estimated parameters such as mean function,
             covariance function, and principal components scores.
         """
-        if method_pcs not in ["IN", "CE"]:
-            raise ValueError("method_pcs must be either 'IN' (Numerical Integration) or 'CE' (Conditional Expectation).")
-        if not isinstance(method_select_num_pcs, (int, str)):
-            raise ValueError("method_select_num_pcs must be either a positive integer or one of 'FVE', 'AIC', 'BIC'.")
-        if isinstance(method_select_num_pcs, int) and method_select_num_pcs <= 0:
-            raise ValueError("If method_select_num_pcs is an integer, it must be a positive integer.")
-        if isinstance(method_select_num_pcs, str) and method_select_num_pcs not in ["FVE", "AIC", "BIC"]:
-            raise ValueError("method_select_num_pcs must be one of 'FVE', 'AIC', 'BIC' or a positive integer.")
-        if max_num_pcs is not None and (not isinstance(max_num_pcs, int) or max_num_pcs <= 0):
-            raise ValueError("max_num_pcs must be a positive integer.")
-        if max_num_pcs is None:
-            self.max_num_pcs = min(len(y) - 2, self.num_n_points_reg_grid - 2)
-        if not isinstance(fve_threshold, float) or fve_threshold <= 0 or fve_threshold > 1:
-            raise ValueError("fve_threshold must be a float between 0 and 1.")
-        if not isinstance(impute_scores, bool):
-            raise ValueError("impute_scores must be a boolean value.")
-
-        self.method_pcs_ = method_pcs
-        self.method_select_num_pcs_ = method_select_num_pcs
-        self.fve_threshold_ = fve_threshold
-        self.max_num_pcs_ = max_num_pcs
-        self.impute_scores_ = impute_scores
+        self.__check_fit_params(
+            method_pcs=method_pcs,
+            method_select_num_pcs=method_select_num_pcs,
+            max_num_pcs=max_num_pcs,
+            impute_scores=impute_scores,
+            fve_threshold=fve_threshold,
+        )
 
         if len(y) <= 3:
-            Warning("The number of samples is less than or equal to 3. This may lead to unreliable results in functional PCA.")
+            warnings.warn("The number of samples is less than or equal to 3. This may lead to unreliable results in functional PCA.")
 
-        if w is None:
-            w = np.ones_like(y)
-            w[np.isnan(y)] = np.nan
-        elif w.ndim != 1 or w.shape[0] != y.shape[0]:
-            raise ValueError("Weights w must be a 1D array with the same length as the number of samples in y.")
+        self._input_dtype = y[0].dtype
+        self.t_ = []
+        self.y_ = []
+        for ti, yi in zip(t, y):
+            ti = check_array(ti, ensure_2d=False, dtype=self._input_dtype)
+            yi = check_array(yi, ensure_2d=False, dtype=self._input_dtype, force_all_finite=False)
+            if ti.ndim != 1 or yi.ndim != 1:
+                raise ValueError("Each element of t and y must be a 1D array.")
+            if len(ti) != len(yi):
+                raise ValueError("Each element of t and y must have the same length.")
+            self.t_.append(ti)
+            self.y_.append(yi)
 
+        # Flatten and sort the data matrices
+        self.sid_, self.tt_, self.yy_, self.ww_ = flatten_and_sort_data_matrices(self.y_, self.t_, self._input_dtype, w)
+
+        # create reg_grid_
+        if reg_grid is not None:
+            # Use custom grid
+            self.reg_grid_ = check_array(reg_grid, ensure_2d=False, dtype=self._input_dtype)
+            if self.reg_grid_.ndim != 1:
+                raise ValueError("reg_grid must be a 1D array")
+            if len(self.reg_grid_) < 2:
+                raise ValueError("reg_grid must have at least 2 points")
+
+            # Check if grid is within the range of input X
+            if np.min(self.reg_grid_) < self.tt_[0] or np.max(self.reg_grid_) > self.tt_[-1]:
+                raise ValueError(
+                    f"reg_grid must be within the range of input X [{self.tt_[0]:.6f}, {self.tt_[-1]:.6f}]. "
+                    f"Got reg_grid range [{np.min(self.reg_grid_):.6f}, {np.max(self.reg_grid_):.6f}]"
+                )
+        else:
+            # Create uniform grid within the range of input X
+            self.reg_grid_ = np.linspace(self.tt_[0], self.tt_[-1], self.num_points_reg_grid, dtype=self._input_dtype)
+
+        # create tid_
+        self.tid_ = np.digitize(self.tt_, self.reg_grid_, right=True)
+
+        # calculate the mean function
+        if self.user_params.t_mu is not None and self.user_params.mu is not None:
+            t_mu = check_array(self.user_params.t_mu, ensure_2d=False, dtype=self._input_dtype)
+            mu = check_array(self.user_params.mu, ensure_2d=False, dtype=self._input_dtype)
+            if t_mu.ndim != 1 or mu.ndim != 1:
+                raise ValueError("t_mu and mu must be 1D arrays.")
+            if t_mu.size != mu.size:
+                raise ValueError("t_mu and mu must have the same length.")
+            self.mu_ = interp1d(t_mu, mu, self.reg_grid_, method='spline')
+        elif self.smoothing_params.estimate_method == "smooth":
+            self.mean_func_fit_ = Polyfit1DModel(
+                kernel_type=self.smoothing_params.kernel_type,
+                interp_kind='spline',
+                random_seed=self.smoothing_params.random_seed
+            )
+            self.mean_func_fit_.fit(
+                self.tt_, self.yy_, self.ww_,
+                bandwidth=self.smoothing_params.bw_mu,
+                reg_grid=self.reg_grid_,
+                bandwidth_selection_method=self.smoothing_params.method_select_mu_bw,
+                cv_folds=self.smoothing_params.cv_folds_mu
+            )
+            _, self.mu_ = self.mean_func_fit_.get_fitted_grids()
+        elif self.smoothing_params.estimate_method == "cross-sectional":
+            self.mu_ = np.bincount(self.tid_, self.yy_)
+
+        self.xi, self.xi_var = self.fit_score(self.method_pcs_, self.method_select_num_pcs_, self.max_num_pcs_, self.impute_scores_, self.fve_threshold_)
         return self
+
+    def fitted_values(self) -> List[np.ndarray]:
+        check_is_fitted(self, ["fpca_eigen_results_", "xi", "xi_var"])
+        return np.array([])
+
+    def predict(self, t: List[Union[np.ndarray, List[float]]]) -> List[np.ndarray]:
+        check_is_fitted(self, ["fpca_eigen_results_", "xi", "xi_var"])
+        return np.array([])
+
+    def fit_score(
+        self,
+        method_pcs: Literal["IN", "CE"] = "CE",
+        method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
+        max_num_pcs: Optional[int] = None,
+        impute_scores: bool = True,
+        fve_threshold: float = 0.99,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        self.__check_fit_params(
+            method_pcs=method_pcs,
+            method_select_num_pcs=method_select_num_pcs,
+            max_num_pcs=max_num_pcs,
+            impute_scores=impute_scores,
+            fve_threshold=fve_threshold,
+        )
+        check_is_fitted(self, ["fpca_eigen_results_"])
+        return np.array([]), np.array([])
