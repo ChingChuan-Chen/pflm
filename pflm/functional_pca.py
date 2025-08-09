@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 
 import warnings
-from typing import List, Literal, Optional, Union, Tuple
+from typing import List, Literal, Optional, Tuple, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -13,7 +13,7 @@ from sklearn.utils.validation import check_array, check_is_fitted
 
 from pflm.interp import interp1d, interp2d
 from pflm.smooth import KernelType, Polyfit1DModel, Polyfit2DModel
-from pflm.utils.utility import flatten_and_sort_data_matrices, get_raw_cov, get_covariance_matrix
+from pflm.utils.utility import flatten_and_sort_data_matrices, get_covariance_matrix, get_raw_cov
 
 
 class FunctionalPCAMuCovParams:
@@ -156,10 +156,10 @@ class FunctionalPCAUserDefinedParams:
         self.rho = float(rho) if rho is not None else None
 
     def __repr__(self):
-        cov_repr = " ".join(list(map(lambda x: x.strip(), repr(self.cov).split('\n')))) if self.cov is not None else "None"
+        cov_repr = " ".join(list(map(lambda x: x.strip(), repr(self.cov).split("\n")))) if self.cov is not None else "None"
         return (
-            f"FunctionalPCAUserDefinedParams(t_mu={repr(self.t_mu)}, mu={repr(self.mu)}, "
-            f"t_cov={repr(self.t_cov)}, cov={cov_repr}, sigma2={self.sigma2}, rho={self.rho})"
+            f"FunctionalPCAUserDefinedParams(t_mu={self.t_mu!r}, mu={self.mu!r}, "
+            f"t_cov={self.t_cov!r}, cov={cov_repr}, sigma2={self.sigma2}, rho={self.rho})"
         )
 
 
@@ -269,6 +269,7 @@ class FunctionalPCA(BaseEstimator):
 
     def __check_fit_params(
         self,
+        num_samples: int,
         method_pcs: Literal["IN", "CE"] = "CE",
         method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
         max_num_pcs: Optional[int] = None,
@@ -286,7 +287,7 @@ class FunctionalPCA(BaseEstimator):
         if max_num_pcs is not None and (not isinstance(max_num_pcs, int) or max_num_pcs <= 0):
             raise ValueError("max_num_pcs must be a positive integer.")
         if max_num_pcs is None:
-            self.max_num_pcs = min(len(y) - 2, self.num_points_reg_grid - 2)
+            self.max_num_pcs = min(num_samples - 2, self.num_points_reg_grid - 2)
         if not isinstance(fve_threshold, float) or fve_threshold <= 0 or fve_threshold > 1:
             raise ValueError("fve_threshold must be a float between 0 and 1.")
         if not isinstance(impute_scores, bool):
@@ -343,7 +344,9 @@ class FunctionalPCA(BaseEstimator):
             The fitted model instance which will contain the estimated parameters such as mean function,
             covariance function, and principal components scores.
         """
+        self.num_samples_ = len(y)
         self.__check_fit_params(
+            self.num_samples_,
             method_pcs=method_pcs,
             method_select_num_pcs=method_select_num_pcs,
             max_num_pcs=max_num_pcs,
@@ -404,19 +407,19 @@ class FunctionalPCA(BaseEstimator):
                 raise ValueError("t_mu and mu must be 1D arrays.")
             if t_mu.size != mu.size:
                 raise ValueError("t_mu and mu must have the same length.")
-            self.mu_ = interp1d(t_mu, mu, self.reg_grid_, method='spline')
+            self.mu_ = interp1d(t_mu, mu, self.reg_grid_, method="spline")
         elif self.mu_cov_params.estimate_method == "smooth":
             self.mean_func_fit_ = Polyfit1DModel(
-                kernel_type=self.mu_cov_params.kernel_type,
-                interp_kind='spline',
-                random_seed=self.mu_cov_params.random_seed
+                kernel_type=self.mu_cov_params.kernel_type, interp_kind="spline", random_seed=self.mu_cov_params.random_seed
             )
             self.mean_func_fit_.fit(
-                self.tt_, self.yy_, self.ww_,
+                self.tt_,
+                self.yy_,
+                self.ww_,
                 bandwidth=self.mu_cov_params.bw_mu,
                 reg_grid=self.reg_grid_,
                 bandwidth_selection_method=self.mu_cov_params.method_select_mu_bw,
-                cv_folds=self.mu_cov_params.cv_folds_mu
+                cv_folds=self.mu_cov_params.cv_folds_mu,
             )
             self.mu_ = self.mean_func_fit_.fitted_values()
         elif self.mu_cov_params.estimate_method == "cross-sectional":
@@ -430,14 +433,12 @@ class FunctionalPCA(BaseEstimator):
                 raise ValueError("t_cov must be a 1D array and cov must be a 2D array.")
             if t_cov.size != cov.shape[0] or t_cov.size != cov.shape[1]:
                 raise ValueError("t_cov must match the dimensions of cov.")
-            self.cov_ = interp2d(t_cov, t_cov, cov, self.obs_grid_, self.obs_grid_, method='spline')
-            self.smooth_cov_ = interp2d(t_cov, t_cov, cov, self.reg_grid_, self.reg_grid_, method='spline')
+            self.cov_ = interp2d(t_cov, t_cov, cov, self.obs_grid_, self.obs_grid_, method="spline")
+            self.smooth_cov_ = interp2d(t_cov, t_cov, cov, self.reg_grid_, self.reg_grid_, method="spline")
         elif self.mu_cov_params.estimate_method == "smooth":
             self.raw_cov_ = get_raw_cov(self.yy_, self.tt_, self.ww_, self.mu_, self.sid_, self.tid_)
             self.cov_func_fit_ = Polyfit2DModel(
-                kernel_type=self.mu_cov_params.kernel_type,
-                interp_kind='spline',
-                random_seed=self.mu_cov_params.random_seed
+                kernel_type=self.mu_cov_params.kernel_type, interp_kind="spline", random_seed=self.mu_cov_params.random_seed
             )
             self.cov_func_fit_.fit(
                 self.raw_cov_[:, [1, 2]],
@@ -448,22 +449,18 @@ class FunctionalPCA(BaseEstimator):
                 reg_grid1=self.obs_grid_,
                 reg_grid2=self.obs_grid_,
                 bandwidth_selection_method=self.mu_cov_params.method_select_cov_bw,
-                cv_folds=self.mu_cov_params.cv_folds_cov
+                cv_folds=self.mu_cov_params.cv_folds_cov,
             )
             self.cov_ = self.cov_func_fit_.fitted_values()
-            self.smooth_cov_ = interp2d(
-                self.obs_grid_, self.obs_grid_, self.cov_,
-                self.reg_grid_, self.reg_grid_, method='spline'
-            )
+            self.smooth_cov_ = interp2d(self.obs_grid_, self.obs_grid_, self.cov_, self.reg_grid_, self.reg_grid_, method="spline")
         elif self.mu_cov_params.estimate_method == "cross-sectional":
             self.raw_cov_ = get_raw_cov(self.yy_, self.tt_, self.ww_, self.mu_, self.sid_, self.tid_)
             self.cov_ = get_covariance_matrix(self.raw_cov_, self.obs_grid_)
-            self.smooth_cov_ = interp2d(
-                self.obs_grid_, self.obs_grid_, self.cov_,
-                self.reg_grid_, self.reg_grid_, method='spline'
-            )
+            self.smooth_cov_ = interp2d(self.obs_grid_, self.obs_grid_, self.cov_, self.reg_grid_, self.reg_grid_, method="spline")
 
-        self.xi, self.xi_var = self.fit_score(self.method_pcs_, self.method_select_num_pcs_, self.max_num_pcs_, self.impute_scores_, self.fve_threshold_)
+        self.xi, self.xi_var = self.fit_score(
+            self.method_pcs_, self.method_select_num_pcs_, self.max_num_pcs_, self.impute_scores_, self.fve_threshold_
+        )
         return self
 
     def fitted_values(self) -> List[np.ndarray]:
@@ -482,12 +479,44 @@ class FunctionalPCA(BaseEstimator):
         impute_scores: bool = True,
         fve_threshold: float = 0.99,
     ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Fit the principal component scores for the functional data.
+
+        The method computes the principal component scores based on the covariance function
+        and selects the number of components based on the specified method.
+        This method needs to be called after fitting the model with `fit()` which will ensure FunctionalPCA is ready for score computation.
+        This method provides you an alternative way to compute the principal component scores in case you don't want to re-calculate
+        the mean, covariance, and other parameters again.
+
+        Parameters
+        ----------
+        method_pcs : {'IN', 'CE'}, default='CE'
+            Method to compute principal components. 'IN' for Numerical Integration, 'CE' for Conditional Expectation.
+        method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, optional
+            Method to select the number of principal components. If empty, it will be determined based on the explained variance.
+            If an integer is provided, it specifies the number of principal components to use.
+        max_num_pcs : int, optional
+            Maximum number of principal components to consider. If None, it will be set to the minimum of
+            (number of samples - 2, number of points in reg_grid - 2).
+        impute_scores : bool, default=True
+            Whether to impute missing scores in the functional data.
+        fve_threshold : float, default=0.99
+            Threshold for the explained variance when using 'FVE' method to select the number of principal components.
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray]
+            A tuple containing:
+            - xi: Principal component scores for the functional data.
+            - xi_var: Variance of the principal component scores.
+        """
+        check_is_fitted(self, ["fpca_eigen_results_"])
         self.__check_fit_params(
+            num_samples=self.num_samples_,
             method_pcs=method_pcs,
             method_select_num_pcs=method_select_num_pcs,
             max_num_pcs=max_num_pcs,
             impute_scores=impute_scores,
             fve_threshold=fve_threshold,
         )
-        check_is_fitted(self, ["fpca_eigen_results_"])
         return np.array([]), np.array([])

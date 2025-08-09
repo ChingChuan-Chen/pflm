@@ -2,22 +2,26 @@
 
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
-from typing import Tuple, List, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 from sklearn.utils.validation import check_array
 
-from pflm.utils._raw_cov import get_raw_cov_f32, get_raw_cov_f64
 from pflm.utils import trapz
+from pflm.utils._raw_cov import get_raw_cov_f32, get_raw_cov_f64
 
 
 def flatten_and_sort_data_matrices(
     y: List[np.ndarray],
     t: List[np.ndarray],
     input_dtype: Union[str, np.dtype] = np.float64,
-    w: List[np.ndarray] = None,
+    w: Optional[List[np.ndarray]] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Flatten and sort the data matrices.
+
+    This function takes a list of response matrices `y` and corresponding time points `t`,
+    and optionally weights `w`, and flattens them into 1D arrays. The function handles NaN values by excluding them
+    from the output. If all values in `y` are NaN, it raises a ValueError.
 
     Parameters
     ----------
@@ -80,23 +84,23 @@ def flatten_and_sort_data_matrices(
     return yy[non_nan_mask], tt, ww, sid
 
 
-def get_raw_cov(
-    yy: np.ndarray,
-    tt: np.ndarray,
-    ww: np.ndarray,
-    mu: np.ndarray,
-    sid: np.ndarray,
-    tid: np.ndarray
-) -> np.ndarray:
+def get_raw_cov(yy: np.ndarray, tt: np.ndarray, ww: np.ndarray, mu: np.ndarray, sid: np.ndarray, tid: np.ndarray) -> np.ndarray:
     """
     Get the dense covariance matrix from the flattened data matrices.
+
+    This function computes the covariance between pairs of samples at different time points,
+    using the flattened response values `yy`, corresponding time points `tt`, and weights `ww`.
+    It returns a raw covariance matrix with columns representing (sid, t1, t2, w, cov),
+    where `sid` is the sample index, `t1` and `t2` are the time points, `w` is the weight,
+    and `cov` is the computed covariance value.
+    This function would not check the validity of the input data, so it is assumed that the input is valid.
 
     Parameters
     ----------
     yy : np.ndarray
-        Flattened response values.
+        Flattened response values without NaNs.
     tt : np.ndarray
-        Corresponding time points.
+        Corresponding time points to `yy`.
     ww : np.ndarray
         Weights corresponding to `yy`.
     mu : np.ndarray
@@ -119,10 +123,16 @@ def get_raw_cov(
 def get_covariance_matrix(raw_cov: np.ndarray, obs_grid: np.ndarray) -> np.ndarray:
     """Convert the raw covariance matrix to a dense covariance matrix.
 
+    This function takes the raw covariance matrix obtained from `get_raw_cov` and maps it to a dense covariance matrix
+    using the observation grid. The resulting matrix is symmetric and contains the covariance values for each pair of time points.
+    This function would not check the validity of the input data, so it is assumed that the input is valid.
+
     Parameters
     ----------
     raw_cov : np.ndarray
         The raw covariance matrix with columns representing (sid, t1, t2, w, cov).
+        This input should use `get_raw_cov` to obtain the raw covariance data.
+        The shape is (num_pairs, 5), where num_pairs is the number of unique pairs of samples.
     obs_grid : np.ndarray
         The observation grid, which is a 1D array of time points.
 
@@ -134,7 +144,7 @@ def get_covariance_matrix(raw_cov: np.ndarray, obs_grid: np.ndarray) -> np.ndarr
     # calculate the sum of weights and covariance for each unique pair of (t1, t2)
     t_pairs, idx = np.unique(raw_cov[:, [1, 2]], axis=0, return_inverse=True)
     ww_sum = np.bincount(idx, weights=raw_cov[:, 3])
-    cov_sum = np.bincount(idx, weights=raw_cov[:, 3] * raw_cov[:, 4]) / np.array([w - 1. if w > 1. else 1. for w in ww_sum])
+    cov_sum = np.bincount(idx, weights=raw_cov[:, 3] * raw_cov[:, 4]) / np.array([w - 1.0 if w > 1.0 else 1.0 for w in ww_sum])
 
     # map the pairs to the observation grid
     dense_cov = np.zeros((obs_grid.size, obs_grid.size), dtype=raw_cov.dtype)
