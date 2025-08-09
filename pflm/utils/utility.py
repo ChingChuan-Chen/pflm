@@ -7,14 +7,15 @@ from typing import Tuple, List, Union
 import numpy as np
 from sklearn.utils.validation import check_array
 
+from pflm.utils._raw_cov import get_raw_cov_f32, get_raw_cov_f64
 from pflm.utils import trapz
 
 
 def flatten_and_sort_data_matrices(
-    y: List[Union[np.ndarray, List[float]]],
-    t: List[Union[np.ndarray, List[float]]],
+    y: List[np.ndarray],
+    t: List[np.ndarray],
     input_dtype: Union[str, np.dtype] = np.float64,
-    w: List[Union[np.ndarray, List[float]]] = None,
+    w: List[np.ndarray] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Flatten and sort the data matrices.
 
@@ -32,15 +33,14 @@ def flatten_and_sort_data_matrices(
 
     Returns
     -------
-    sid : np.ndarray
-        A 1D array of sample indices, where each index corresponds to the sample in `y`.
-        The indices are sorted by time.
     yy : np.ndarray
-        A 1D array of the flattened response values, sorted by time.
+        A 1D array of the flattened response values, sorted by sample index and time points.
     tt : np.ndarray
         A 1D array of the corresponding time points, sorted to match `yy`.
     ww : np.ndarray
         A 1D array of the weights corresponding to `yy`, sorted to match `yy`.
+    sid : np.ndarray
+        A 1D array of sample indices, where each index corresponds to the sample in `y`.
     """
     if not isinstance(y, list):
         raise ValueError("y must be a list of arrays.")
@@ -48,6 +48,11 @@ def flatten_and_sort_data_matrices(
         raise ValueError("t must be a list of arrays.")
     if len(y) != len(t):
         raise ValueError("The length of y and t must be the same.")
+    for yi, ti in zip(y, t):
+        if yi.ndim != 1 or ti.ndim != 1:
+            raise ValueError("Each element of y and t must be a 1D array.")
+        if yi.size != ti.size:
+            raise ValueError("Each element of y and t must have the same length.")
 
     if w is not None and len(y) != len(w):
         raise ValueError("The length of y and w must be the same.")
@@ -59,40 +64,86 @@ def flatten_and_sort_data_matrices(
     else:
         w = [check_array(wi, ensure_2d=False, dtype=input_dtype) for wi in w]
         for ti, wi in zip(t, w):
+            if wi.ndim != 1:
+                raise ValueError("Each element of w must be a 1D array.")
             if ti.size != wi.size:
                 raise ValueError("Each element of t and w must have the same length.")
 
-    total_length = np.sum([yi.size for yi in y])
-    sid = np.empty(total_length, dtype=input_dtype)
-    yy = np.empty(total_length, dtype=input_dtype)
-    tt = np.empty(total_length, dtype=input_dtype)
-    ww = np.empty(total_length, dtype=input_dtype)
+    yy = np.concatenate(y).astype(input_dtype, copy=False)
+    non_nan_mask = ~np.isnan(yy)
+    if not non_nan_mask.any():
+        raise ValueError("All values in y are NaN. Cannot flatten data matrices.")
 
-    i = 0
-    idx = 0
-    for yi, ti, wi in zip(y, t, w):
-        if yi.size == 0 or ti.size == 0:
-            continue
-        if yi.ndim != 1 or ti.ndim != 1:
-            raise ValueError("Each element of y and t must be a 1D array.")
-        if yi.size != ti.size:
-            raise ValueError("Each element of y and t must have the same length.")
+    tt = np.concatenate(t).astype(input_dtype, copy=False)[non_nan_mask]
+    ww = np.concatenate(w).astype(input_dtype, copy=False)[non_nan_mask]
+    sid = np.concatenate([np.full(yi.size, i, dtype=np.int64) for i, yi in enumerate(y)])[non_nan_mask]
+    return yy[non_nan_mask], tt, ww, sid
 
-        # Flatten and sort the data
-        sid[idx:idx + yi.size] = i
-        yy[idx:idx + yi.size] = yi
-        tt[idx:idx + ti.size] = ti
-        ww[idx:idx + wi.size] = wi
-        idx += yi.size
-        i += 1
 
-    # sort the flattened arrays by time
-    sort_idx = np.argsort(tt[~np.isnan(yy)])
-    sid = sid[~np.isnan(yy)][sort_idx]
-    tt = tt[~np.isnan(yy)][sort_idx]
-    ww = ww[~np.isnan(yy)][sort_idx]
-    yy = yy[~np.isnan(yy)][sort_idx]
-    return sid, yy, tt, ww
+def get_raw_cov(
+    yy: np.ndarray,
+    tt: np.ndarray,
+    ww: np.ndarray,
+    mu: np.ndarray,
+    sid: np.ndarray,
+    tid: np.ndarray
+) -> np.ndarray:
+    """
+    Get the dense covariance matrix from the flattened data matrices.
+
+    Parameters
+    ----------
+    yy : np.ndarray
+        Flattened response values.
+    tt : np.ndarray
+        Corresponding time points.
+    ww : np.ndarray
+        Weights corresponding to `yy`.
+    mu : np.ndarray
+        Mean function values at the time points.
+    sid : np.ndarray
+        Sample indices corresponding to `yy`.
+    tid : np.ndarray
+        Time indices corresponding to `tt`.
+
+    Returns
+    -------
+    np.ndarray
+        The raw covariance matrix with columns representing (sid, t1, t2, w, cov).
+        The shape is (num_pairs, 5), where num_pairs is the number of unique pairs of samples.
+    """
+    get_raw_cov_func = get_raw_cov_f64 if yy.dtype == np.float64 else get_raw_cov_f32
+    return get_raw_cov_func(yy, tt, ww, mu, sid, tid)
+
+
+def get_covariance_matrix(raw_cov: np.ndarray, obs_grid: np.ndarray) -> np.ndarray:
+    """Convert the raw covariance matrix to a dense covariance matrix.
+
+    Parameters
+    ----------
+    raw_cov : np.ndarray
+        The raw covariance matrix with columns representing (sid, t1, t2, w, cov).
+    obs_grid : np.ndarray
+        The observation grid, which is a 1D array of time points.
+
+    Returns
+    -------
+    np.ndarray
+        The dense covariance matrix.
+    """
+    # calculate the sum of weights and covariance for each unique pair of (t1, t2)
+    t_pairs, idx = np.unique(raw_cov[:, [1, 2]], axis=0, return_inverse=True)
+    ww_sum = np.bincount(idx, weights=raw_cov[:, 3])
+    cov_sum = np.bincount(idx, weights=raw_cov[:, 3] * raw_cov[:, 4]) / np.array([w - 1. if w > 1. else 1. for w in ww_sum])
+
+    # map the pairs to the observation grid
+    dense_cov = np.zeros((obs_grid.size, obs_grid.size), dtype=raw_cov.dtype)
+    t1 = np.digitize(t_pairs[:, 0], obs_grid, right=True)
+    t2 = np.digitize(t_pairs[:, 1], obs_grid, right=True)
+
+    for t1_idx, t2_idx, cov in zip(t1, t2, cov_sum):
+        dense_cov[t1_idx, t2_idx] = cov
+    return 0.5 * (dense_cov + dense_cov.T)  # ensure symmetry
 
 
 def get_eigen_results(

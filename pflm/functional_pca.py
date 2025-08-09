@@ -8,11 +8,12 @@ from typing import List, Literal, Optional, Union, Tuple
 
 import numpy as np
 from sklearn.base import BaseEstimator
+from sklearn.utils._array_api import get_namespace_and_device, supported_float_dtypes
 from sklearn.utils.validation import check_array, check_is_fitted
 
-from pflm.interp import interp1d
-from pflm.smooth import KernelType, Polyfit1DModel
-from pflm.utils.utility import flatten_and_sort_data_matrices
+from pflm.interp import interp1d, interp2d
+from pflm.smooth import KernelType, Polyfit1DModel, Polyfit2DModel
+from pflm.utils.utility import flatten_and_sort_data_matrices, get_raw_cov, get_covariance_matrix
 
 
 class FunctionalPCAMuCovParams:
@@ -128,19 +129,15 @@ class FunctionalPCAUserDefinedParams:
         rho: Optional[float] = None,
     ):
         if t_mu is not None and mu is not None:
-            t_mu = check_array(t_mu, ensure_2d=True, dtype=mu.dtype)
-            mu = check_array(mu, ensure_2d=True, dtype=mu.dtype)
-            if mu.ndim != 1 or mu.shape[0] != t_mu.shape[0]:
-                raise ValueError("Mean function mu must be a 1D array with the same length as t.")
+            if len(t_mu) != len(mu):
+                raise ValueError("t_mu and mu must have the same length.")
         else:
             if t_mu is not None or mu is not None:
                 raise ValueError("Both t_mu and mu must be provided together.")
 
         if t_cov is not None and cov is not None:
-            t_cov = check_array(t_cov, ensure_2d=True, dtype=t_cov.dtype)
-            cov = check_array(cov, ensure_2d=True, dtype=t_cov.dtype)
-            if cov.ndim != 2 or cov.shape[0] != t_cov.shape[0] or cov.shape[1] != t_cov.shape[0]:
-                raise ValueError("Covariance function cov must be a 2D square matrix with dimensions matching t.")
+            if len(t_cov) != len(cov) or len(t_cov) != len(cov[0]):
+                raise ValueError("t_cov must match the dimensions of cov.")
         else:
             if t_cov is not None or cov is not None:
                 raise ValueError("Both t_cov and cov must be provided together.")
@@ -159,9 +156,10 @@ class FunctionalPCAUserDefinedParams:
         self.rho = float(rho) if rho is not None else None
 
     def __repr__(self):
+        cov_repr = " ".join(list(map(lambda x: x.strip(), repr(self.cov).split('\n')))) if self.cov is not None else "None"
         return (
-            f"FunctionalPCAUserDefinedParams(t_mu={self.t_mu}, mu={self.mu}, "
-            f"t_cov={self.t_cov}, cov={self.cov}, sigma2={self.sigma2}, rho={self.rho})"
+            f"FunctionalPCAUserDefinedParams(t_mu={repr(self.t_mu)}, mu={repr(self.mu)}, "
+            f"t_cov={repr(self.t_cov)}, cov={cov_repr}, sigma2={self.sigma2}, rho={self.rho})"
         )
 
 
@@ -175,8 +173,6 @@ class FunctionalPCA(BaseEstimator):
         Whether to assume measurement error in the dataset.
     num_n_points_reg_grid : int, default=51
         Number of points in the regular grid for regression.
-    mu_cov_params : FunctionalPCAMuCovParams, default=FunctionalPCAMuCovParams()
-        Parameters for mean and covariance functions.
     user_params : FunctionalPCAUserDefinedParams, default=FunctionalPCAUserDefinedParams()
         User-defined parameters for mean and covariance functions.
     verbose : bool, default=False
@@ -184,25 +180,47 @@ class FunctionalPCA(BaseEstimator):
 
     Attributes
     ----------
+    y_ : List[np.ndarray]
+        List of functional data observations.
+    t_ : List[np.ndarray]
+        List of time points corresponding to the observations in `y_`.
+    w_ : List[np.ndarray]
+        List of weights for each observation. If None, equal weights are assumed.
+    sid_ : np.ndarray
+        Sorted indices of the observations.
+    tt_ : np.ndarray
+        Sorted time points corresponding to the observations in `y_`.
+    yy_ : np.ndarray
+        Sorted functional data observations.
+    ww_ : np.ndarray
+        Weights corresponding to the sorted observations.
+    tid_ : np.ndarray
+        Indices of the regular grid points corresponding to the sorted time points.
     reg_grid_: np.ndarray
         Regular grid points used for regression.
-    mu_: np.ndarray
-        Estimated mean function values at the regular grid points.
-    cov_: np.ndarray
-        Estimated covariance function values at the regular grid points.
-    fpca_eigen_results_: dict
+    obs_grid_: np.ndarray
+        Unique observation grid points derived from `tt_`.
+    mu_ : np.ndarray
+        Estimated mean function values at the observation grid points (obs_grid_).
+    mu_dense_ : np.ndarray
+        Estimated mean function values at the regular grid points (reg_grid_).
+    cov_ : np.ndarray
+        Estimated covariance function values at the observation grid points (obs_grid_).
+    cov_dense_ : np.ndarray
+        Estimated covariance function values at the regular grid points (reg_grid_).
+    fpca_eigen_results_ : dict
         Dictionary containing eigenvalues and eigenvectors of the covariance function.
-    num_pcs_: int
+    num_pcs_ : int
         Number of principal components used in the model.
-    xi: np.ndarray
+    xi : np.ndarray
         Principal component scores for the functional data.
-    xi_var: np.ndarray
+    xi_var : np.ndarray
         Variance of the principal component scores.
-    fitted_y: List[np.ndarray]
+    fitted_y : List[np.ndarray]
         Fitted values of the functional data based on the estimated mean and principal components.
-    rho_: float
+    rho_ : float
         Estimated correlation function value at the regular grid points.
-    sigma2_: float
+    sigma2_ : float
         Estimated variance function value at the regular grid points.
 
     See Also
@@ -213,7 +231,6 @@ class FunctionalPCA(BaseEstimator):
 
     def __init__(
         self,
-        *,
         assume_measurement_error: bool = True,
         num_points_reg_grid: int = 51,
         mu_cov_params: FunctionalPCAMuCovParams = FunctionalPCAMuCovParams(),
@@ -310,13 +327,13 @@ class FunctionalPCA(BaseEstimator):
         method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, optional
             Method to select the number of principal components. If empty, it will be determined based on the explained variance.
             If an integer is provided, it specifies the number of principal components to use.
-        fve_threshold : float, default=0.99
-            Threshold for the explained variance when using 'FVE' method to select the number of principal components.
         max_num_pcs : int, optional
             Maximum number of principal components to consider. If None, it will be set to the minimum of
             (number of samples - 2, number of points in reg_grid - 2).
         impute_scores : bool, default=True
             Whether to impute missing scores in the functional data.
+        fve_threshold : float, default=0.99
+            Threshold for the explained variance when using 'FVE' method to select the number of principal components.
         reg_grid : array-like, optional
             Regular grid points for regression. If None, a default grid will be created.
 
@@ -337,7 +354,10 @@ class FunctionalPCA(BaseEstimator):
         if len(y) <= 3:
             warnings.warn("The number of samples is less than or equal to 3. This may lead to unreliable results in functional PCA.")
 
-        self._input_dtype = y[0].dtype
+        y_p, *_ = get_namespace_and_device(t[0], y[0])
+        supported_dtype = supported_float_dtypes(y_p)
+        tmp = check_array(y[0], ensure_2d=False, dtype=supported_dtype, force_all_finite=False)
+        self._input_dtype = tmp.dtype
         self.t_ = []
         self.y_ = []
         for ti, yi in zip(t, y):
@@ -351,7 +371,11 @@ class FunctionalPCA(BaseEstimator):
             self.y_.append(yi)
 
         # Flatten and sort the data matrices
-        self.sid_, self.tt_, self.yy_, self.ww_ = flatten_and_sort_data_matrices(self.y_, self.t_, self._input_dtype, w)
+        self.tt_, self.yy_, self.ww_, self.sid_ = flatten_and_sort_data_matrices(self.y_, self.t_, self._input_dtype, w)
+
+        # get observation grid and time indices
+        self.obs_grid_, self.obs_grid_idx_ = np.unique(self.tt_, return_inverse=True, sorted=True)
+        self.tid_ = np.digitize(self.tt_, self.obs_grid_, right=True)
 
         # create reg_grid_
         if reg_grid is not None:
@@ -371,9 +395,6 @@ class FunctionalPCA(BaseEstimator):
         else:
             # Create uniform grid within the range of input X
             self.reg_grid_ = np.linspace(self.tt_[0], self.tt_[-1], self.num_points_reg_grid, dtype=self._input_dtype)
-
-        # create tid_
-        self.tid_ = np.digitize(self.tt_, self.reg_grid_, right=True)
 
         # calculate the mean function
         if self.user_params.t_mu is not None and self.user_params.mu is not None:
@@ -397,9 +418,50 @@ class FunctionalPCA(BaseEstimator):
                 bandwidth_selection_method=self.mu_cov_params.method_select_mu_bw,
                 cv_folds=self.mu_cov_params.cv_folds_mu
             )
-            _, self.mu_ = self.mean_func_fit_.get_fitted_grids()
+            self.mu_ = self.mean_func_fit_.fitted_values()
         elif self.mu_cov_params.estimate_method == "cross-sectional":
-            self.mu_ = np.bincount(self.tid_, self.yy_)
+            self.mu_ = np.bincount(self.tid_, self.yy_) / np.bincount(self.tid_)
+
+        # calculate the covariance function
+        if self.user_params.t_cov is not None and self.user_params.cov is not None:
+            t_cov = check_array(self.user_params.t_cov, ensure_2d=False, dtype=self._input_dtype)
+            cov = check_array(self.user_params.cov, ensure_2d=False, dtype=self._input_dtype)
+            if t_cov.ndim != 1 or cov.ndim != 2:
+                raise ValueError("t_cov must be a 1D array and cov must be a 2D array.")
+            if t_cov.size != cov.shape[0] or t_cov.size != cov.shape[1]:
+                raise ValueError("t_cov must match the dimensions of cov.")
+            self.cov_ = interp2d(t_cov, t_cov, cov, self.obs_grid_, self.obs_grid_, method='spline')
+            self.smooth_cov_ = interp2d(t_cov, t_cov, cov, self.reg_grid_, self.reg_grid_, method='spline')
+        elif self.mu_cov_params.estimate_method == "smooth":
+            self.raw_cov_ = get_raw_cov(self.yy_, self.tt_, self.ww_, self.mu_, self.sid_, self.tid_)
+            self.cov_func_fit_ = Polyfit2DModel(
+                kernel_type=self.mu_cov_params.kernel_type,
+                interp_kind='spline',
+                random_seed=self.mu_cov_params.random_seed
+            )
+            self.cov_func_fit_.fit(
+                self.raw_cov_[:, [1, 2]],
+                self.raw_cov_[:, 4],
+                sample_weight=self.raw_cov_[:, 3],
+                bandwidth1=self.mu_cov_params.bw_cov,
+                bandwidth2=self.mu_cov_params.bw_cov,
+                reg_grid1=self.obs_grid_,
+                reg_grid2=self.obs_grid_,
+                bandwidth_selection_method=self.mu_cov_params.method_select_cov_bw,
+                cv_folds=self.mu_cov_params.cv_folds_cov
+            )
+            self.cov_ = self.cov_func_fit_.fitted_values()
+            self.smooth_cov_ = interp2d(
+                self.obs_grid_, self.obs_grid_, self.cov_,
+                self.reg_grid_, self.reg_grid_, method='spline'
+            )
+        elif self.mu_cov_params.estimate_method == "cross-sectional":
+            self.raw_cov_ = get_raw_cov(self.yy_, self.tt_, self.ww_, self.mu_, self.sid_, self.tid_)
+            self.cov_ = get_covariance_matrix(self.raw_cov_, self.obs_grid_)
+            self.smooth_cov_ = interp2d(
+                self.obs_grid_, self.obs_grid_, self.cov_,
+                self.reg_grid_, self.reg_grid_, method='spline'
+            )
 
         self.xi, self.xi_var = self.fit_score(self.method_pcs_, self.method_select_num_pcs_, self.max_num_pcs_, self.impute_scores_, self.fve_threshold_)
         return self

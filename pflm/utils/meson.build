@@ -12,6 +12,12 @@ utils_extension_metadata = {
         ],
         'dependencies': [np_dep, openmp_dep],
     },
+    '_raw_cov': {
+        'sources': [
+            cython_gen_cpp.process('_raw_cov.pyx'),
+        ],
+        'dependencies': [np_dep, openmp_dep],
+    },
 }
 
 foreach ext_name, ext_dict : utils_extension_metadata

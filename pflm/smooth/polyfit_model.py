@@ -69,7 +69,6 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
 
     def __init__(
         self,
-        *,
         kernel_type: KernelType = KernelType.GAUSSIAN,
         degree: int = 1,
         deriv: int = 0,
@@ -300,7 +299,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
             The bandwidth parameter for kernel smoothing. If None, will be selected
             using the method specified in bandwidth_selection_method.
         reg_grid: Optional[Union[np.ndarray, List[float]]], default=None
-            Custom grid points for interpolation. If None, will create a uniform grid.
+            The regular grid points for interpolation. If None, will create a uniform grid.
         num_bw_candidates : int, default=21
             Number of bandwidth candidates to generate.
         bandwidth_selection_method : str, default='gcv'
@@ -541,9 +540,9 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
     n_features_in_ : int
         Number of features seen during fit (always 2 for 2D).
     reg_grid1_ : ndarray
-        The interpolation grid points in the first dimension.
+        The regular grid points in the first dimension.
     reg_grid2_ : ndarray
-        The interpolation grid points in the second dimension.
+        The regular grid points in the second dimension.
     reg_fitted_values_ : ndarray
         A 2D array of fitted values at the interpolation grid points.
     bandwidth1_ : float
@@ -558,7 +557,6 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
 
     def __init__(
         self,
-        *,
         kernel_type: KernelType = KernelType.GAUSSIAN,
         degree: int = 1,
         deriv1: int = 0,
@@ -856,10 +854,10 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         bandwidth2 : float, default=None
             The bandwidth parameter for the second dimension.
         reg_grid1: Optional[Union[np.ndarray, List[float]]], default=None
-            Custom grid points for interpolation in the first dimension.
+            The regular grid points for interpolation in the first dimension.
             If None, will create a uniform grid.
         reg_grid2: Optional[Union[np.ndarray, List[float]]], default=None
-            Custom grid points for interpolation in the second dimension.
+            The regular grid points for interpolation in the second dimension.
             If None, will create a uniform grid.
         num_bw_candidates : int, default=21
             Number of bandwidth candidates to generate.
@@ -939,7 +937,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         self.sorted_y_ = y[sort_idx]
         self.sorted_sample_weight_ = sample_weight[sort_idx]
 
-        # Create regression grids
+        # Create regular grids
         x1_min, x1_max = np.min(X[:, 0]), np.max(X[:, 0])
         x2_min, x2_max = np.min(X[:, 1]), np.max(X[:, 1])
         if reg_grid1 is not None:

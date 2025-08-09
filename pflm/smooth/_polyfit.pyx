@@ -3,7 +3,7 @@ cimport numpy as np
 from cython cimport floating
 from cython.parallel cimport prange
 from libc.math cimport abs, pow, sqrt, NAN, acos, exp, cosh, cos
-from libc.stddef cimport ptrdiff_t
+from libc.stdint cimport int64_t
 from libcpp.vector cimport vector
 from libcpp.iterator cimport distance
 from libcpp.algorithm cimport lower_bound
@@ -92,7 +92,7 @@ cdef void polyfit1d_helper(
     int deriv,
     int kernel_type
 ) noexcept nogil:
-    cdef ptrdiff_t n = x.shape[0], left = 0, right = n
+    cdef int64_t n = x.shape[0], left = 0, right = n
     cdef floating *left_it
     cdef floating *right_it
     cdef floating *x_start = &x[0]
@@ -107,7 +107,7 @@ cdef void polyfit1d_helper(
             mu[0] = NAN
             return
 
-    cdef ptrdiff_t n_rows = right - left, i = 0, j, k
+    cdef int64_t n_rows = right - left, i = 0, j, k
     cdef floating inv_deriv = 1.0 if deriv == 0.0 else 1.0 / deriv
     cdef floating xj_minus_center = 0.0, u = 0.0, sqrt_wj = 0.0
     cdef floating *lx = <floating*> malloc(n_rows * (degree+1) * sizeof(floating))
@@ -147,7 +147,7 @@ cdef void polyfit1d_memview(
     int degree,
     int deriv
 ) noexcept nogil:
-    cdef ptrdiff_t i, x_new_size = x_new.shape[0]
+    cdef int64_t i, x_new_size = x_new.shape[0]
     for i in prange(x_new_size, nogil=True):
         polyfit1d_helper(bandwidth, x_new[i], &mu[i], x, y, w, degree, deriv, kernel_type)
 
@@ -205,14 +205,14 @@ cdef void polyfit2d_helper(
     int deriv1,
     int deriv2
 ) noexcept nogil:
-    cdef ptrdiff_t n = x_grid.shape[1], left = 0, right = n, i
+    cdef int64_t n = x_grid.shape[1], left = 0, right = n, i
     cdef floating *left_it
     cdef floating *right_it
     cdef floating *x1_start = &x_grid[0, 0]
     cdef floating *x1_end = &x_grid[0, 0] + n
     cdef floating lb1, ub1, lb2, ub2
-    cdef ptrdiff_t num_lx_cols = (degree + 1) * (degree + 2) // 2
-    cdef vector[ptrdiff_t] idx = vector[ptrdiff_t]()
+    cdef int64_t num_lx_cols = (degree + 1) * (degree + 2) // 2
+    cdef vector[int64_t] idx = vector[int64_t]()
     if kernel_type >= 100:
         lb1 = center1 - bw1 - 1e-6
         ub1 = center1 + bw1 + 1e-6
@@ -238,7 +238,7 @@ cdef void polyfit2d_helper(
         for i in range(n):
             idx[i] = i
 
-    cdef ptrdiff_t n_rows = <ptrdiff_t> idx.size(), j, total_deg, py, col_idx
+    cdef int64_t n_rows = <int64_t> idx.size(), j, total_deg, py, col_idx
     cdef floating *lx = <floating*> malloc(n_rows * num_lx_cols * sizeof(floating))
     cdef floating *ly = <floating*> malloc(n_rows * sizeof(floating))
     cdef floating x1j_minus_center1, x2j_minus_center2, u1, u2, sqrt_wj
@@ -265,8 +265,8 @@ cdef void polyfit2d_helper(
         &rcond, &rank, &info
     )
 
-    cdef ptrdiff_t total_deriv = <ptrdiff_t> deriv1 + <ptrdiff_t> deriv2
-    cdef ptrdiff_t mu_idx = total_deriv * (total_deriv + 1) // 2 + deriv2
+    cdef int64_t total_deriv = <int64_t> deriv1 + <int64_t> deriv2
+    cdef int64_t mu_idx = total_deriv * (total_deriv + 1) // 2 + deriv2
     if info == 0:
         mu[0] = ly[mu_idx] * factorials[deriv1] * factorials[deriv2]
     else:
@@ -289,7 +289,7 @@ cdef void polyfit2d_memview(
     int deriv1,
     int deriv2
 ) noexcept nogil:
-    cdef ptrdiff_t n = x_grid.shape[1], n1 = x_new1.shape[0], n2 = x_new2.shape[0], i, j, l
+    cdef int64_t n = x_grid.shape[1], n1 = x_new1.shape[0], n2 = x_new2.shape[0], i, j, l
     for l in prange(n1 * n2, nogil=True):
         i = l // n2
         j = l % n2
@@ -315,7 +315,7 @@ def polyfit2d_f64(
     int deriv1,
     int deriv2
 ) -> np.ndarray[np.float64_t]:
-    cdef ptrdiff_t n1 = x_new1.shape[0], n2 = x_new2.shape[0]
+    cdef int64_t n1 = x_new1.shape[0], n2 = x_new2.shape[0]
     cdef np.ndarray[np.float64_t, ndim=2] mu = np.empty((n2, n1), order='C', dtype=np.float64)
     cdef np.float64_t[:, ::1] x_grid_view = x_grid
     cdef np.float64_t[:] y_view = y
@@ -340,7 +340,7 @@ def polyfit2d_f32(
     int deriv1,
     int deriv2
 ) -> np.ndarray[np.float32_t]:
-    cdef ptrdiff_t n1 = x_new1.shape[0], n2 = x_new2.shape[0]
+    cdef int64_t n1 = x_new1.shape[0], n2 = x_new2.shape[0]
     cdef np.ndarray[np.float32_t, ndim=2] mu = np.empty((n2, n1), order='C', dtype=np.float32)
     cdef np.float32_t[:, ::1] x_grid_view = x_grid
     cdef np.float32_t[:] y_view = y
