@@ -154,15 +154,15 @@ def get_covariance_matrix(raw_cov: np.ndarray, obs_grid: np.ndarray) -> np.ndarr
     # calculate the sum of weights and covariance for each unique pair of (t1, t2)
     t_pairs, idx = np.unique(raw_cov[:, [1, 2]], axis=0, return_inverse=True)
     ww_sum = np.bincount(idx, weights=raw_cov[:, 3])
-    cov_sum = np.bincount(idx, weights=raw_cov[:, 3] * raw_cov[:, 4]) / np.array([w - 1.0 if w > 1.0 else 1.0 for w in ww_sum])
-    cov_sum[ww_sum <= 1.0] = 0.0  # set cov to 0 if weight is less than or equal to 1
+    covariances = np.bincount(idx, weights=raw_cov[:, 3] * raw_cov[:, 4]) / np.array([w - 1.0 if w > 1.0 else 1.0 for w in ww_sum])
+    covariances[ww_sum <= 1.0] = 0.0  # set cov to 0 if weight is less than or equal to 1
 
     # map the pairs to the observation grid
     upper_cov_matrix = np.zeros((obs_grid.size, obs_grid.size), dtype=raw_cov.dtype)
     t1 = np.digitize(t_pairs[:, 0], obs_grid, right=True)
     t2 = np.digitize(t_pairs[:, 1], obs_grid, right=True)
 
-    for t1_idx, t2_idx, cov in zip(t1, t2, cov_sum):
+    for t1_idx, t2_idx, cov in zip(t1, t2, covariances):
         upper_cov_matrix[t1_idx, t2_idx] = cov
 
     # ensure symmetry

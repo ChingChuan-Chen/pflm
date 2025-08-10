@@ -16,5 +16,6 @@ def test_pflm():
             "FunctionalDataGenerator",
         ]
     )
+    # validate that pflm has the expected items
     assert pflm_items.issuperset(expected_items)
     assert pflm_items.issubset(expected_items)

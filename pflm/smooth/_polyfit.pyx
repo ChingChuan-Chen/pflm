@@ -53,11 +53,6 @@ cdef floating calculate_kernel_value(
     else:
         return 0.0
 
-# cdef extern from "src/polyfit_helper.h" nogil:
-#     np.float64_t _calculate_kernel_value_f64 "calculate_kernel_value_f64"(np.float64_t, int)
-#     np.float32_t _calculate_kernel_value_f32 "calculate_kernel_value_f32"(np.float32_t, int)
-#     double[11] factorials
-
 
 def calculate_kernel_value_f64(
     np.float64_t u,

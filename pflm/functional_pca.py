@@ -429,6 +429,7 @@ class FunctionalPCA(BaseEstimator):
             self.reg_mu_ = interp1d(self.obs_grid_, self.obs_mu_, self.reg_grid_, method="spline")
 
         # calculate the covariance function
+        use_user_cov = False
         if self.user_params.t_cov is not None and self.user_params.cov is not None:
             t_cov = check_array(self.user_params.t_cov, ensure_2d=False, dtype=self._input_dtype)
             cov = check_array(self.user_params.cov, ensure_2d=False, dtype=self._input_dtype)
@@ -436,8 +437,11 @@ class FunctionalPCA(BaseEstimator):
                 raise ValueError("t_cov must be a 1D array and cov must be a 2D array.")
             if t_cov.size != cov.shape[0] or t_cov.size != cov.shape[1]:
                 raise ValueError("t_cov must match the dimensions of cov.")
+            use_user_cov = True
             self.obs_cov_ = interp2d(t_cov, t_cov, cov, self.obs_grid_, self.obs_grid_, method="spline")
             self.reg_cov_ = interp2d(t_cov, t_cov, cov, self.reg_grid_, self.reg_grid_, method="spline")
+            # get raw covariance
+            self.raw_cov_ = get_raw_cov(self.yy_, self.tt_, self.ww_, self.obs_mu_, self.tid_, self.sid_)
         elif self.mu_cov_params.estimate_method == "smooth":
             self.raw_cov_ = get_raw_cov(self.yy_, self.tt_, self.ww_, self.obs_mu_, self.tid_, self.sid_)
             self.cov_func_fit_ = Polyfit2DModel(
@@ -460,6 +464,25 @@ class FunctionalPCA(BaseEstimator):
             self.raw_cov_ = get_raw_cov(self.yy_, self.tt_, self.ww_, self.obs_mu_, self.tid_, self.sid_)
             self.obs_cov_ = get_covariance_matrix(self.raw_cov_, self.obs_grid_)
             self.reg_cov_ = interp2d(self.obs_grid_, self.obs_grid_, self.obs_cov_, self.reg_grid_, self.reg_grid_, method="spline")
+
+        if self.assume_measurement_error and self.user_params.sigma2 is not None:
+            self.sigma2_ = float(self.user_params.sigma2)
+        elif self.assume_measurement_error and self.mu_cov_params.estimate_method == "smooth":
+            if use_user_cov:
+                diag_obs_var = np.diagonal(get_covariance_matrix(self.raw_cov_, self.obs_grid_))
+                diag_reg_var = interp1d(self.obs_grid_, diag_obs_var, self.reg_grid_)
+                self.sigma2_ = np.average(diag_reg_var - np.diagonal(self.reg_cov_))
+            else:
+                # implement fdapace:::PC_CovE
+                pass
+        elif self.assume_measurement_error and self.mu_cov_params.estimate_method == "cross-sectional":
+            # Use user-defined covariance or cross-sectional method
+            diff_mask = (self.tid_[:-2] - self.tid_[2:] == 2) & (self.sid_[:-2] == self.sid_[2:])
+            diff_2nd_order = self.yy_[:-2] - self.yy_[2:]
+            # Calculate sigma2 using the second-order difference method (6.0 = 4C2)
+            self.sigma2_ = np.average(diff_2nd_order[diff_mask] ** 2) / 6.0
+            if not use_user_cov:
+                np.fill_diagonal(self.obs_cov_, self.obs_cov_.diagonal() - self.sigma2_)
 
         self.xi, self.xi_var = self.fit_score(
             self.method_pcs_, self.method_select_num_pcs_, self.max_num_pcs_, self.impute_scores_, self.fve_threshold_

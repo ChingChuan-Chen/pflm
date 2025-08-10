@@ -18,6 +18,12 @@ utils_extension_metadata = {
         ],
         'dependencies': [np_dep, openmp_dep],
     },
+    '_smooth_covariance': {
+        'sources': [
+            cython_gen_cpp.process('_smooth_covariance.pyx'),
+        ],
+        'dependencies': [np_dep, openmp_dep],
+    },
 }
 
 foreach ext_name, ext_dict : utils_extension_metadata
