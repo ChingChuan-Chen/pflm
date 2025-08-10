@@ -37,16 +37,22 @@ logger = logging.getLogger(__name__)
 
 __version__ = "0.1.0.dev0"
 
-from pflm.functional_data_generator import FunctionalDataGenerator  # noqa: F401 E402
+from pflm.functional_data_generator import FunctionalDataGenerator  # noqa: E402
+from pflm.functional_pca import FunctionalPCAMuCovParams, FunctionalPCAUserDefinedParams, FunctionalPCA  # noqa: E402
 
 _submodules = [
     "interp",
     "smooth",
-    "FunctionalDataGenerator",
     "utils",
 ]
 
-__all__ = _submodules + []
+__all__ = _submodules + [
+    "__version__",
+    "FunctionalPCAMuCovParams",
+    "FunctionalPCAUserDefinedParams",
+    "FunctionalPCA",
+    "FunctionalDataGenerator",
+]
 
 
 def __dir__():

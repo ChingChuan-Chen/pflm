@@ -65,10 +65,10 @@ class FunctionalPCAMuCovParams:
             raise ValueError("estimate_method must be either 'smooth' or 'cross-sectional'.")
         if not isinstance(kernel_type, KernelType):
             raise ValueError("kernel_type must be an instance of KernelType Enum.")
-        if method_select_mu_bw not in ["GCV", "CV"]:
-            raise ValueError("method_select_mu_bw must be either 'GCV' or 'CV'.")
-        if method_select_cov_bw not in ["GCV", "CV"]:
-            raise ValueError("method_select_cov_bw must be either 'GCV' or 'CV'.")
+        if method_select_mu_bw not in ["gcv", "cv"]:
+            raise ValueError("method_select_mu_bw must be either 'gcv' or 'cv'.")
+        if method_select_cov_bw not in ["gcv", "cv"]:
+            raise ValueError("method_select_cov_bw must be either 'gcv' or 'cv'.")
         if not isinstance(apply_geo_avg_cov_bw, bool):
             raise ValueError("apply_geo_avg_cov_bw must be a boolean value.")
         if cv_folds_mu <= 0 or not isinstance(cv_folds_mu, int):

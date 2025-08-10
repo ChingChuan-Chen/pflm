@@ -233,11 +233,7 @@ def test_get_covariance_matrix_happy_path(dtype):
     assert np.allclose(cov_matrix, cov_matrix.T)
     # check values
     expected_cov_matrix = np.array(
-        [
-            [3.375, 0., 3.25],
-            [0., 0.375, 0.58333333],
-            [3.25, 0.5833333, 1.6388888]
-        ],
+        [[3.375, 0.0, 3.25], [0.0, 0.375, 0.58333333], [3.25, 0.5833333, 1.6388888]],
         dtype=dtype,
     )
     assert np.allclose(cov_matrix, expected_cov_matrix)
