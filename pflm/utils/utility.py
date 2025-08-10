@@ -15,7 +15,7 @@ def flatten_and_sort_data_matrices(
     y: List[np.ndarray],
     t: List[np.ndarray],
     input_dtype: Union[str, np.dtype] = np.float64,
-    w: Optional[List[np.ndarray]] = None,
+    w: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Flatten and sort the data matrices.
 
@@ -32,8 +32,8 @@ def flatten_and_sort_data_matrices(
         It should be a 1D array where each element corresponds to a time point.
     input_dtype : str or np.dtype, optional
         The data type of the input arrays. Defaults to np.float64.
-    w : list of array_like, optional
-        The weights for each sample. If provided, it should have the same number of rows as `y`.
+    w : array_like, optional
+        The weights for each sample. If provided, it should have the same length as `y` and `t`.
 
     Returns
     -------
@@ -58,20 +58,16 @@ def flatten_and_sort_data_matrices(
         if yi.size != ti.size:
             raise ValueError("Each element of y and t must have the same length.")
 
-    if w is not None and len(y) != len(w):
-        raise ValueError("The length of y and w must be the same.")
-    if w is not None and not isinstance(w, list):
-        raise ValueError("Weights w must be a list of 1D arrays.")
-
     if w is None:
-        w = [np.ones_like(yi) for yi in y]
+        w = np.ones((len(y),), dtype=input_dtype)
     else:
-        w = [check_array(wi, ensure_2d=False, dtype=input_dtype) for wi in w]
-        for ti, wi in zip(t, w):
-            if wi.ndim != 1:
-                raise ValueError("Each element of w must be a 1D array.")
-            if ti.size != wi.size:
-                raise ValueError("Each element of t and w must have the same length.")
+        if not isinstance(w, np.ndarray):
+            raise ValueError("Weights w must be a 1D array.")
+        if len(y) != w.size:
+            raise ValueError("The length of y and w must be the same.")
+        w = check_array(w, ensure_2d=False, dtype=input_dtype)
+        if w.ndim != 1:
+            raise ValueError("Each element of w must be a 1D array.")
 
     yy = np.concatenate(y).astype(input_dtype, copy=False)
     non_nan_mask = ~np.isnan(yy)
@@ -79,12 +75,12 @@ def flatten_and_sort_data_matrices(
         raise ValueError("All values in y are NaN. Cannot flatten data matrices.")
 
     tt = np.concatenate(t).astype(input_dtype, copy=False)[non_nan_mask]
-    ww = np.concatenate(w).astype(input_dtype, copy=False)[non_nan_mask]
+    ww = np.concatenate([np.full(yi.size, wi, dtype=input_dtype) for yi, wi in zip(y, w)])[non_nan_mask]
     sid = np.concatenate([np.full(yi.size, i, dtype=np.int64) for i, yi in enumerate(y)])[non_nan_mask]
     return yy[non_nan_mask], tt, ww, sid
 
 
-def get_raw_cov(yy: np.ndarray, tt: np.ndarray, ww: np.ndarray, mu: np.ndarray, sid: np.ndarray, tid: np.ndarray) -> np.ndarray:
+def get_raw_cov(yy: np.ndarray, tt: np.ndarray, ww: np.ndarray, mu: np.ndarray, tid: np.ndarray, sid: np.ndarray) -> np.ndarray:
     """
     Get the dense covariance matrix from the flattened data matrices.
 
@@ -93,7 +89,6 @@ def get_raw_cov(yy: np.ndarray, tt: np.ndarray, ww: np.ndarray, mu: np.ndarray, 
     It returns a raw covariance matrix with columns representing (sid, t1, t2, w, cov),
     where `sid` is the sample index, `t1` and `t2` are the time points, `w` is the weight,
     and `cov` is the computed covariance value.
-    This function would not check the validity of the input data, so it is assumed that the input is valid.
 
     Parameters
     ----------
@@ -104,11 +99,11 @@ def get_raw_cov(yy: np.ndarray, tt: np.ndarray, ww: np.ndarray, mu: np.ndarray, 
     ww : np.ndarray
         Weights corresponding to `yy`.
     mu : np.ndarray
-        Mean function values at the time points.
-    sid : np.ndarray
-        Sample indices corresponding to `yy`.
+        Mean function values at the observation grid.
     tid : np.ndarray
         Time indices corresponding to `tt`.
+    sid : np.ndarray
+        Sample indices corresponding to `yy`.
 
     Returns
     -------
@@ -116,8 +111,23 @@ def get_raw_cov(yy: np.ndarray, tt: np.ndarray, ww: np.ndarray, mu: np.ndarray, 
         The raw covariance matrix with columns representing (sid, t1, t2, w, cov).
         The shape is (num_pairs, 5), where num_pairs is the number of unique pairs of samples.
     """
+    if yy.ndim != 1 or tt.ndim != 1 or ww.ndim != 1:
+        raise ValueError("yy, tt, and ww must be 1D arrays.")
+    if yy.size != tt.size or yy.size != ww.size:
+        raise ValueError("yy, tt, and ww must have the same length.")
+    unique_tid = np.unique(tid)
+    if unique_tid.size != mu.size:
+        raise ValueError("The length of mu must match the number of unique time indices in tid.")
+    if sid.ndim != 1 or sid.size != yy.size:
+        raise ValueError("sid must be a 1D array with the same length as yy.")
+    if np.any(np.diff(sid) < 0):
+        raise ValueError("The sample indices, sid, must be sorted in ascending order.")
+    unique_sid, sid_cnt = np.unique(sid, return_counts=True, sorted=True)
+    if np.any(sid_cnt < 2):
+        raise ValueError("Each sample must have at least two observations for covariance calculation.")
+
     get_raw_cov_func = get_raw_cov_f64 if yy.dtype == np.float64 else get_raw_cov_f32
-    return get_raw_cov_func(yy, tt, ww, mu, sid, tid)
+    return get_raw_cov_func(yy, tt, ww, mu, tid, unique_sid, sid_cnt)
 
 
 def get_covariance_matrix(raw_cov: np.ndarray, obs_grid: np.ndarray) -> np.ndarray:
@@ -134,7 +144,7 @@ def get_covariance_matrix(raw_cov: np.ndarray, obs_grid: np.ndarray) -> np.ndarr
         This input should use `get_raw_cov` to obtain the raw covariance data.
         The shape is (num_pairs, 5), where num_pairs is the number of unique pairs of samples.
     obs_grid : np.ndarray
-        The observation grid, which is a 1D array of time points.
+        The observation grid, which is a 1D array of sorted unique time points.
 
     Returns
     -------
@@ -145,15 +155,20 @@ def get_covariance_matrix(raw_cov: np.ndarray, obs_grid: np.ndarray) -> np.ndarr
     t_pairs, idx = np.unique(raw_cov[:, [1, 2]], axis=0, return_inverse=True)
     ww_sum = np.bincount(idx, weights=raw_cov[:, 3])
     cov_sum = np.bincount(idx, weights=raw_cov[:, 3] * raw_cov[:, 4]) / np.array([w - 1.0 if w > 1.0 else 1.0 for w in ww_sum])
+    cov_sum[ww_sum <= 1.0] = 0.0  # set cov to 0 if weight is less than or equal to 1
 
     # map the pairs to the observation grid
-    dense_cov = np.zeros((obs_grid.size, obs_grid.size), dtype=raw_cov.dtype)
+    upper_cov_matrix = np.zeros((obs_grid.size, obs_grid.size), dtype=raw_cov.dtype)
     t1 = np.digitize(t_pairs[:, 0], obs_grid, right=True)
     t2 = np.digitize(t_pairs[:, 1], obs_grid, right=True)
 
     for t1_idx, t2_idx, cov in zip(t1, t2, cov_sum):
-        dense_cov[t1_idx, t2_idx] = cov
-    return 0.5 * (dense_cov + dense_cov.T)  # ensure symmetry
+        upper_cov_matrix[t1_idx, t2_idx] = cov
+
+    # ensure symmetry
+    cov_matrix = upper_cov_matrix + upper_cov_matrix.T
+    np.fill_diagonal(cov_matrix, cov_matrix.diagonal() / 2.0)
+    return cov_matrix
 
 
 def get_eigen_results(

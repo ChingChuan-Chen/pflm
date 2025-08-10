@@ -200,13 +200,13 @@ class FunctionalPCA(BaseEstimator):
         Regular grid points used for regression.
     obs_grid_: np.ndarray
         Unique observation grid points derived from `tt_`.
-    mu_ : np.ndarray
+    obs_mu_ : np.ndarray
         Estimated mean function values at the observation grid points (obs_grid_).
-    mu_dense_ : np.ndarray
+    reg_mu_ : np.ndarray
         Estimated mean function values at the regular grid points (reg_grid_).
-    cov_ : np.ndarray
+    obs_cov_ : np.ndarray
         Estimated covariance function values at the observation grid points (obs_grid_).
-    cov_dense_ : np.ndarray
+    reg_cov_ : np.ndarray
         Estimated covariance function values at the regular grid points (reg_grid_).
     fpca_eigen_results_ : dict
         Dictionary containing eigenvalues and eigenvectors of the covariance function.
@@ -407,7 +407,8 @@ class FunctionalPCA(BaseEstimator):
                 raise ValueError("t_mu and mu must be 1D arrays.")
             if t_mu.size != mu.size:
                 raise ValueError("t_mu and mu must have the same length.")
-            self.mu_ = interp1d(t_mu, mu, self.reg_grid_, method="spline")
+            self.reg_mu_ = interp1d(t_mu, mu, self.reg_grid_, method="spline")
+            self.obs_mu_ = interp1d(t_mu, mu, self.obs_grid_, method="spline")
         elif self.mu_cov_params.estimate_method == "smooth":
             self.mean_func_fit_ = Polyfit1DModel(
                 kernel_type=self.mu_cov_params.kernel_type, interp_kind="spline", random_seed=self.mu_cov_params.random_seed
@@ -421,9 +422,11 @@ class FunctionalPCA(BaseEstimator):
                 bandwidth_selection_method=self.mu_cov_params.method_select_mu_bw,
                 cv_folds=self.mu_cov_params.cv_folds_mu,
             )
-            self.mu_ = self.mean_func_fit_.fitted_values()
+            self.reg_mu_ = self.mean_func_fit_.fitted_values()
+            self.obs_mu_ = interp1d(self.reg_mu_, self.reg_mu_, self.obs_grid_, method="spline")
         elif self.mu_cov_params.estimate_method == "cross-sectional":
-            self.mu_ = np.bincount(self.tid_, self.yy_) / np.bincount(self.tid_)
+            self.obs_mu_ = (np.bincount(self.tid_, self.yy_) / np.bincount(self.tid_)).astype(self._input_dtype, copy=False)
+            self.reg_mu_ = interp1d(self.obs_grid_, self.obs_mu_, self.reg_grid_, method="spline")
 
         # calculate the covariance function
         if self.user_params.t_cov is not None and self.user_params.cov is not None:
@@ -433,10 +436,10 @@ class FunctionalPCA(BaseEstimator):
                 raise ValueError("t_cov must be a 1D array and cov must be a 2D array.")
             if t_cov.size != cov.shape[0] or t_cov.size != cov.shape[1]:
                 raise ValueError("t_cov must match the dimensions of cov.")
-            self.cov_ = interp2d(t_cov, t_cov, cov, self.obs_grid_, self.obs_grid_, method="spline")
-            self.smooth_cov_ = interp2d(t_cov, t_cov, cov, self.reg_grid_, self.reg_grid_, method="spline")
+            self.obs_cov_ = interp2d(t_cov, t_cov, cov, self.obs_grid_, self.obs_grid_, method="spline")
+            self.reg_cov_ = interp2d(t_cov, t_cov, cov, self.reg_grid_, self.reg_grid_, method="spline")
         elif self.mu_cov_params.estimate_method == "smooth":
-            self.raw_cov_ = get_raw_cov(self.yy_, self.tt_, self.ww_, self.mu_, self.sid_, self.tid_)
+            self.raw_cov_ = get_raw_cov(self.yy_, self.tt_, self.ww_, self.obs_mu_, self.tid_, self.sid_)
             self.cov_func_fit_ = Polyfit2DModel(
                 kernel_type=self.mu_cov_params.kernel_type, interp_kind="spline", random_seed=self.mu_cov_params.random_seed
             )
@@ -451,12 +454,12 @@ class FunctionalPCA(BaseEstimator):
                 bandwidth_selection_method=self.mu_cov_params.method_select_cov_bw,
                 cv_folds=self.mu_cov_params.cv_folds_cov,
             )
-            self.cov_ = self.cov_func_fit_.fitted_values()
-            self.smooth_cov_ = interp2d(self.obs_grid_, self.obs_grid_, self.cov_, self.reg_grid_, self.reg_grid_, method="spline")
+            self.obs_cov_ = self.cov_func_fit_.fitted_values()
+            self.reg_cov_ = interp2d(self.obs_grid_, self.obs_grid_, self.obs_cov_, self.reg_grid_, self.reg_grid_, method="spline")
         elif self.mu_cov_params.estimate_method == "cross-sectional":
-            self.raw_cov_ = get_raw_cov(self.yy_, self.tt_, self.ww_, self.mu_, self.sid_, self.tid_)
-            self.cov_ = get_covariance_matrix(self.raw_cov_, self.obs_grid_)
-            self.smooth_cov_ = interp2d(self.obs_grid_, self.obs_grid_, self.cov_, self.reg_grid_, self.reg_grid_, method="spline")
+            self.raw_cov_ = get_raw_cov(self.yy_, self.tt_, self.ww_, self.obs_mu_, self.tid_, self.sid_)
+            self.obs_cov_ = get_covariance_matrix(self.raw_cov_, self.obs_grid_)
+            self.reg_cov_ = interp2d(self.obs_grid_, self.obs_grid_, self.obs_cov_, self.reg_grid_, self.reg_grid_, method="spline")
 
         self.xi, self.xi_var = self.fit_score(
             self.method_pcs_, self.method_select_num_pcs_, self.max_num_pcs_, self.impute_scores_, self.fve_threshold_
