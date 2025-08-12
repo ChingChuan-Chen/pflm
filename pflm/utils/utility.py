@@ -211,6 +211,8 @@ def rotate_polyfit2d(
         raise ValueError("bandwidth must be a numeric value.")
     if bandwidth <= 0:
         raise ValueError("bandwidth must be a positive number.")
+    if np.isnan(bandwidth):
+        raise ValueError("bandwidth must not be NaN.")
     bandwidth = float(bandwidth)
 
     if kernel_type not in KernelType:
