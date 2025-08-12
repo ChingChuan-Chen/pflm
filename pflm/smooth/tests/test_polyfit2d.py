@@ -243,6 +243,7 @@ def test_polyfit2d_different_order_array(order):
 
     # Basic shape and sanity checks
     assert y_pred.shape == (len(x_new1), len(x_new2))
+    assert_allclose(y_pred, expected_results, rtol=1e-5, atol=1e-6, err_msg=f"Failed for order {order}")
     assert np.all(np.isfinite(y_pred)), "Prediction contains NaN or Inf values"
 
     # Check if the predicted values match the expected results

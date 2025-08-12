@@ -237,12 +237,16 @@ def rotate_polyfit2d(
 
     # Sort the rotated grids
     sorted_idx = np.lexsort((x_grid_rotated[1, :], x_grid_rotated[0, :]))
-    x_grid_rotated = np.ascontiguousarray(x_grid_rotated[:, sorted_idx].astype(input_dtype))
+    x_grid_rotated = np.ascontiguousarray(x_grid_rotated[:, sorted_idx]).astype(input_dtype)
+    y_sorted = y[sorted_idx]
+    w_sorted = w[sorted_idx]
+
+    # Sort the new grid
     sorted_idx_new_grid = np.lexsort((new_grid_rotated[1, :], new_grid_rotated[0, :]))
-    new_grid_rotated = np.ascontiguousarray(new_grid_rotated[:, sorted_idx_new_grid].astype(input_dtype))
+    new_grid_rotated = np.ascontiguousarray(new_grid_rotated[:, sorted_idx_new_grid]).astype(input_dtype)
 
     rotate_polyfit2d_func = rotate_polyfit2d_f64 if input_dtype == np.float64 else rotate_polyfit2d_f32
-    output = rotate_polyfit2d_func(x_grid_rotated, y, w, new_grid_rotated, bandwidth, kernel_type.value)
+    output = rotate_polyfit2d_func(x_grid_rotated, y_sorted, w_sorted, new_grid_rotated, bandwidth, kernel_type.value)
     return output
 
 

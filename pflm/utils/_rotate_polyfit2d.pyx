@@ -88,7 +88,7 @@ cdef void rotate_polyfit2d_helper(
 
         ly[i] = y[j] * sqrt_wj
         lx[i] = sqrt_wj
-        lx[i + n_rows] = pow(x1j_minus_center1 * sqrt_wj, 2.0)
+        lx[i + n_rows] = pow(x1j_minus_center1, 2.0) * sqrt_wj
         lx[i + n_rows * 2] = x2j_minus_center2 * sqrt_wj
 
 
