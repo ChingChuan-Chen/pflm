@@ -18,9 +18,9 @@ utils_extension_metadata = {
         ],
         'dependencies': [np_dep, openmp_dep],
     },
-    '_smooth_covariance': {
+    '_rotate_polyfit2d': {
         'sources': [
-            cython_gen_cpp.process('_smooth_covariance.pyx'),
+            cython_gen_cpp.process('_rotate_polyfit2d.pyx'),
         ],
         'dependencies': [np_dep, openmp_dep],
     },

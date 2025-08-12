@@ -5,6 +5,8 @@ from cython.parallel cimport prange
 from libc.math cimport abs, pow, sqrt, NAN, acos, exp, cosh, cos
 from libc.stdint cimport int64_t
 from libcpp.vector cimport vector
+from libcpp.set cimport set
+from libcpp.utility cimport pair
 from libcpp.iterator cimport distance
 from libcpp.algorithm cimport lower_bound
 from libc.stdlib cimport malloc, free
@@ -208,6 +210,7 @@ cdef void polyfit2d_helper(
     cdef floating lb1, ub1, lb2, ub2
     cdef int64_t num_lx_cols = (degree + 1) * (degree + 2) // 2
     cdef vector[int64_t] idx = vector[int64_t]()
+    cdef bint check_rank = 1, use_svd = 0
     if kernel_type >= 100:
         lb1 = center1 - bw1 - 1e-6
         ub1 = center1 + bw1 + 1e-6
@@ -225,15 +228,33 @@ cdef void polyfit2d_helper(
             if x_grid[1, i] > lb2 and x_grid[1, i] < ub2:
                 idx.push_back(i)
 
-        if idx.empty() or idx.size() < num_lx_cols:
+
+        if idx.empty():
             mu[0] = NAN
             return
+
+        if idx.size() < num_lx_cols:
+            check_rank = 0
+            use_svd = 1
     else:
         idx.resize(n)
         for i in range(n):
             idx[i] = i
+        check_rank = 0
+        use_svd = 0
 
-    cdef int64_t n_rows = <int64_t> idx.size(), j, total_deg, py, col_idx
+    cdef int64_t n_rows = <int64_t> idx.size(), j
+    cdef set[pair[floating, floating]] unique_grid_points
+    if check_rank == 1:
+        for i in range(n_rows):
+            j = idx[i]
+            unique_grid_points.insert(pair[floating, floating](x_grid[0, j], x_grid[1, j]))
+        if unique_grid_points.size() < num_lx_cols:
+            use_svd = 1
+        else:
+            use_svd = 0
+
+    cdef int64_t total_deg, py, col_idx
     cdef floating *lx = <floating*> malloc(n_rows * num_lx_cols * sizeof(floating))
     cdef floating *ly = <floating*> malloc(n_rows * sizeof(floating))
     cdef floating x1j_minus_center1, x2j_minus_center2, u1, u2, sqrt_wj
@@ -253,12 +274,20 @@ cdef void polyfit2d_helper(
 
     cdef int info = 0, rank = 0
     cdef floating rcond = -1.0
-    _gelss_helper(
-        n_rows, num_lx_cols, 1,
-        lx, n_rows,
-        ly, n_rows,
-        &rcond, &rank, &info
-    )
+    if use_svd == 1:
+        _gelss_helper(
+            n_rows, num_lx_cols, 1,
+            lx, n_rows,
+            ly, n_rows,
+            &rcond, &rank, &info
+        )
+    else:
+        _gels_helper(
+            110, n_rows, num_lx_cols, 1,
+            lx, n_rows,
+            ly, n_rows,
+            &info
+        )
 
     cdef int64_t total_deriv = <int64_t> deriv1 + <int64_t> deriv2
     cdef int64_t mu_idx = total_deriv * (total_deriv + 1) // 2 + deriv2
