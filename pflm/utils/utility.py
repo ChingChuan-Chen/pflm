@@ -9,8 +9,8 @@ from sklearn.utils.validation import check_array
 
 from pflm.smooth.kernel import KernelType
 from pflm.utils import trapz
-from pflm.utils._rotate_polyfit2d import rotate_polyfit2d_f32, rotate_polyfit2d_f64
 from pflm.utils._raw_cov import get_raw_cov_f32, get_raw_cov_f64
+from pflm.utils._rotate_polyfit2d import rotate_polyfit2d_f32, rotate_polyfit2d_f64
 
 
 def flatten_and_sort_data_matrices(
@@ -219,7 +219,7 @@ def rotate_polyfit2d(
     input_dtype = x_grid.dtype
     x_grid = check_array(x_grid, ensure_2d=True, dtype=input_dtype)
     if x_grid.shape[1] != 2:
-        raise ValueError("x_grid must be a 2D array with shape (2, n), where n is the number of points.")
+        raise ValueError("x_grid must be a 2D array with shape (n, 2), where n is the number of points.")
     y = check_array(y, ensure_2d=False, dtype=input_dtype)
     if y.ndim != 1:
         raise ValueError("y must be a 1D array.")
@@ -228,22 +228,21 @@ def rotate_polyfit2d(
         raise ValueError("w must be a 1D array.")
     new_grid = check_array(new_grid, ensure_2d=True, dtype=input_dtype)
     if new_grid.shape[1] != 2:
-        raise ValueError("new_grid must be a 2D array with shape (2, m), where m is the number of new points.")
+        raise ValueError("new_grid must be a 2D array with shape (m, 2), where m is the number of new points.")
 
-    rotation_matrix = np.array([[1, -1], [1, 1]], dtype=input_dtype) / np.sqrt(2.0)
-    x_grid_rotated = rotation_matrix @ x_grid
-    new_grid_rotated = rotation_matrix @ new_grid
+    # rotate the grids
+    rotation_matrix = np.array([[1, -1], [1, 1]]) / np.sqrt(2.0)
+    x_grid_rotated = rotation_matrix @ x_grid.T
+    new_grid_rotated = rotation_matrix @ new_grid.T
 
     # Sort the rotated grids
-    sorted_idx = np.lexsort((x_grid_rotated[:, 1], x_grid_rotated[:, 0]))
-    x_grid_rotated = np.ascontiguousarray(x_grid_rotated[:, sorted_idx])
-    sorted_idx_new_grid = np.lexsort((new_grid_rotated[:, 1], new_grid_rotated[:, 0]))
-    new_grid_rotated = np.ascontiguousarray(new_grid_rotated[:, sorted_idx_new_grid])
+    sorted_idx = np.lexsort((x_grid_rotated[1, :], x_grid_rotated[0, :]))
+    x_grid_rotated = np.ascontiguousarray(x_grid_rotated[:, sorted_idx].astype(input_dtype))
+    sorted_idx_new_grid = np.lexsort((new_grid_rotated[1, :], new_grid_rotated[0, :]))
+    new_grid_rotated = np.ascontiguousarray(new_grid_rotated[:, sorted_idx_new_grid].astype(input_dtype))
 
     rotate_polyfit2d_func = rotate_polyfit2d_f64 if input_dtype == np.float64 else rotate_polyfit2d_f32
-    output = rotate_polyfit2d_func(
-        np.ascontiguousarray(x_grid_rotated.T), y, w, np.ascontiguousarray(new_grid_rotated.T), bandwidth, kernel_type.value
-    )
+    output = rotate_polyfit2d_func(x_grid_rotated, y, w, new_grid_rotated, bandwidth, kernel_type.value)
     return output
 
 

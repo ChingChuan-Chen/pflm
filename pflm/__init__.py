@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 __version__ = "0.1.0.dev0"
 
 from pflm.functional_data_generator import FunctionalDataGenerator  # noqa: E402
-from pflm.functional_pca import FunctionalPCAMuCovParams, FunctionalPCAUserDefinedParams, FunctionalPCA  # noqa: E402
+from pflm.functional_pca import FunctionalPCA, FunctionalPCAMuCovParams, FunctionalPCAUserDefinedParams  # noqa: E402
 
 _submodules = [
     "interp",

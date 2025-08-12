@@ -10,7 +10,7 @@ from libcpp.utility cimport pair
 from libcpp.iterator cimport distance
 from libcpp.algorithm cimport lower_bound
 from libc.stdlib cimport malloc, free
-from pflm.smooth._polyfit cimport inv_sqrt_2, calculate_kernel_value
+from pflm.smooth._polyfit cimport calculate_kernel_value
 from pflm.utils._lapack_helper cimport _gels_helper, _gelss_helper
 
 
