@@ -41,6 +41,58 @@ def test_kernel_types():
     assert repr(KernelType.COSINE) == "KernelType.COSINE"
 
 
+def test_calculate_kernel_value_at_0():
+    # Test Gaussian kernel at 0
+    result = calculate_kernel_value_f32(0.0, KernelType.GAUSSIAN.value)
+    expected = 1 / np.sqrt(2 * np.pi)
+    assert_allclose(result, expected, rtol=1e-5, atol=0.0)
+
+    # Test Logistic kernel at 0
+    result = calculate_kernel_value_f32(0.0, KernelType.LOGISTIC.value)
+    expected = 1 / (np.exp(0) + 2.0 + np.exp(-0))
+    assert_allclose(result, expected, rtol=1e-5, atol=0.0)
+
+    # Test Sigmoid kernel at 0
+    result = calculate_kernel_value_f32(0.0, KernelType.SIGMOID.value)
+    expected = 2.0 / np.pi / (np.exp(0) + np.exp(-0))
+    assert_allclose(result, expected, rtol=1e-5, atol=0.0)
+
+    # Test Rectangular kernel at 0
+    result = calculate_kernel_value_f32(0.0, KernelType.RECTANGULAR.value)
+    expected = 0.5
+    assert_allclose(result, expected, rtol=1e-5, atol=0.0)
+
+    # Test Triangular kernel at 0
+    result = calculate_kernel_value_f32(0.0, KernelType.TRIANGULAR.value)
+    expected = 1.0
+    assert_allclose(result, expected, rtol=1e-5, atol=0.0)
+
+    # Test Epanechnikov kernel at 0
+    result = calculate_kernel_value_f32(0.0, KernelType.EPANECHNIKOV.value)
+    expected = 0.75
+    assert_allclose(result, expected, rtol=1e-5, atol=0.0)
+
+    # Test Biweight kernel at 0
+    result = calculate_kernel_value_f32(0.0, KernelType.BIWEIGHT.value)
+    expected = 15 / 16
+    assert_allclose(result, expected, rtol=1e-5, atol=0.0)
+
+    # Test Triweight kernel at 0
+    result = calculate_kernel_value_f32(0.0, KernelType.TRIWEIGHT.value)
+    expected = 35 / 32
+    assert_allclose(result, expected, rtol=1e-5, atol=0.0)
+
+    # Test Tricube kernel at 0
+    result = calculate_kernel_value_f32(0.0, KernelType.TRICUBE.value)
+    expected = 70 / 81
+    assert_allclose(result, expected, rtol=1e-5, atol=0.0)
+
+    # Test Cosine kernel at 0
+    result = calculate_kernel_value_f32(0.0, KernelType.COSINE.value)
+    expected = np.pi / 4.0
+    assert_allclose(result, expected, rtol=1e-5, atol=0.0)
+
+
 @pytest.mark.parametrize(
     "dtype, func",
     [

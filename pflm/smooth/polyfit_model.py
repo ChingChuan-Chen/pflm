@@ -12,6 +12,7 @@ from sklearn.utils._array_api import get_namespace_and_device, supported_float_d
 from sklearn.utils.validation import check_array, check_is_fitted
 
 from pflm.interp import interp1d, interp2d
+from pflm.smooth import KernelType
 from pflm.smooth._polyfit import (
     calculate_kernel_value_f32,
     calculate_kernel_value_f64,
@@ -20,7 +21,6 @@ from pflm.smooth._polyfit import (
     polyfit2d_f32,
     polyfit2d_f64,
 )
-from pflm.smooth.kernel import KernelType
 
 
 class Polyfit1DModel(BaseEstimator, RegressorMixin):

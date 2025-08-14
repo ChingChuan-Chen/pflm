@@ -23,7 +23,7 @@ cdef void rotate_polyfit2d_helper(
     floating[:] y,
     floating[:] w,
     int kernel_type
-) noexcept nogil:
+):
     cdef int64_t n = x_grid.shape[1], left = 0, right = n, i
     cdef floating *left_it
     cdef floating *right_it
@@ -91,7 +91,6 @@ cdef void rotate_polyfit2d_helper(
         lx[i + n_rows] = pow(x1j_minus_center1, 2.0) * sqrt_wj
         lx[i + n_rows * 2] = x2j_minus_center2 * sqrt_wj
 
-
     cdef int info = 0, rank = 0
     cdef floating rcond = -1.0
     if use_svd == 1:
@@ -125,9 +124,9 @@ cdef void rotate_polyfit2d_memview(
     floating[:] mu,
     floating bandwidth,
     int kernel_type
-) noexcept nogil:
+):
     cdef int64_t i, x_new_size = new_grid.shape[1]
-    for i in prange(x_new_size, nogil=True):
+    for i in range(x_new_size):
         rotate_polyfit2d_helper(bandwidth, new_grid[0, i], new_grid[1, i], &mu[i], x_grid, y, w, kernel_type)
 
 

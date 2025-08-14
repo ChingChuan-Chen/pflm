@@ -13,7 +13,7 @@ from sklearn.utils.validation import check_array, check_is_fitted
 
 from pflm.interp import interp1d, interp2d
 from pflm.smooth import KernelType, Polyfit1DModel, Polyfit2DModel
-from pflm.utils.utility import flatten_and_sort_data_matrices, get_covariance_matrix, get_raw_cov
+from pflm.utils.utility import flatten_and_sort_data_matrices, get_covariance_matrix, get_measurement_error_variance, get_raw_cov
 
 
 class FunctionalPCAMuCovParams:
@@ -473,8 +473,12 @@ class FunctionalPCA(BaseEstimator):
                 diag_reg_var = interp1d(self.obs_grid_, diag_obs_var, self.reg_grid_)
                 self.sigma2_ = np.average(diag_reg_var - np.diagonal(self.reg_cov_))
             else:
-                # implement fdapace:::PC_CovE
-                pass
+                self.sigma2_ = get_measurement_error_variance(
+                    self.raw_cov_,
+                    self.reg_grid_,
+                    self.cov_func_fit_.bandwidth1_,
+                    self.mu_cov_params.kernel_type,
+                )
         elif self.assume_measurement_error and self.mu_cov_params.estimate_method == "cross-sectional":
             # Use user-defined covariance or cross-sectional method
             diff_mask = (self.tid_[:-2] - self.tid_[2:] == 2) & (self.sid_[:-2] == self.sid_[2:])

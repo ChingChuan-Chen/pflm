@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 from sklearn.utils.validation import check_array
 
-from pflm.smooth.kernel import KernelType
+from pflm.smooth import KernelType, Polyfit1DModel
 from pflm.utils import trapz
 from pflm.utils._raw_cov import get_raw_cov_f32, get_raw_cov_f64
 from pflm.utils._rotate_polyfit2d import rotate_polyfit2d_f32, rotate_polyfit2d_f64
@@ -250,6 +250,77 @@ def rotate_polyfit2d(
     rotate_polyfit2d_func = rotate_polyfit2d_f64 if input_dtype == np.float64 else rotate_polyfit2d_f32
     output = rotate_polyfit2d_func(x_grid_rotated, y_sorted, w_sorted, new_grid_rotated, bandwidth, kernel_type.value)
     return output
+
+
+def get_measurement_error_variance(
+    raw_cov: np.ndarray,
+    reg_grid: np.ndarray,
+    bandwidth: float,
+    kernel_type: KernelType,
+) -> float:
+    """Estimate the measurement error variance from the raw covariance matrix.
+
+    This function estimates the measurement error variance by fitting a polynomial to the raw covariance data
+    and evaluating it at the regular grid points. It uses a kernel-based approach to smooth the covariance data.
+
+    Parameters
+    ----------
+    raw_cov : np.ndarray
+        The raw covariance matrix with columns representing (sid, t1, t2, w, cov).
+        This input should use `get_raw_cov` to obtain the raw covariance data.
+    obs_grid : np.ndarray
+        The observation grid, which is a 1D array of sorted unique time points.
+    reg_grid : np.ndarray
+        The regular grid where the measurement error variance will be estimated.
+    bandwidth : float
+        The bandwidth for the kernel.
+    kernel_type : KernelType
+        The type of kernel to use for smoothing.
+
+    Returns
+    -------
+    float
+        The estimated measurement error variance.
+    """
+
+    input_dtype = raw_cov.dtype
+    raw_cov = check_array(raw_cov, ensure_2d=True, dtype=input_dtype)
+    if raw_cov.shape[1] != 5:
+        raise ValueError("raw_cov must have 5 columns: (sid, t1, t2, w, cov).")
+    reg_grid = check_array(reg_grid, ensure_2d=False, dtype=input_dtype)
+    if reg_grid.ndim != 1:
+        raise ValueError("reg_grid must be a 1D array.")
+    if np.any(np.diff(reg_grid) <= 0):
+        raise ValueError("reg_grid must be a 1D array with increasing values.")
+    if not isinstance(bandwidth, (int, float)):
+        raise ValueError("bandwidth must be a numeric value.")
+    if bandwidth <= 0:
+        raise ValueError("bandwidth must be a positive number.")
+    if np.isnan(bandwidth):
+        raise ValueError("bandwidth must not be NaN.")
+    bandwidth = float(bandwidth)
+
+    if kernel_type not in KernelType:
+        raise ValueError(f"kernel must be one of {list(KernelType)}.")
+
+    diag_mask = raw_cov[:, 1] == raw_cov[:, 2]
+    diag_cov = raw_cov[diag_mask, :]
+    smoothed_cov_diag_fit = Polyfit1DModel(kernel_type=kernel_type)
+    smoothed_cov_diag_fit.fit(diag_cov[:, 1], diag_cov[:, 4], diag_cov[:, 3], bandwidth=bandwidth, reg_grid=reg_grid)
+    smoothed_cov_diag = smoothed_cov_diag_fit.fitted_values()
+
+    non_diag_mask = np.logical_not(diag_mask)
+    diag_smoothed_cov_surface = rotate_polyfit2d(
+        raw_cov[non_diag_mask, :][:, [1, 2]],
+        raw_cov[non_diag_mask, 4],
+        raw_cov[non_diag_mask, 3],
+        new_grid=np.vstack((reg_grid, reg_grid)).T,
+        bandwidth=bandwidth,
+        kernel_type=kernel_type,
+    )
+
+    sigma2 = trapz(smoothed_cov_diag - diag_smoothed_cov_surface, reg_grid) / (reg_grid[-1] - reg_grid[0])
+    return sigma2, smoothed_cov_diag, diag_smoothed_cov_surface
 
 
 def get_eigen_results(
