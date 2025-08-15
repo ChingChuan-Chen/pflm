@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
+from pflm.smooth import Polyfit1DModel
 from pflm.smooth.kernel import KernelType
-from pflm.smooth.polyfit_model import Polyfit1DModel
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])

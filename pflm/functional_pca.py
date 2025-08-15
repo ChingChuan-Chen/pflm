@@ -13,7 +13,7 @@ from sklearn.utils.validation import check_array, check_is_fitted
 
 from pflm.interp import interp1d, interp2d
 from pflm.smooth import KernelType, Polyfit1DModel, Polyfit2DModel
-from pflm.utils.utility import flatten_and_sort_data_matrices, get_covariance_matrix, get_measurement_error_variance, get_raw_cov
+from pflm.utils import flatten_and_sort_data_matrices, get_covariance_matrix, get_measurement_error_variance, get_raw_cov
 
 
 class FunctionalPCAMuCovParams:

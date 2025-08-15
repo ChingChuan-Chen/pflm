@@ -1,8 +1,9 @@
 import numpy as np
 import pytest
+from numpy.testing import assert_allclose
 
 from pflm.smooth.kernel import KernelType
-from pflm.utils.utility import rotate_polyfit2d
+from pflm.utils import rotate_polyfit2d
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -44,7 +45,7 @@ def test_rotate_polyfit2d_happy_path(dtype):
         output = rotate_polyfit2d(x_grid, y, w, new_grid, bandwidth, kernel_type)
         assert output.shape == (3,)
         assert output.dtype == dtype
-        assert np.allclose(output, expected_array)
+        assert_allclose(output, expected_array, rtol=1e-5, atol=0.0)
 
 
 def _make_basic_inputs(dtype=np.float64):
@@ -128,7 +129,7 @@ def test_rotate_polyfit2d_permutation_invariance():
     w_shuffled = w[perm]
     out_orig = rotate_polyfit2d(x, y, w, new_x, 1.0, KernelType.GAUSSIAN)
     out_perm = rotate_polyfit2d(x_shuffled, y_shuffled, w_shuffled, new_x, 1.0, KernelType.GAUSSIAN)
-    assert np.allclose(out_orig, out_perm)
+    assert_allclose(out_orig, out_perm)
 
 
 def test_rotate_polyfit2d_float32_path_and_kernel_enum():

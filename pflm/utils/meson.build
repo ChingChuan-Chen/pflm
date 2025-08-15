@@ -12,6 +12,12 @@ utils_extension_metadata = {
         ],
         'dependencies': [np_dep, openmp_dep],
     },
+    '_trapz': {
+        'sources': [
+            cython_gen_cpp.process('_trapz.pyx'),
+        ],
+        'dependencies': [np_dep, openmp_dep],
+    },
     '_raw_cov': {
         'sources': [
             cython_gen_cpp.process('_raw_cov.pyx'),

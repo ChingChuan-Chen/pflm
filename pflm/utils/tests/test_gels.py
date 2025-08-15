@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from numpy.testing import assert_allclose
 
 from pflm.utils._lapack_helper import _gels_memview_f32, _gels_memview_f64
 
@@ -25,7 +26,7 @@ def test_gels(dtype, func):
     # For least squares, solution is in b_c[:A.shape[1]]
     x = b_c[: A.shape[1]]
     # The system is overdetermined, so check Ax ≈ b (first two rows)
-    assert np.allclose(x, x_np, rtol=1e-5, atol=0.0)
+    assert_allclose(x, x_np, rtol=1e-5, atol=0.0)
 
 
 @pytest.mark.parametrize("dtype, func", [(np.float32, _gels_memview_f32), (np.float64, _gels_memview_f64)])
@@ -48,4 +49,4 @@ def test_gels_multiple_rhs(dtype, func):
     # the solution length is A.shape[1] * b2.shape[1]
     # the dimensions of x2 should be (A.shape[1], b2.shape[1])
     x2 = np.array(b2_c, dtype=dtype, order="F").reshape(b2.shape[0], b2.shape[1], order="F")[: b2.shape[1], :]
-    assert np.allclose(x2, x_np2, rtol=1e-5, atol=0.0)
+    assert_allclose(x2, x_np2, rtol=1e-5, atol=0.0)

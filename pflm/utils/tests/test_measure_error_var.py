@@ -1,9 +1,9 @@
 import numpy as np
-from numpy.testing import assert_allclose, assert_almost_equal
 import pytest
+from numpy.testing import assert_allclose, assert_almost_equal
 
 from pflm.smooth.kernel import KernelType
-from pflm.utils.utility import get_measurement_error_variance
+from pflm.utils import get_measurement_error_variance
 
 
 def test_get_measurement_error_variance_happy_path():
@@ -76,7 +76,7 @@ def test_get_measurement_error_variance_happy_path():
             np.array([2.25, 1.25, 1.100308642222, 0.780555556, 1.311111112], dtype=np.float64),
             np.array([-0.625936911938, 0.217592592778, 0.037037037778, -0.143518517222, -1.337724192199], dtype=np.float64),
             np.float64(1.445534798239),
-        )
+        ),
     }
     for kernel_type, (expected_cov_diag, expected_diag_cov_surface, expected_sigma2) in expected_results.items():
         sigma2, smoothed_cov_diag, diag_smoothed_cov_surface = get_measurement_error_variance(raw_cov, reg_grid, 0.15, kernel_type)

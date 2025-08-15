@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
+from numpy.testing import assert_allclose
 
-from pflm.utils.utility import flatten_and_sort_data_matrices, get_covariance_matrix, get_raw_cov
+from pflm.utils import flatten_and_sort_data_matrices, get_covariance_matrix, get_raw_cov
 
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32])
@@ -44,7 +45,7 @@ def test_get_raw_cov_happy_path(dtype):
         ],
         dtype=dtype,
     )
-    assert np.allclose(raw_cov, expected_raw_cov)
+    assert_allclose(raw_cov, expected_raw_cov, rtol=1e-5, atol=0.0)
 
 
 def test_get_raw_cov_wrong_shape():
@@ -98,13 +99,13 @@ def test_get_covariance_matrix_happy_path(dtype):
     # check type
     assert isinstance(cov_matrix, np.ndarray)
     # check symmetry
-    assert np.allclose(cov_matrix, cov_matrix.T)
+    assert_allclose(cov_matrix, cov_matrix.T)
     # check values
     expected_cov_matrix = np.array(
         [[3.375, 0.0, 3.25], [0.0, 0.375, 0.58333333], [3.25, 0.5833333, 1.6388888]],
         dtype=dtype,
     )
-    assert np.allclose(cov_matrix, expected_cov_matrix)
+    assert_allclose(cov_matrix, expected_cov_matrix)
 
 
 def test_get_covariance_matrix_empty():
@@ -112,6 +113,6 @@ def test_get_covariance_matrix_empty():
     raw_cov = np.empty((0, 5), dtype=np.float64)
     obs_grid = np.array([0.1, 0.2])
     dense_cov = get_covariance_matrix(raw_cov, obs_grid)
-    assert np.allclose(dense_cov, dense_cov.T)
+    assert_allclose(dense_cov, dense_cov.T)
     assert dense_cov.shape == (obs_grid.size, obs_grid.size)
     assert np.all(dense_cov == 0)

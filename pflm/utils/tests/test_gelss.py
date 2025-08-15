@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from numpy.testing import assert_allclose
 
 from pflm.utils._lapack_helper import _gelss_memview_f32, _gelss_memview_f64
 
@@ -34,7 +35,7 @@ def test_gelss_memview(dtype, func):
     assert rank == 2
     # check if the solution is correct
     x = b_c[: A.shape[1]]
-    assert np.allclose(x, x_np, rtol=1e-5, atol=0.0)
+    assert_allclose(x, x_np, rtol=1e-5, atol=0.0)
 
 
 @pytest.mark.parametrize(
@@ -65,4 +66,4 @@ def test_gelss_memview_multiple_rhs(dtype, func):
     # the solution length is A.shape[1] * b2.shape[1]
     # the dimensions of x2 should be (A.shape[1], b2.shape[1])
     x2 = np.array(b2_c, dtype=dtype, order="F").reshape(b2.shape[0], b2.shape[1], order="F")[: b2.shape[1], :]
-    assert np.allclose(x2, x_np2, rtol=1e-5, atol=0.0)
+    assert_allclose(x2, x_np2, rtol=1e-5, atol=0.0)

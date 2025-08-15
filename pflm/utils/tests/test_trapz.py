@@ -1,22 +1,55 @@
 import numpy as np
 import pytest
+from numpy.testing import assert_allclose
 
-from pflm.utils.trapz import trapz
+from pflm.utils import trapz
 
 
-def test_trapz_1d_and_2d():
-    x = np.linspace(0, 1, 5)
+@pytest.mark.parametrize("dtype", [np.float64, np.float32])
+def test_trapz_1d(dtype):
+    x = np.linspace(0, 1, 5).astype(dtype)
     y = x**2
     val = trapz(y, x)
-    assert np.isscalar(val)
-    y2 = np.vstack([y, y])
-    val2 = trapz(y2, x)
-    assert val2.shape == (2,)
+    assert np.isclose(val, 0.34375)
+
+
+@pytest.mark.parametrize("dtype, order", [(np.float64, "F"), (np.float64, "C"), (np.float32, "F"), (np.float32, "C")])
+def test_trapz_2d(dtype, order):
+    x = np.linspace(0, 1, 5).astype(dtype, order=order)
+    y = np.vstack([x**2, x**3]).astype(dtype, order=order)
+    val = trapz(y, x)
+    assert val.shape == (2,)
+    assert_allclose(val, np.array([0.34375, 0.265625], dtype=dtype))
+
+
+def test_trapz_mismatch_dtype():
+    x = np.linspace(0, 1, 5)
+    y = x**2
+    val = trapz(y.astype(np.float32), x)
+    assert np.isclose(val, 0.34375)
+
+
+def test_trapz_int_dtype():
+    x = np.array([1, 2, 3, 4, 5])
+    y = x**2
+    val = trapz(y, x)
+    assert np.isclose(val, 42.0)
+
+
+def test_trapz_not_enough_points():
+    x = np.array([1.0])
+    y = np.array([2.0])
+    val = trapz(y, x)
+    assert np.isclose(val, 0.0)
+
+
+def test_trapz_exceptions():
+    x = np.linspace(0, 1, 5)
     # shape mismatch
     with pytest.raises(ValueError):
-        trapz(np.ones(4), np.ones(5))
+        trapz(np.ones(4), x)
     with pytest.raises(ValueError):
-        trapz(np.ones((2, 4)), np.ones(5))
+        trapz(np.ones((2, 4)), x)
     # wrong dimension of x
     with pytest.raises(ValueError):
         trapz(np.ones((2, 2, 2)), x)

@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
+from numpy.testing import assert_allclose
 
-from pflm.utils.utility import flatten_and_sort_data_matrices, get_eigen_results
+from pflm.utils import flatten_and_sort_data_matrices, get_eigen_results
 
 
 def test_flatten_and_sort_data_matrices_happy_path():
@@ -27,7 +28,7 @@ def test_flatten_and_sort_data_matrices_default_weights():
     y = [np.array([1.0, 2.0]), np.array([3.0])]
     t = [np.array([0.1, 0.2]), np.array([0.15])]
     yy, tt, ww, sid = flatten_and_sort_data_matrices(y, t)
-    assert np.allclose(ww, [1.0, 1.0, 1.0])
+    assert_allclose(ww, [1.0, 1.0, 1.0])
 
 
 def test_flatten_and_sort_data_matrices_empty_sample():
@@ -108,7 +109,7 @@ def test_get_eigen_results_all_branches():
     assert num_fpca > 0
     assert fpca_lambda.shape[0] == num_fpca
     assert fpca_phi.shape[1] == num_fpca
-    assert np.allclose(cumu_fve[-1], 1.0)
+    assert_allclose(cumu_fve[-1], 1.0)
     # wrong dimension of mean_func
     with pytest.raises(ValueError):
         get_eigen_results(t, mean_func.reshape(1, -1), cov_func, 0.8)
