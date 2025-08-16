@@ -13,7 +13,18 @@ from sklearn.utils.validation import check_array, check_is_fitted
 
 from pflm.interp import interp1d, interp2d
 from pflm.smooth import KernelType, Polyfit1DModel, Polyfit2DModel
-from pflm.utils import flatten_and_sort_data_matrices, get_covariance_matrix, get_measurement_error_variance, get_raw_cov
+from pflm.utils import (
+    estimate_rho,
+    flatten_and_sort_data_matrices,
+    get_covariance_matrix,
+    get_eigen_analysis_results,
+    get_fpca_phi,
+    get_fpca_score_conditional_expectation,
+    get_fpca_score_numerical_integral,
+    get_measurement_error_variance,
+    get_raw_cov,
+    select_num_pcs_fve,
+)
 
 
 class FunctionalPCAMuCovParams:
@@ -115,7 +126,7 @@ class FunctionalPCAUserDefinedParams:
     sigma2 : float, optional
         Variance of the measurement error.
     rho : float, optional
-        Correlation parameter for the covariance function.
+        The user-defined measurement truncation threshold used for conditional expectations estimation on the principal component scores.
         If provided, must be a non-negative scalar.
     """
 
@@ -211,13 +222,13 @@ class FunctionalPCA(BaseEstimator):
     fpca_eigen_results_ : dict
         Dictionary containing eigenvalues and eigenvectors of the covariance function.
     num_pcs_ : int
-        Number of principal components used in the model.
+        Number of principal component scores used in the model.
     xi : np.ndarray
         Principal component scores for the functional data.
     xi_var : np.ndarray
         Variance of the principal component scores.
     fitted_y : List[np.ndarray]
-        Fitted values of the functional data based on the estimated mean and principal components.
+        Fitted values of the functional data based on the estimated mean and principal component scores.
     rho_ : float
         Estimated correlation function value at the regular grid points.
     sigma2_ : float
@@ -274,6 +285,7 @@ class FunctionalPCA(BaseEstimator):
         method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
         max_num_pcs: Optional[int] = None,
         impute_scores: bool = True,
+        fit_eigen_values: bool = False,
         fve_threshold: float = 0.99,
     ):
         if method_pcs not in ["IN", "CE"]:
@@ -292,23 +304,26 @@ class FunctionalPCA(BaseEstimator):
             raise ValueError("fve_threshold must be a float between 0 and 1.")
         if not isinstance(impute_scores, bool):
             raise ValueError("impute_scores must be a boolean value.")
+        if not isinstance(fit_eigen_values, bool):
+            raise ValueError("fit_eigen_values must be a boolean value.")
 
         self.method_pcs_ = method_pcs
         self.method_select_num_pcs_ = method_select_num_pcs
         self.fve_threshold_ = fve_threshold
         self.max_num_pcs_ = max_num_pcs
         self.impute_scores_ = impute_scores
+        self.fit_eigen_values_ = fit_eigen_values
 
     def fit(
         self,
         t: List[Union[np.ndarray, List[float]]],
         y: List[Union[np.ndarray, List[float]]],
-        *,
         w: Optional[List[Union[np.ndarray, List[float]]]] = None,
         method_pcs: Literal["IN", "CE"] = "CE",
         method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
         max_num_pcs: Optional[int] = None,
         impute_scores: bool = True,
+        fit_eigen_values: bool = False,
         fve_threshold: float = 0.99,
         reg_grid: Union[np.ndarray, List[float]] = None,
     ) -> "FunctionalPCA":
@@ -324,17 +339,19 @@ class FunctionalPCA(BaseEstimator):
         w : a list of array-like, optional
             A 1D array of weights for each observation. If None, equal weights are assumed.
         method_pcs : {'IN', 'CE'}, default='CE'
-            Method to compute principal components. 'IN' for Numerical Integration, 'CE' for Conditional Expectation.
+            Method to compute principal component scores. 'IN' for Numerical Integration, 'CE' for Conditional Expectation.
         method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, optional
-            Method to select the number of principal components. If empty, it will be determined based on the explained variance.
-            If an integer is provided, it specifies the number of principal components to use.
+            Method to select the number of principal component scores. If empty, it will be determined based on the explained variance.
+            If an integer is provided, it specifies the number of principal component scores to use.
         max_num_pcs : int, optional
-            Maximum number of principal components to consider. If None, it will be set to the minimum of
+            Maximum number of principal component scores to consider. If None, it will be set to the minimum of
             (number of samples - 2, number of points in reg_grid - 2).
         impute_scores : bool, default=True
             Whether to impute missing scores in the functional data.
+        fit_eigen_values: bool, default=False
+            Whether to obtain a regression fit of the eigenvalues.
         fve_threshold : float, default=0.99
-            Threshold for the explained variance when using 'FVE' method to select the number of principal components.
+            Threshold for the explained variance when using 'FVE' method to select the number of principal component scores.
         reg_grid : array-like, optional
             Regular grid points for regression. If None, a default grid will be created.
 
@@ -342,7 +359,7 @@ class FunctionalPCA(BaseEstimator):
         -------
         FunctionalPCA
             The fitted model instance which will contain the estimated parameters such as mean function,
-            covariance function, and principal components scores.
+            covariance function, and principal component scores.
         """
         self.num_samples_ = len(y)
         self.__check_fit_params(
@@ -488,17 +505,17 @@ class FunctionalPCA(BaseEstimator):
             if not use_user_cov:
                 np.fill_diagonal(self.obs_cov_, self.obs_cov_.diagonal() - self.sigma2_)
 
-        self.xi, self.xi_var = self.fit_score(
-            self.method_pcs_, self.method_select_num_pcs_, self.max_num_pcs_, self.impute_scores_, self.fve_threshold_
+        self.xi_, self.xi_var_ = self.fit_score(
+            self.method_pcs_, self.method_select_num_pcs_, self.max_num_pcs_, self.impute_scores_, self.fit_eigen_values_, self.fve_threshold_
         )
         return self
 
     def fitted_values(self) -> List[np.ndarray]:
-        check_is_fitted(self, ["fpca_eigen_results_", "xi", "xi_var"])
+        check_is_fitted(self, ["fpca_eigen_results_", "xi_", "xi_var_"])
         return np.array([])
 
     def predict(self, t: List[Union[np.ndarray, List[float]]]) -> List[np.ndarray]:
-        check_is_fitted(self, ["fpca_eigen_results_", "xi", "xi_var"])
+        check_is_fitted(self, ["fpca_eigen_results_", "xi_", "xi_var_"])
         return np.array([])
 
     def fit_score(
@@ -507,6 +524,7 @@ class FunctionalPCA(BaseEstimator):
         method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
         max_num_pcs: Optional[int] = None,
         impute_scores: bool = True,
+        fit_eigen_values: bool = False,
         fve_threshold: float = 0.99,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -530,6 +548,8 @@ class FunctionalPCA(BaseEstimator):
             (number of samples - 2, number of points in reg_grid - 2).
         impute_scores : bool, default=True
             Whether to impute missing scores in the functional data.
+        fit_eigen_values : bool, default=False
+            Whether to obtain a regression fit of the eigenvalues.
         fve_threshold : float, default=0.99
             Threshold for the explained variance when using 'FVE' method to select the number of principal components.
 
@@ -547,6 +567,38 @@ class FunctionalPCA(BaseEstimator):
             method_select_num_pcs=method_select_num_pcs,
             max_num_pcs=max_num_pcs,
             impute_scores=impute_scores,
+            fit_eigen_values=fit_eigen_values,
             fve_threshold=fve_threshold,
         )
-        return np.array([]), np.array([])
+
+        eig_lambda, eig_vector = get_eigen_analysis_results(self.reg_cov_)
+        if isinstance(method_select_num_pcs, str):
+            if method_select_num_pcs == "FVE":
+                self.cumulative_fve, self.num_pcs = select_num_pcs_fve(eig_lambda, self.fve_threshold_, self.max_num_pcs_)
+            elif method_select_num_pcs in ["AIC", "BIC"]:
+                # implement AIC/BIC-based function to choose number of principal components
+                raise NotImplementedError("AIC/BIC-based selection method is not implemented yet.")
+        elif isinstance(method_select_num_pcs, int):
+            self.num_pcs = method_select_num_pcs
+        else:
+            raise ValueError("Invalid method_select_num_pcs. Must be one of ['FVE', 'AIC', 'BIC'] or an integer.")
+
+        self.fpca_lambda_, self.fpca_phi_reg_ = get_fpca_phi(self.num_pcs, self.reg_grid_, self.reg_mu_, eig_lambda, eig_vector)
+        self.fpca_phi_obs_ = np.zeros((self.obs_grid_.size, self.num_pcs))
+        for i in range(self.num_pcs):
+            self.fpca_phi_obs_[:, i] = interp1d(self.reg_grid_, self.fpca_phi_reg_[:, i], self.obs_grid_, method="spline")
+
+        if impute_scores:
+            if method_pcs == "CE":
+                if self.user_params.rho is not None:
+                    self.rho_ = self.user_params.rho
+                else:
+                    self.rho_ = estimate_rho()
+                self.xi_, self.xi_var_ = get_fpca_score_conditional_expectation()
+            elif method_pcs == "IN":
+                self.xi_, self.xi_var_ = get_fpca_score_numerical_integral()
+
+        if fit_eigen_values:
+            self.fit_eigen_values_ = np.zeros(self.num_pcs, dtype=self._input_dtype)
+
+        return self.xi_, self.xi_var_

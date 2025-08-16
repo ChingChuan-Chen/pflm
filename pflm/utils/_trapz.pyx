@@ -1,11 +1,11 @@
 import numpy as np
 cimport numpy as np
 from cython cimport floating
-from sklearn.utils._cython_blas cimport _dot, _gemv
+from sklearn.utils._cython_blas cimport _gemv
 from sklearn.utils._cython_blas cimport BLAS_Order, ColMajor, RowMajor, NoTrans
 
 # core: works for m >= 1 and any layout (row/col major)
-cdef inline void _trapz_mat_blas(
+cdef void _trapz_mat_blas(
     floating[:, :] y,        # shape (m, n)
     floating[:] dx,          # shape (n-1)
     floating[:] out,         # shape (m,)

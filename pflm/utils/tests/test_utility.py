@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from pflm.utils import flatten_and_sort_data_matrices, get_eigen_results
+from pflm.utils import flatten_and_sort_data_matrices
 
 
 def test_flatten_and_sort_data_matrices_happy_path():
@@ -98,45 +98,3 @@ def test_flatten_and_sort_data_matrices_weight_shape_mismatch():
     w2 = np.array([[1.0, 0.2]])
     with pytest.raises(ValueError, match="Each element of w must be a 1D array."):
         flatten_and_sort_data_matrices(y, t, w=w2)
-
-
-def test_get_eigen_results_all_branches():
-    t = np.linspace(0, 1, 5)
-    mean_func = np.sin(t)
-    cov_func = np.eye(5)
-    # happy path
-    num_fpca, fpca_lambda, fpca_phi, cumu_fve = get_eigen_results(t, mean_func, cov_func, 0.8, 3)
-    assert num_fpca > 0
-    assert fpca_lambda.shape[0] == num_fpca
-    assert fpca_phi.shape[1] == num_fpca
-    assert_allclose(cumu_fve[-1], 1.0)
-    # wrong dimension of mean_func
-    with pytest.raises(ValueError):
-        get_eigen_results(t, mean_func.reshape(1, -1), cov_func, 0.8)
-    # cov_func is not square matrix
-    with pytest.raises(ValueError):
-        get_eigen_results(t, mean_func, np.eye(5)[:4], 0.8)
-    # t dimension is wrong
-    with pytest.raises(ValueError):
-        get_eigen_results(t.reshape(1, -1), mean_func, cov_func, 0.8)
-    # empty array
-    with pytest.raises(ValueError):
-        get_eigen_results(np.array([]), np.array([]), np.array([[]]), 0.8)
-    # length mismatch
-    with pytest.raises(ValueError):
-        get_eigen_results(t, mean_func[:-1], cov_func, 0.8)
-    # cov_func shape mismatch
-    with pytest.raises(ValueError):
-        get_eigen_results(t, mean_func, np.eye(4), 0.8)
-    # fve_thresh is wrong
-    with pytest.raises(ValueError):
-        get_eigen_results(t, mean_func, cov_func, 1.0)
-    # max_principal is wrong
-    with pytest.raises(ValueError):
-        get_eigen_results(t, mean_func, cov_func, 0.8, 0)
-    # NaN
-    with pytest.raises(ValueError):
-        get_eigen_results(t, mean_func, np.full((5, 5), np.nan), 0.8)
-    # no positive eigenvalues
-    with pytest.raises(ValueError):
-        get_eigen_results(t, mean_func, -np.eye(5), 0.8)

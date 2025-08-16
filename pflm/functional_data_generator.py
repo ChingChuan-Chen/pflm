@@ -7,7 +7,7 @@ from typing import Callable, Optional
 import numpy as np
 import scipy.special
 
-from pflm.utils import get_eigen_results
+from pflm.utils import get_eigen_analysis_results, get_fpca_phi, select_num_pcs_fve
 
 """
 Functional Data Generator
@@ -75,7 +75,9 @@ class FunctionalDataGenerator(object):
         for i in range(nt):
             corr_mat[i, i:nt] = corr[0 : nt - i]
         mean_func = self.mean_func(self.t)
-        self._num_fpc, _, self._fpca_phi, _ = get_eigen_results(self.t, mean_func, corr_mat, self.variation_prop_thresh)
+        eig_lambda, eig_vector = get_eigen_analysis_results(corr_mat, is_upper_triangular=True)
+        _, self._num_fpc = select_num_pcs_fve(eig_lambda, self.variation_prop_thresh)
+        _, self._fpca_phi = get_fpca_phi(self._num_fpc, self.t, mean_func, eig_lambda, eig_vector)
 
     def get_fpca_phi(self) -> np.ndarray:
         """Get the functional principal component basis functions.

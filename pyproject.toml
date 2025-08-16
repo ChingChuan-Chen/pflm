@@ -62,7 +62,6 @@ requires = [
 [tool.pytest.ini_options]
 testpaths = "pflm"
 addopts = [
-    "--disable-pytest-warnings",
     "--color=yes",
     "--import-mode=importlib",
 ]

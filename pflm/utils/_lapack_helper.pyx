@@ -182,11 +182,11 @@ def _gelss_memview_f32(np.float32_t[:] A, np.float32_t[:] b, int m, int n, int n
     return info, rcond, rank
 
 
-def _syevd_memview_f64(np.float64_t[:] A, np.float64_t[:] w, int n, int lda):
+def _syevd_memview_f64(np.float64_t[:] A, np.float64_t[:] w, int uplo, int n, int lda):
     cdef int info = 0
     _syevd_helper(
         118,  # Compute eigenvalues and eigenvectors
-        108,  # Lower triangle of the matrix is stored
+        uplo,  # Triangle to be operated on
         n,  # Order of the matrix
         &A[0],  # Pointer to the data of A
         lda,  # Leading dimension of A
@@ -195,11 +195,11 @@ def _syevd_memview_f64(np.float64_t[:] A, np.float64_t[:] w, int n, int lda):
     )
     return info
 
-def _syevd_memview_f32(np.float32_t[:] A, np.float32_t[:] w, int n, int lda):
+def _syevd_memview_f32(np.float32_t[:] A, np.float32_t[:] w, int uplo, int n, int lda):
     cdef int info = 0
     _syevd_helper(
         118,  # Compute eigenvalues and eigenvectors
-        108,  # Lower triangle of the matrix is stored
+        uplo,  # Triangle to be operated on
         n,  # Order of the matrix
         &A[0],  # Pointer to the data of A
         lda,  # Leading dimension of A
