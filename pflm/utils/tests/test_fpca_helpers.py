@@ -98,10 +98,10 @@ def test_get_fpca_phi_shapes_and_scaling(num_pcs):
     reg_mu = np.array([0.2, -0.1, 0.3])
     fpca_lambda, fpca_phi = get_fpca_phi(num_pcs, reg_grid, reg_mu, eig_lambda, eig_vector)
 
-    assert fpca_lambda.shape == (3,)
+    assert fpca_lambda.shape == (num_pcs,)
     assert fpca_phi.shape == (reg_grid.size, num_pcs)
     # Lambda scaling by grid spacing (0.5)
-    assert_allclose(fpca_lambda, eig_lambda * (reg_grid[1] - reg_grid[0]))
+    assert_allclose(fpca_lambda, eig_lambda[:num_pcs] * (reg_grid[1] - reg_grid[0]))
     # L2 norm ~ 1 for each component
     energy = trapz((fpca_phi**2).T, reg_grid)
     assert_allclose(energy, np.ones_like(energy), rtol=1e-5, atol=1e-5)
@@ -119,4 +119,4 @@ def test_get_fpca_phi_sign_consistency():
     fpca_lambda, fpca_phi = get_fpca_phi(2, reg_grid, reg_mu, eig_lambda, eig_vector)
     # Inner products should be non-negative
     assert np.all(fpca_phi.T @ reg_mu >= -1e-12)
-    assert fpca_lambda.shape == (nt,)
+    assert fpca_lambda.shape == (2,)

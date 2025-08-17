@@ -29,7 +29,7 @@ def test_syevd_lower_triangular_matrix_memview(dtype, func):
     eig_val, eig_vec = np.linalg.eigh(A, "L")
     # convert A to column-major order
     A_c = np.ascontiguousarray(A.ravel(order="F"))
-    info = func(A_c, w, 108, A.shape[0], A.shape[0])
+    info = func(A_c, w, 108, A.shape[0], A.shape[0])  # 108 = 'l'
     # check info
     # info = 0 means successful exit
     # info < 0 means illegal value

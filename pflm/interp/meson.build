@@ -1,8 +1,6 @@
 interp_cython_tree = [
     pflm_root_cython_tree,
     fs.copyfile('__init__.py'),
-    fs.copyfile('__init__.pxd'),
-    fs.copyfile('_interp.pxd'),
     fs.copyfile('src/interp.h'),
 ]
 

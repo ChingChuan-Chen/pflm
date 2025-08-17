@@ -7,4 +7,4 @@ cdef double inv_2pi
 cdef double inv_sqrt_2pi
 cdef double[11] factorials
 
-cdef floating calculate_kernel_value(floating u, int kernel_type) noexcept nogil
+cdef inline floating calculate_kernel_value(floating u, int kernel_type) noexcept nogil

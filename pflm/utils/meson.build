@@ -2,6 +2,7 @@ utils_cython_tree = [
     pflm_root_cython_tree,
     fs.copyfile('__init__.py'),
     fs.copyfile('__init__.pxd'),
+    fs.copyfile('_trapz.pxd'),
     fs.copyfile('_lapack_helper.pxd'),
 ]
 

@@ -91,22 +91,6 @@ def interp1d_f32(
     return y_new
 
 
-cdef void interp2d_memview_f64(
-    np.float64_t[:] x,
-    np.float64_t[:] y,
-    np.float64_t[:, ::1] v,
-    np.float64_t[:] x_new,
-    np.float64_t[:] y_new,
-    np.float64_t[:, ::1] v_new,
-    int method = 0
-) noexcept nogil:
-    cdef int64_t x_size = x.shape[0], y_size = y.shape[0], x_new_size = x_new.shape[0], y_new_size = y_new.shape[0]
-    if method == 0:
-        _interp2d_linear[np.float64_t](&x[0], &y[0], &v[0, 0], &x_new[0], &y_new[0], &v_new[0, 0], x_size, y_size, x_new_size, y_new_size)
-    elif method == 1:
-        _interp2d_spline[np.float64_t](&x[0], &y[0], &v[0, 0], &x_new[0], &y_new[0], &v_new[0, 0], x_size, y_size, x_new_size, y_new_size)
-
-
 def interp2d_f64(
   np.ndarray[np.float64_t] x,
   np.ndarray[np.float64_t] y,
@@ -115,26 +99,13 @@ def interp2d_f64(
   np.ndarray[np.float64_t] y_new,
   int method = 0
 ):
-    cdef int64_t x_new_size = x_new.size, y_new_size = y_new.size
+    cdef int64_t x_size = x.shape[0], y_size = y.shape[0], x_new_size = x_new.size, y_new_size = y_new.size
     cdef np.ndarray[np.float64_t, ndim=2] v_new = np.empty((y_new_size, x_new_size), order='C', dtype=np.float64)
-    interp2d_memview_f64(x, y, v, x_new, y_new, v_new, method)
-    return v_new
-
-
-cdef void interp2d_memview_f32(
-    np.float32_t[:] x,
-    np.float32_t[:] y,
-    np.float32_t[:, ::1] v,
-    np.float32_t[:] x_new,
-    np.float32_t[:] y_new,
-    np.float32_t[:, ::1] v_new,
-    int method = 0
-) noexcept nogil:
-    cdef int64_t x_size = x.shape[0], y_size = y.shape[0], x_new_size = x_new.shape[0], y_new_size = y_new.shape[0]
     if method == 0:
-        _interp2d_linear[np.float32_t](&x[0], &y[0], &v[0, 0], &x_new[0], &y_new[0], &v_new[0, 0], x_size, y_size, x_new_size, y_new_size)
+        _interp2d_linear[np.float64_t](&x[0], &y[0], &v[0, 0], &x_new[0], &y_new[0], &v_new[0, 0], x_size, y_size, x_new_size, y_new_size)
     elif method == 1:
-        _interp2d_spline[np.float32_t](&x[0], &y[0], &v[0, 0], &x_new[0], &y_new[0], &v_new[0, 0], x_size, y_size, x_new_size, y_new_size)
+        _interp2d_spline[np.float64_t](&x[0], &y[0], &v[0, 0], &x_new[0], &y_new[0], &v_new[0, 0], x_size, y_size, x_new_size, y_new_size)
+    return v_new
 
 
 def interp2d_f32(
@@ -145,7 +116,10 @@ def interp2d_f32(
     np.ndarray[np.float32_t] y_new,
     int method = 0
 ):
-    cdef int64_t x_new_size = x_new.size, y_new_size = y_new.size
+    cdef int64_t x_size = x.size, y_size = y.size, x_new_size = x_new.size, y_new_size = y_new.size
     cdef np.ndarray[np.float32_t, ndim=2] v_new = np.empty((y_new_size, x_new_size), order='C', dtype=np.float32)
-    interp2d_memview_f32(x, y, v, x_new, y_new, v_new, method)
+    if method == 0:
+        _interp2d_linear[np.float32_t](&x[0], &y[0], &v[0, 0], &x_new[0], &y_new[0], &v_new[0, 0], x_size, y_size, x_new_size, y_new_size)
+    elif method == 1:
+        _interp2d_spline[np.float32_t](&x[0], &y[0], &v[0, 0], &x_new[0], &y_new[0], &v_new[0, 0], x_size, y_size, x_new_size, y_new_size)
     return v_new

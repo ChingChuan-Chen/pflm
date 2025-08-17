@@ -283,6 +283,7 @@ class FunctionalPCA(BaseEstimator):
         num_samples: int,
         method_pcs: Literal["IN", "CE"] = "CE",
         method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
+        method_rho: Literal["trunc", "ridge", "vanilla"] = "vanilla",
         max_num_pcs: Optional[int] = None,
         impute_scores: bool = True,
         fit_eigen_values: bool = False,
@@ -296,6 +297,8 @@ class FunctionalPCA(BaseEstimator):
             raise ValueError("If method_select_num_pcs is an integer, it must be a positive integer.")
         if isinstance(method_select_num_pcs, str) and method_select_num_pcs not in ["FVE", "AIC", "BIC"]:
             raise ValueError("method_select_num_pcs must be one of 'FVE', 'AIC', 'BIC' or a positive integer.")
+        if method_rho not in ["trunc", "ridge", "vanilla"]:
+            raise ValueError("method_rho must be one of 'trunc', 'ridge', 'vanilla'.")
         if max_num_pcs is not None and (not isinstance(max_num_pcs, int) or max_num_pcs <= 0):
             raise ValueError("max_num_pcs must be a positive integer.")
         if max_num_pcs is None:
@@ -321,6 +324,7 @@ class FunctionalPCA(BaseEstimator):
         w: Optional[List[Union[np.ndarray, List[float]]]] = None,
         method_pcs: Literal["IN", "CE"] = "CE",
         method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
+        method_rho: Literal["trunc", "ridge", "vanilla"] = "vanilla",
         max_num_pcs: Optional[int] = None,
         impute_scores: bool = True,
         fit_eigen_values: bool = False,
@@ -343,6 +347,9 @@ class FunctionalPCA(BaseEstimator):
         method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, optional
             Method to select the number of principal component scores. If empty, it will be determined based on the explained variance.
             If an integer is provided, it specifies the number of principal component scores to use.
+        method_rho : {'trunc', 'ridge', 'vanilla'}, default='vanilla'
+            Method to estimate the regularization factor which is added to diagonal of covariance surface in estimating principal component
+            scores. 'trunc' is using truncation of sigma2, 'ridge' is using rho as a ridge parameter, 'vanilla' is vanilla approach.
         max_num_pcs : int, optional
             Maximum number of principal component scores to consider. If None, it will be set to the minimum of
             (number of samples - 2, number of points in reg_grid - 2).
@@ -366,8 +373,10 @@ class FunctionalPCA(BaseEstimator):
             self.num_samples_,
             method_pcs=method_pcs,
             method_select_num_pcs=method_select_num_pcs,
+            method_rho=method_rho,
             max_num_pcs=max_num_pcs,
             impute_scores=impute_scores,
+            fit_eigen_values=fit_eigen_values,
             fve_threshold=fve_threshold,
         )
 
@@ -522,6 +531,7 @@ class FunctionalPCA(BaseEstimator):
         self,
         method_pcs: Literal["IN", "CE"] = "CE",
         method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
+        method_rho: Literal["trunc", "ridge", "vanilla"] = "vanilla",
         max_num_pcs: Optional[int] = None,
         impute_scores: bool = True,
         fit_eigen_values: bool = False,
@@ -543,6 +553,9 @@ class FunctionalPCA(BaseEstimator):
         method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, optional
             Method to select the number of principal components. If empty, it will be determined based on the explained variance.
             If an integer is provided, it specifies the number of principal components to use.
+        method_rho : {'trunc', 'ridge', 'vanilla'}, default='vanilla'
+            Method to estimate the regularization factor which is added to diagonal of covariance surface in estimating principal component
+            scores. 'trunc' is using truncation of sigma2, 'ridge' is using rho as a ridge parameter, 'vanilla' is vanilla approach.
         max_num_pcs : int, optional
             Maximum number of principal components to consider. If None, it will be set to the minimum of
             (number of samples - 2, number of points in reg_grid - 2).
@@ -565,6 +578,7 @@ class FunctionalPCA(BaseEstimator):
             num_samples=self.num_samples_,
             method_pcs=method_pcs,
             method_select_num_pcs=method_select_num_pcs,
+            method_rho=method_rho,
             max_num_pcs=max_num_pcs,
             impute_scores=impute_scores,
             fit_eigen_values=fit_eigen_values,
@@ -584,9 +598,11 @@ class FunctionalPCA(BaseEstimator):
             raise ValueError("Invalid method_select_num_pcs. Must be one of ['FVE', 'AIC', 'BIC'] or an integer.")
 
         self.fpca_lambda_, self.fpca_phi_reg_ = get_fpca_phi(self.num_pcs, self.reg_grid_, self.reg_mu_, eig_lambda, eig_vector)
-        self.fpca_phi_obs_ = np.zeros((self.obs_grid_.size, self.num_pcs))
+        self.fitted_cov_reg_ = self.fpca_phi_reg_ @ np.diag(self.fpca_lambda_) @ self.fpca_phi_reg_.T
+        self.fpca_phi_obs_ = np.zeros((len(self.obs_grid_), self.num_pcs), dtype=self._input_dtype)
         for i in range(self.num_pcs):
             self.fpca_phi_obs_[:, i] = interp1d(self.reg_grid_, self.fpca_phi_reg_[:, i], self.obs_grid_, method="spline")
+        self.fitted_cov_obs_ = interp2d(self.reg_grid_, self.reg_grid_, self.fitted_cov_reg_, self.obs_grid_, self.obs_grid_, method="spline")
 
         if impute_scores:
             if method_pcs == "CE":
@@ -594,7 +610,16 @@ class FunctionalPCA(BaseEstimator):
                     self.rho_ = self.user_params.rho
                 else:
                     self.rho_ = estimate_rho()
-                self.xi_, self.xi_var_ = get_fpca_score_conditional_expectation()
+                self.xi_, self.xi_var_ = get_fpca_score_conditional_expectation(
+                    self.yy_,
+                    self.tt_,
+                    self.tid_,
+                    self.sid_,
+                    self.obs_mu_,
+                    self.fitted_cov_obs_,
+                    self.fpca_lambda_,
+                    self.sigma2_,
+                )
             elif method_pcs == "IN":
                 self.xi_, self.xi_var_ = get_fpca_score_numerical_integral()
 

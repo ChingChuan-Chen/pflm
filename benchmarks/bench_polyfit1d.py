@@ -1,8 +1,9 @@
 import sys
 import gc
 import time
+import pprint
 import numpy as np
-from pflm.smooth import polyfit1d, KernelType
+from pflm.smooth import Polyfit1DModel, KernelType
 
 
 def benchmark_polyfit1d(rng, n, x, w, x_new, bandwidth, kernel_type=KernelType.GAUSSIAN):
@@ -10,33 +11,47 @@ def benchmark_polyfit1d(rng, n, x, w, x_new, bandwidth, kernel_type=KernelType.G
     gc.collect()  # Clear garbage collector to avoid interference
     y = x ** 2 - 3.0 * x + 1.0 + 0.5 * rng.standard_normal(n)
     start_time = time.time_ns()
-    y_new = polyfit1d(x, y, w, x_new, bandwidth, kernel_type=kernel_type)
+    polyfit1d_model = Polyfit1DModel(kernel_type=kernel_type)
+    polyfit1d_model.fit(x, y, w, bandwidth=bandwidth)
+    y_new = polyfit1d_model.predict(x_new)
     elapsed_time = time.time_ns() - start_time
     del y, y_new  # Free memory
     return elapsed_time
 
 
 if __name__ == "__main__":
-    n = int(1e3)
+    n = int(1e4)
     x = np.linspace(0.0, 1.0, n, dtype=np.float64)
     w = np.ones_like(x)
     x_new = np.linspace(0.0, 1.0, n * 2, dtype=np.float64)
     bandwidth = 0.05
     rng = np.random.default_rng(42)
+    kernel_types = [KernelType.GAUSSIAN, KernelType.EPANECHNIKOV]
 
     print("Python Information:\n", sys.version)
     np.show_config()
 
-    num_replications = 20
-    for kernel in [KernelType.GAUSSIAN, KernelType.EPANECHNIKOV]:
-        run_times = []
+    num_replications = 30
+    run_times = dict()
+    for kernel in kernel_types:
+        run_times[kernel] = []
         for i in range(num_replications):
             # Generate y with some noise each time to simulate different data
-            run_times.append(benchmark_polyfit1d(rng, n, x, w, x_new, bandwidth, kernel_type=kernel))
+            run_times[kernel].append(benchmark_polyfit1d(rng, n, x, w, x_new, bandwidth, kernel_type=kernel))
 
-        print(f"Average time for {num_replications} replications on polyfit1d with {kernel} kernel runs: {np.mean(run_times) / 1e9:.6f} seconds")
-        print(f"Standard deviation of run times: {np.std(run_times) / 1e9:.6f} seconds")
+    for kernel in kernel_types:
+        # remove fastest and slowest
+        run_times_remove = np.sort(run_times[kernel])[1:-1]
 
+        print(
+            f"Average time (remove fastest and slowest) for {num_replications} replications with sample size {n} on " +
+            f"Polyfit1DModel with {kernel} kernel runs: {np.mean(run_times_remove) / 1e9:.6f} seconds"
+        )
+        print(f"Standard deviation of run times: {np.std(run_times_remove) / 1e9:.6f} seconds")
+
+    for kernel, run_time in run_times.items():
+        print(f"kernel - {kernel}, run_time:")
+        pprint.pprint(np.array(run_time) / 1e9)
 # Python Information:
 # 3.13.5 | packaged by Anaconda, Inc. | (main, Jun 12 2025, 16:37:03) [MSC v.1929 64 bit (AMD64)]
 #
@@ -102,7 +117,7 @@ if __name__ == "__main__":
 #   - AVX
 #   - F16C
 
-# Average time for 20 replications on polyfit1d with GAUSSIAN kernel runs: 0.006722 seconds
-# Standard deviation of run times: 0.008586 seconds
-# Average time for 20 replications on polyfit1d with EPANECHNIKOV kernel runs: 0.000611 seconds
-# Standard deviation of run times: 0.000058 seconds
+# Average time (remove fastest and slowest) for 30 replications with sample size 10000 on polyfit1d with GAUSSIAN kernel runs: 0.004530 seconds
+# Standard deviation of run times: 0.000353 seconds
+# Average time (remove fastest and slowest) for 30 replications with sample size 10000 on polyfit1d with EPANECHNIKOV kernel runs: 0.001545 seconds
+# Standard deviation of run times: 0.000126 seconds

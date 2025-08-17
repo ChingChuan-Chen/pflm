@@ -116,20 +116,6 @@ cdef void rotate_polyfit2d_helper(
     free(ly)
 
 
-cdef void rotate_polyfit2d_memview(
-    floating[:, ::1] x_grid,
-    floating[:] y,
-    floating[:] w,
-    floating[:, ::1] new_grid,
-    floating[:] mu,
-    floating bandwidth,
-    int kernel_type
-):
-    cdef int64_t i, x_new_size = new_grid.shape[1]
-    for i in range(x_new_size):
-        rotate_polyfit2d_helper(bandwidth, new_grid[0, i], new_grid[1, i], &mu[i], x_grid, y, w, kernel_type)
-
-
 def rotate_polyfit2d_f64(
     np.ndarray[np.float64_t, ndim=2] x_grid,
     np.ndarray[np.float64_t] y,
@@ -145,7 +131,10 @@ def rotate_polyfit2d_f64(
     cdef np.float64_t[:] w_view = w
     cdef np.float64_t[:, ::1] new_grid_view = new_grid
     cdef np.float64_t[:] mu_view = mu
-    rotate_polyfit2d_memview(x_grid_view, y_view, w_view, new_grid_view, mu_view, bandwidth, kernel_type)
+
+    cdef int64_t i
+    for i in range(n_new):
+        rotate_polyfit2d_helper(bandwidth, new_grid_view[0, i], new_grid_view[1, i], &mu_view[i], x_grid_view, y_view, w_view, kernel_type)
     return mu
 
 
@@ -164,5 +153,8 @@ def rotate_polyfit2d_f32(
     cdef np.float32_t[:] w_view = w
     cdef np.float32_t[:, ::1] new_grid_view = new_grid
     cdef np.float32_t[:] mu_view = mu
-    rotate_polyfit2d_memview(x_grid_view, y_view, w_view, new_grid_view, mu_view, bandwidth, kernel_type)
+
+    cdef int64_t i
+    for i in range(n_new):
+        rotate_polyfit2d_helper(bandwidth, new_grid_view[0, i], new_grid_view[1, i], &mu_view[i], x_grid_view, y_view, w_view, kernel_type)
     return mu

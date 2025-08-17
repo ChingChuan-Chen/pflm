@@ -100,7 +100,7 @@ def get_fpca_phi(num_pcs: int, reg_grid: np.ndarray, reg_mu: np.ndarray, eig_lam
     grid_size = reg_grid[1] - reg_grid[0]
 
     # Scale eigenvalues by grid spacing (Riemann approximation)
-    fpca_lambda = eig_lambda * grid_size
+    fpca_lambda = eig_lambda[:num_pcs] * grid_size
 
     # Scale eigenvectors: columns correspond to eigenfunctions sampled on reg_grid
     eig_vector_temp = eig_vector[:, :num_pcs] / np.sqrt(grid_size)
@@ -119,13 +119,41 @@ def get_fpca_phi(num_pcs: int, reg_grid: np.ndarray, reg_mu: np.ndarray, eig_lam
     return fpca_lambda, fpca_phi
 
 
-def get_fpca_score_numerical_integral():
-    return np.array([]), np.array([])
+def get_fpca_score_conditional_expectation(
+    yy: np.ndarray,
+    tt: np.ndarray,
+    ww: np.ndarray,
+    tid: np.ndarray,
+    sid: np.ndarray,
+    mu: np.ndarray,
+    fitted_cov_obs: np.ndarray,
+    sigma2: np.ndarray,
+    fpca_lambda: np.ndarray,
+    fpca_phi: np.ndarray,
+):
+    if yy.ndim != 1 or tt.ndim != 1 or ww.ndim != 1:
+        raise ValueError("yy, tt, and ww must be 1D arrays.")
+    if yy.size != tt.size or yy.size != ww.size:
+        raise ValueError("yy, tt, and ww must have the same length.")
+    unique_tid = np.unique(tid)
+    if unique_tid.size != mu.size:
+        raise ValueError("The length of mu must match the number of unique time indices in tid.")
+    if sid.ndim != 1 or sid.size != yy.size:
+        raise ValueError("sid must be a 1D array with the same length as yy.")
+    if np.any(np.diff(sid) < 0):
+        raise ValueError("The sample indices, sid, must be sorted in ascending order.")
+    unique_sid, sid_cnt = np.unique(sid, return_counts=True, sorted=True)
+    if np.any(sid_cnt < 2):
+        raise ValueError("Each sample must have at least two observations for covariance calculation.")
 
+    sigma_y = fitted_cov_obs + np.eye(fitted_cov_obs.shape[0]) * sigma2
 
-def get_fpca_score_conditional_expectation():
     return np.array([]), np.array([])
 
 
 def estimate_rho():
     return 0.0
+
+
+def get_fpca_score_numerical_integral():
+    return np.array([]), np.array([])

@@ -6,7 +6,7 @@ from libc.stdint cimport int64_t
 from libcpp.vector cimport vector
 from libcpp.utility cimport pair
 
-cdef vector[pair[int64_t, int64_t]] _all_pairs_indices_vec(int64_t n) noexcept nogil:
+cdef inline vector[pair[int64_t, int64_t]] _all_pairs_indices_vec(int64_t n) noexcept nogil:
     cdef int64_t i, j
     cdef vector[pair[int64_t, int64_t]] out
     for i in range(n):
@@ -15,7 +15,7 @@ cdef vector[pair[int64_t, int64_t]] _all_pairs_indices_vec(int64_t n) noexcept n
     return out
 
 
-cdef void _set_raw_cov(
+cdef inline void _set_raw_cov(
     floating* raw_cov,
     int64_t sid,
     int64_t data_cnt,
@@ -36,27 +36,6 @@ cdef void _set_raw_cov(
         raw_cov[idx + 3] = ww[i]
         raw_cov[idx + 4] = (yy[i] - mu[tid[i]]) * (yy[j] - mu[tid[j]])
         idx += 5
-
-
-cdef void _fill_pairwise_cov_memview(
-    floating[:] yy,
-    floating[:] tt,
-    floating[:] ww,
-    floating[:] mu,
-    int64_t[:] tid,
-    int64_t num_unique_sid,
-    int64_t[:] unique_sid,
-    int64_t[:] sid_cum_cnt,
-    int64_t[:] pairs_cum_cnt,
-    floating[:, ::1] raw_cov
-) noexcept nogil:
-    cdef int64_t s, idx, data_start_idx, data_cnt, pair_start_idx
-    for idx in prange(num_unique_sid, nogil=True):
-        s = unique_sid[idx]
-        data_start_idx = sid_cum_cnt[idx - 1] if idx > 0 else 0
-        data_cnt = sid_cum_cnt[idx] - data_start_idx
-        pair_start_idx = pairs_cum_cnt[idx - 1] if idx > 0 else 0
-        _set_raw_cov(&raw_cov[pair_start_idx, 0], s, data_cnt, &yy[data_start_idx], &tt[data_start_idx], &ww[data_start_idx], &tid[data_start_idx], &mu[0])
 
 
 def get_raw_cov_f64(
@@ -85,7 +64,17 @@ def get_raw_cov_f64(
     cdef int64_t[:] sid_cum_cnt_view = sid_cum_cnt
     cdef int64_t[:] pairs_cum_cnt_view = pairs_cum_cnt
     cdef np.float64_t[:, ::1] raw_cov_view = raw_cov
-    _fill_pairwise_cov_memview(yy_view, tt_view, ww_view, mu_view, tid_view, num_unique_sid, unique_sid_view, sid_cum_cnt_view, pairs_cum_cnt_view, raw_cov_view)
+
+    cdef int64_t s, idx, data_start_idx, data_cnt, pair_start_idx
+    for idx in prange(num_unique_sid, nogil=True):
+        s = unique_sid_view[idx]
+        data_start_idx = sid_cum_cnt_view[idx - 1] if idx > 0 else 0
+        data_cnt = sid_cum_cnt_view[idx] - data_start_idx
+        pair_start_idx = pairs_cum_cnt_view[idx - 1] if idx > 0 else 0
+        _set_raw_cov(
+            &raw_cov_view[pair_start_idx, 0], s, data_cnt, &yy_view[data_start_idx],
+            &tt_view[data_start_idx], &ww_view[data_start_idx], &tid_view[data_start_idx], &mu_view[0]
+        )
     return raw_cov
 
 
@@ -115,5 +104,15 @@ def get_raw_cov_f32(
     cdef int64_t[:] sid_cum_cnt_view = sid_cum_cnt
     cdef int64_t[:] pairs_cum_cnt_view = pairs_cum_cnt
     cdef np.float32_t[:, ::1] raw_cov_view = raw_cov
-    _fill_pairwise_cov_memview(yy_view, tt_view, ww_view, mu_view, tid_view, num_unique_sid, unique_sid_view, sid_cum_cnt_view, pairs_cum_cnt_view, raw_cov_view)
+
+    cdef int64_t s, idx, data_start_idx, data_cnt, pair_start_idx
+    for idx in prange(num_unique_sid, nogil=True):
+        s = unique_sid_view[idx]
+        data_start_idx = sid_cum_cnt_view[idx - 1] if idx > 0 else 0
+        data_cnt = sid_cum_cnt_view[idx] - data_start_idx
+        pair_start_idx = pairs_cum_cnt_view[idx - 1] if idx > 0 else 0
+        _set_raw_cov(
+            &raw_cov_view[pair_start_idx, 0], s, data_cnt, &yy_view[data_start_idx],
+            &tt_view[data_start_idx], &ww_view[data_start_idx], &tid_view[data_start_idx], &mu_view[0]
+        )
     return raw_cov

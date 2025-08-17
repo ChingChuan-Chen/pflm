@@ -2,7 +2,7 @@ from cython cimport floating
 from libc.stdlib cimport malloc, free
 import numpy as np
 cimport numpy as np
-from scipy.linalg.cython_lapack cimport sgels, dgels, sgelss, dgelss, ssyevd, dsyevd
+from scipy.linalg.cython_lapack cimport sgels, dgels, sgelss, dgelss, ssyevd, dsyevd, sposv, dposv
 
 cdef void _gels(
     char trans, int m, int n, int nrhs, floating *a, int lda, floating *b, int ldb, floating *work, int lwork, int *info
@@ -115,6 +115,13 @@ cdef void _syevd_helper(
     free(iwork)
 
 
+cdef void _posv(char uplo, int n, int nrhs, floating *a, int lda, floating *b, int ldb, int *info) noexcept nogil:
+    if floating is float:
+        sposv(&uplo, &n, &nrhs, a, &lda, b, &ldb, info)
+    else:
+        dposv(&uplo, &n, &nrhs, a, &lda, b, &ldb, info)
+
+
 def _gels_memview_f64(np.float64_t[:] A, np.float64_t[:] b, int m, int n, int nrhs, int lda, int ldb):
     cdef int info = 0
     _gels_helper(
@@ -204,6 +211,35 @@ def _syevd_memview_f32(np.float32_t[:] A, np.float32_t[:] w, int uplo, int n, in
         &A[0],  # Pointer to the data of A
         lda,  # Leading dimension of A
         &w[0],  # Pointer to the array for eigenvalues
+        &info  # Info variable to capture LAPACK status
+    )
+    return info
+
+
+def _posv_memview_f64(np.float64_t[:] A, np.float64_t[:] b, int uplo, int n, int nrhs, int lda, int ldb):
+    cdef int info = 0
+    _posv(
+        uplo,  # Upper triangle
+        n,  # Order of the matrix
+        nrhs,  # Number of right-hand sides
+        &A[0],  # Pointer to the data of A
+        lda,  # Leading dimension of A
+        &b[0],  # Pointer to the data of b
+        ldb,  # Leading dimension of b
+        &info  # Info variable to capture LAPACK status
+    )
+    return info
+
+def _posv_memview_f32(np.float32_t[:] A, np.float32_t[:] b, int uplo, int n, int nrhs, int lda, int ldb):
+    cdef int info = 0
+    _posv(
+        uplo,  # Upper triangle
+        n,  # Order of the matrix
+        nrhs,  # Number of right-hand sides
+        &A[0],  # Pointer to the data of A
+        lda,  # Leading dimension of A
+        &b[0],  # Pointer to the data of b
+        ldb,  # Leading dimension of b
         &info  # Info variable to capture LAPACK status
     )
     return info

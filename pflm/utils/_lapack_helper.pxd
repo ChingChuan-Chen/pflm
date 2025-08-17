@@ -16,3 +16,5 @@ cdef void _syevd(
 ) noexcept nogil
 
 cdef void _syevd_helper(char, char, int, floating*, int, floating*, int*) noexcept nogil
+
+cdef void _posv(char, int, int, floating*, int, floating*, int, int*) noexcept nogil

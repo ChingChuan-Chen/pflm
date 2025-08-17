@@ -20,7 +20,7 @@ cdef double inv_sqrt_2pi = sqrt(inv_2pi)
 cdef double[11] factorials = [1.0, 1.0, 2.0, 6.0, 24.0, 120.0, 720.0, 5040.0, 40320.0, 362880.0, 3628800.0]
 
 
-cdef floating calculate_kernel_value(
+cdef inline floating calculate_kernel_value(
     floating u,
     int kernel_type
 ) noexcept nogil:
@@ -109,6 +109,15 @@ cdef void polyfit1d_helper(
     cdef floating xj_minus_center = 0.0, u = 0.0, sqrt_wj = 0.0
     cdef floating *lx = <floating*> malloc(n_rows * (degree+1) * sizeof(floating))
     cdef floating *ly = <floating*> malloc(n_rows * sizeof(floating))
+
+    if lx == NULL or ly == NULL:
+        mu[0] = NAN
+        if lx is not NULL:
+            free(lx)
+        if ly is not NULL:
+            free(ly)
+        return
+
     for j in range(left, right):
         xj_minus_center = x[j] - center
         u = xj_minus_center / bw
@@ -133,22 +142,6 @@ cdef void polyfit1d_helper(
     free(ly)
 
 
-cdef void polyfit1d_memview(
-    floating[:] x,
-    floating[:] y,
-    floating[:] w,
-    floating[:] x_new,
-    floating[:] mu,
-    floating bandwidth,
-    int kernel_type,
-    int degree,
-    int deriv
-) noexcept nogil:
-    cdef int64_t i, x_new_size = x_new.shape[0]
-    for i in prange(x_new_size, nogil=True):
-        polyfit1d_helper(bandwidth, x_new[i], &mu[i], x, y, w, degree, deriv, kernel_type)
-
-
 def polyfit1d_f64(
     np.ndarray[np.float64_t] x,
     np.ndarray[np.float64_t] y,
@@ -159,13 +152,17 @@ def polyfit1d_f64(
     int degree,
     int deriv
 ) -> np.ndarray[np.float64_t]:
-    cdef np.ndarray[np.float64_t] mu = np.empty(x_new.size, dtype=np.float64)
+    cdef int64_t x_new_size = x_new.shape[0]
+    cdef np.ndarray[np.float64_t] mu = np.empty(x_new_size, dtype=np.float64)
     cdef np.float64_t[:] x_view = x
     cdef np.float64_t[:] y_view = y
     cdef np.float64_t[:] w_view = w
     cdef np.float64_t[:] x_new_view = x_new
     cdef np.float64_t[:] mu_view = mu
-    polyfit1d_memview(x_view, y_view, w_view, x_new_view, mu_view, bandwidth, kernel_type, degree, deriv)
+
+    cdef int64_t i
+    for i in prange(x_new_size, nogil=True):
+        polyfit1d_helper(bandwidth, x_new_view[i], &mu_view[i], x_view, y_view, w_view, degree, deriv, kernel_type)
     return mu
 
 def polyfit1d_f32(
@@ -174,17 +171,20 @@ def polyfit1d_f32(
     np.ndarray[np.float32_t] w,
     np.ndarray[np.float32_t] x_new,
     np.float32_t bandwidth,
-    int kernel,
+    int kernel_type,
     int degree,
     int deriv
 ) -> np.ndarray[np.float32_t]:
-    cdef np.ndarray[np.float32_t] mu = np.empty(x_new.size, dtype=np.float32)
+    cdef int64_t x_new_size = x_new.shape[0]
+    cdef np.ndarray[np.float32_t] mu = np.empty(x_new_size, dtype=np.float32)
     cdef np.float32_t[:] x_view = x
     cdef np.float32_t[:] y_view = y
     cdef np.float32_t[:] w_view = w
     cdef np.float32_t[:] x_new_view = x_new
     cdef np.float32_t[:] mu_view = mu
-    polyfit1d_memview(x_view, y_view, w_view, x_new_view, mu_view, bandwidth, kernel, degree, deriv)
+    cdef int64_t i
+    for i in prange(x_new_size, nogil=True):
+        polyfit1d_helper(bandwidth, x_new_view[i], &mu_view[i], x_view, y_view, w_view, degree, deriv, kernel_type)
     return mu
 
 
@@ -299,33 +299,6 @@ cdef void polyfit2d_helper(
     free(ly)
 
 
-cdef void polyfit2d_memview(
-    floating[:, ::1] x_grid,
-    floating[:] y,
-    floating[:] w,
-    floating[:] x_new1,
-    floating[:] x_new2,
-    floating[:, ::1] mu,
-    floating bandwidth1,
-    floating bandwidth2,
-    int kernel_type,
-    int degree,
-    int deriv1,
-    int deriv2
-) noexcept nogil:
-    cdef int64_t n = x_grid.shape[1], n1 = x_new1.shape[0], n2 = x_new2.shape[0], i, j, l
-    for l in prange(n1 * n2, nogil=True):
-        i = l // n2
-        j = l % n2
-        polyfit2d_helper(
-            bandwidth1, bandwidth2,
-            x_new1[i], x_new2[j],
-            &mu[j, i],
-            x_grid, y, w,
-            kernel_type, degree, deriv1, deriv2
-        )
-
-
 def polyfit2d_f64(
     np.ndarray[np.float64_t, ndim=2] x_grid,
     np.ndarray[np.float64_t] y,
@@ -347,7 +320,18 @@ def polyfit2d_f64(
     cdef np.float64_t[:] x_new1_view = x_new1
     cdef np.float64_t[:] x_new2_view = x_new2
     cdef np.float64_t[:, ::1] mu_view = mu
-    polyfit2d_memview(x_grid_view, y_view, w_view, x_new1_view, x_new2_view, mu_view, bandwidth1, bandwidth2, kernel_type, degree, deriv1, deriv2)
+
+    cdef int64_t i, j, l
+    for l in prange(n1 * n2, nogil=True):
+        i = l // n2
+        j = l % n2
+        polyfit2d_helper(
+            bandwidth1, bandwidth2,
+            x_new1_view[i], x_new2_view[j],
+            &mu_view[j, i],
+            x_grid_view, y_view, w_view,
+            kernel_type, degree, deriv1, deriv2
+        )
     return mu.T
 
 
@@ -372,5 +356,16 @@ def polyfit2d_f32(
     cdef np.float32_t[:] x_new1_view = x_new1
     cdef np.float32_t[:] x_new2_view = x_new2
     cdef np.float32_t[:, ::1] mu_view = mu
-    polyfit2d_memview(x_grid_view, y_view, w_view, x_new1_view, x_new2_view, mu_view, bandwidth1, bandwidth2, kernel_type, degree, deriv1, deriv2)
+
+    cdef int64_t i, j, l, mu_size = n1 * n2
+    for l in prange(mu_size, nogil=True):
+        i = l // n2
+        j = l % n2
+        polyfit2d_helper(
+            bandwidth1, bandwidth2,
+            x_new1_view[i], x_new2_view[j],
+            &mu_view[j, i],
+            x_grid_view, y_view, w_view,
+            kernel_type, degree, deriv1, deriv2
+        )
     return mu.T
