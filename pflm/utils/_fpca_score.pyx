@@ -42,9 +42,9 @@ cdef void fpca_ce_score_helper(
     memcpy(sub_sigma_lambda_phi, sub_lambda_phi, num_pcs * data_cnt * sizeof(floating))
 
     # perform A = inv(sub_sigma_y) * sub_lambda_phi
-    cdef int info = 0, data_cnt_ = <int> data_cnt, num_pcs_ = <int> num_pcs
+    cdef int info = 0
     with nogil:
-        _posv(108, data_cnt_, num_pcs_, sub_sigma_y, data_cnt_, sub_sigma_lambda_phi, data_cnt_, &info)
+        _posv(108, data_cnt, num_pcs, sub_sigma_y, data_cnt, sub_sigma_lambda_phi, data_cnt, &info)
     if info != 0:
         for j in range(num_pcs):
             xi[j] = NAN
