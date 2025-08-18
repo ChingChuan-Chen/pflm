@@ -2,45 +2,52 @@ import numpy as np
 cimport numpy as np
 from cython cimport floating
 from cython.parallel cimport prange
+from libc.stdint cimport int64_t
+from libc.stdlib cimport malloc, free
 from sklearn.utils._cython_blas cimport _gemv
 from sklearn.utils._cython_blas cimport BLAS_Order, ColMajor, RowMajor, NoTrans
-from libc.stdlib cimport malloc, free
 
 cdef void _trapz_mat_blas(
     floating[:, :] y,        # shape (m, n)
     floating* dx,            # shape (n-1)
     floating[:] out,         # shape (m,)
-    int m,
-    int n,
+    int64_t m,
+    int64_t n,
     BLAS_Order order
 ) noexcept nogil:
-    cdef int lda = m if order == ColMajor else n   # FULL leading dim (not n-1)
-    cdef floating alpha = <floating>0.5
-    cdef floating beta0  = <floating>0.0
-    cdef floating beta1  = <floating>1.0
+    cdef int64_t lda = m if order == ColMajor else n   # FULL leading dim (not n-1)
+    cdef floating alpha = <floating> 0.5
+    cdef floating beta0  = <floating> 0.0
+    cdef floating beta1  = <floating> 1.0
 
     # out = 0.5 * Y[:, :n-1] * dx
-    _gemv(order, NoTrans, m, n-1, alpha,
-          &y[0, 0], lda,
-          dx, 1,
-          beta0, &out[0], 1)
+    _gemv(
+        order, NoTrans,
+        m, n-1, alpha, # m, n, alpha
+        &y[0, 0], lda,
+        dx, 1, beta0, # X, inc_X, beta
+        &out[0], 1 # y, inc_y
+    )
 
     # out += 0.5 * Y[:, 1:n] * dx   (shift by one COLUMN)
-    _gemv(order, NoTrans, m, n-1, alpha,
-          &y[0, 1], lda,
-          dx, 1,
-          beta1, &out[0], 1)
+    _gemv(
+        order, NoTrans,
+        m, n-1, alpha, # m, n, alpha
+        &y[0, 1], lda,
+        dx, 1, beta1, # X, inc_X, beta
+        &out[0], 1 # y, inc_y
+    )
 
 
 cdef inline void _trapz_memview(
     floating[:, :] y,
     floating[:] x,
     floating[:] out,
-    int m,
-    int n,
+    int64_t m,
+    int64_t n,
     BLAS_Order order
 ) noexcept nogil:
-    cdef int i
+    cdef int64_t i
     cdef floating *dx = <floating*> malloc((n - 1) * sizeof(floating))
 
     if dx == NULL:
@@ -52,6 +59,7 @@ cdef inline void _trapz_memview(
 
     _trapz_mat_blas(y, dx, out, m, n, order)
     free(dx)
+
 
 def trapz_f64(
     np.ndarray[np.float64_t, ndim=2] y,
@@ -67,7 +75,7 @@ def trapz_f64(
         # choose a contiguous layout; RowMajor is fine
         order, Y = RowMajor, np.ascontiguousarray(y)
 
-    cdef int m = Y.shape[0], n = Y.shape[1]
+    cdef int64_t m = Y.shape[0], n = Y.shape[1]
     if n < 2 or m == 0:
         return np.zeros(m, dtype=np.float64)
 
@@ -92,7 +100,7 @@ def trapz_f32(
     else:
         order, Y = RowMajor, np.ascontiguousarray(y)
 
-    cdef int m = Y.shape[0], n = Y.shape[1]
+    cdef int64_t m = Y.shape[0], n = Y.shape[1]
     if n < 2 or m == 0:
         return np.zeros(m, dtype=np.float32)
 
