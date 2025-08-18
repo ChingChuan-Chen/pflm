@@ -4,7 +4,9 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from pflm.utils.fpca_helpers import get_eigen_analysis_results, get_fpca_phi, select_num_pcs_fve
+from pflm.utils.utility import flatten_and_sort_data_matrices
+from pflm.utils.covariance_utils import get_covariance_matrix, get_raw_cov
+from pflm.utils.fpca_helpers import get_eigen_analysis_results, get_fpca_phi, select_num_pcs_fve, get_fpca_ce_score
 from pflm.utils.utility import trapz
 
 
@@ -120,3 +122,43 @@ def test_get_fpca_phi_sign_consistency():
     # Inner products should be non-negative
     assert np.all(fpca_phi.T @ reg_mu >= -1e-12)
     assert fpca_lambda.shape == (2,)
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_fpca_ce_score_happy_path(dtype):
+    y = [np.array([1.0, 2.0, 2.0], dtype=dtype), np.array([3.0, 4.0], dtype=dtype), np.array([4.0, 5.0], dtype=dtype)]
+    t = [np.array([0.1, 0.2, 0.3], dtype=dtype), np.array([0.2, 0.3], dtype=dtype), np.array([0.1, 0.3], dtype=dtype)]
+    w = np.array([1.0, 2.0, 2.0], dtype=dtype)
+    yy, tt, ww, sid = flatten_and_sort_data_matrices(y, t, dtype, w)
+    obs_grid = np.unique(tt, sorted=True)
+    tid = np.digitize(tt, obs_grid, right=True)
+    mu = (np.bincount(tid, yy) / np.bincount(tid)).astype(dtype, copy=False)
+    raw_cov = get_raw_cov(yy, tt, ww, mu, tid, sid)
+    obs_cov = get_covariance_matrix(raw_cov, obs_grid)
+    with pytest.warns(UserWarning, match="Eigenvalues contain NaN or negative values."):
+        eig_lambda, eig_vector = get_eigen_analysis_results(obs_cov)
+    num_pcs = 2
+    fpca_lambda, fpca_phi = get_fpca_phi(num_pcs, obs_grid, mu, eig_lambda, eig_vector)
+    lambda_mat = np.diag(fpca_lambda)
+    lambda_phi = fpca_phi @ np.diag(fpca_lambda)
+    fitted_cov = fpca_phi @ lambda_phi.T
+    sigma2 = 0.3
+
+    xi, xi_var = get_fpca_ce_score(yy, tt, tid, sid, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2)
+    sigma_y = fitted_cov + np.eye(fitted_cov.shape[0]) * sigma2
+
+    xi_expected = np.zeros((3, num_pcs), dtype=dtype)
+    xi_var_expected = []
+    for i in range(len(y)):
+        mask = sid == i
+        tid_mask = tid[mask]
+        sigma_lambda_phi = np.linalg.solve(sigma_y[tid_mask][:, tid_mask], lambda_phi[tid_mask, :])
+        xi_expected[i] = sigma_lambda_phi.T @ (y[i] - mu[tid_mask])
+        xi_var_expected.append(lambda_mat - lambda_phi[tid_mask, :].T @ sigma_lambda_phi)
+
+    assert xi.shape == (3, 2)
+    assert_allclose(xi, xi_expected, rtol=1e-5, atol=1e-5)
+    assert len(xi_var) == 3
+    for i in range(len(y)):
+        assert xi_var[i].shape == (num_pcs, num_pcs)
+        assert_allclose(xi_var[i], xi_var_expected[i], rtol=1e-5, atol=1e-5)

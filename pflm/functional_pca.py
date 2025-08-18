@@ -19,8 +19,8 @@ from pflm.utils import (
     get_covariance_matrix,
     get_eigen_analysis_results,
     get_fpca_phi,
-    get_fpca_score_conditional_expectation,
-    get_fpca_score_numerical_integral,
+    get_fpca_ce_score,
+    get_fpca_in_score,
     get_measurement_error_variance,
     get_raw_cov,
     select_num_pcs_fve,
@@ -610,7 +610,7 @@ class FunctionalPCA(BaseEstimator):
                     self.rho_ = self.user_params.rho
                 else:
                     self.rho_ = estimate_rho()
-                self.xi_, self.xi_var_ = get_fpca_score_conditional_expectation(
+                self.xi_, self.xi_var_ = get_fpca_ce_score(
                     self.yy_,
                     self.tt_,
                     self.tid_,
@@ -618,10 +618,11 @@ class FunctionalPCA(BaseEstimator):
                     self.obs_mu_,
                     self.fitted_cov_obs_,
                     self.fpca_lambda_,
-                    self.sigma2_,
+                    self.fpca_phi_obs_,
+                    self.sigma2_
                 )
             elif method_pcs == "IN":
-                self.xi_, self.xi_var_ = get_fpca_score_numerical_integral()
+                self.xi_, self.xi_var_ = get_fpca_in_score()
 
         if fit_eigen_values:
             self.fit_eigen_values_ = np.zeros(self.num_pcs, dtype=self._input_dtype)

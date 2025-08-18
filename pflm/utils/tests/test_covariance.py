@@ -7,7 +7,6 @@ from pflm.utils import flatten_and_sort_data_matrices, get_covariance_matrix, ge
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32])
 def test_get_raw_cov_happy_path(dtype):
-    # prepare simple data
     y = [np.array([1.0, 2.0, 2.0], dtype=dtype), np.array([3.0, 4.0], dtype=dtype), np.array([4.0, 5.0], dtype=dtype)]
     t = [np.array([0.1, 0.2, 0.3], dtype=dtype), np.array([0.2, 0.3], dtype=dtype), np.array([0.1, 0.3], dtype=dtype)]
     w = np.array([1.0, 2.0, 2.0], dtype=dtype)

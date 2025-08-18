@@ -3,11 +3,12 @@
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 import warnings
-from typing import Tuple
+from typing import Tuple, List
 
 import numpy as np
 
 from pflm.utils._lapack_helper import _syevd_memview_f32, _syevd_memview_f64
+from pflm.utils._fpca_score import fpca_ce_score_f64, fpca_ce_score_f32
 from pflm.utils.utility import trapz
 
 
@@ -95,7 +96,7 @@ def get_fpca_phi(num_pcs: int, reg_grid: np.ndarray, reg_mu: np.ndarray, eig_lam
     fpca_lambda : np.ndarray
         The functional principal component eigenvalues.
     fpca_phi : np.ndarray
-        The functional principal component basis functions of shape (nt, num_fpca).
+        The functional principal component basis functions of shape (nt, num_pcs).
     """
     grid_size = reg_grid[1] - reg_grid[0]
 
@@ -119,22 +120,21 @@ def get_fpca_phi(num_pcs: int, reg_grid: np.ndarray, reg_mu: np.ndarray, eig_lam
     return fpca_lambda, fpca_phi
 
 
-def get_fpca_score_conditional_expectation(
+def get_fpca_ce_score(
     yy: np.ndarray,
     tt: np.ndarray,
-    ww: np.ndarray,
     tid: np.ndarray,
     sid: np.ndarray,
     mu: np.ndarray,
-    fitted_cov_obs: np.ndarray,
-    sigma2: np.ndarray,
+    fitted_cov: np.ndarray,
     fpca_lambda: np.ndarray,
     fpca_phi: np.ndarray,
-):
-    if yy.ndim != 1 or tt.ndim != 1 or ww.ndim != 1:
-        raise ValueError("yy, tt, and ww must be 1D arrays.")
-    if yy.size != tt.size or yy.size != ww.size:
-        raise ValueError("yy, tt, and ww must have the same length.")
+    sigma2: float
+) -> Tuple[np.ndarray, List[np.ndarray]]:
+    if yy.ndim != 1 or tt.ndim != 1:
+        raise ValueError("yy and tt must be 1D arrays.")
+    if yy.size != tt.size:
+        raise ValueError("yy and tt must have the same length.")
     unique_tid = np.unique(tid)
     if unique_tid.size != mu.size:
         raise ValueError("The length of mu must match the number of unique time indices in tid.")
@@ -145,15 +145,20 @@ def get_fpca_score_conditional_expectation(
     unique_sid, sid_cnt = np.unique(sid, return_counts=True, sorted=True)
     if np.any(sid_cnt < 2):
         raise ValueError("Each sample must have at least two observations for covariance calculation.")
+    num_pcs = len(fpca_lambda)
+    if fpca_phi.shape[0] != mu.size or fpca_phi.shape[1] != num_pcs:
+        raise ValueError("fpca_phi must have shape (mu.size, num_pcs).")
 
-    sigma_y = fitted_cov_obs + np.eye(fitted_cov_obs.shape[0]) * sigma2
-
-    return np.array([]), np.array([])
+    sigma_y = (fitted_cov + np.eye(fitted_cov.shape[0]) * sigma2).astype(yy.dtype, copy=False)
+    fpca_ce_score_func = fpca_ce_score_f64 if yy.dtype == np.float64 else fpca_ce_score_f32
+    lambda_phi = np.ascontiguousarray(fpca_phi @ np.diag(fpca_lambda)).astype(yy.dtype, copy=False)
+    xi, xi_var = fpca_ce_score_func(yy, tt, tid, mu, sigma_y, fpca_lambda, lambda_phi, unique_sid, sid_cnt)
+    return xi, xi_var
 
 
 def estimate_rho():
     return 0.0
 
 
-def get_fpca_score_numerical_integral():
+def get_fpca_in_score():
     return np.array([]), np.array([])
