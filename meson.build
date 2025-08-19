@@ -8,7 +8,8 @@ project(
     default_options: [
         'buildtype=debugoptimized',
         'b_ndebug=if-release',
-        'cpp_std=c++17',
+        'cpp_std=c++17'
+        # 'warning_level=2'
     ],
 )
 

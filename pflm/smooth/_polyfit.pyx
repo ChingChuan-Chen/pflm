@@ -20,12 +20,12 @@ cdef double inv_sqrt_2pi = sqrt(inv_2pi)
 cdef double[11] factorials = [1.0, 1.0, 2.0, 6.0, 24.0, 120.0, 720.0, 5040.0, 40320.0, 362880.0, 3628800.0]
 
 
-cdef inline floating calculate_kernel_value(
+cdef floating calculate_kernel_value(
     floating u,
     int kernel_type
 ) noexcept nogil:
     if kernel_type == 0: # GAUSSIAN
-        return inv_sqrt_2pi * exp(-0.5 * u * u)
+        return <floating> inv_sqrt_2pi * exp(-0.5 * u * u)
     elif kernel_type == 1: # LOGISTIC
         return 0.5 / (cosh(u) + 1.0)
     elif kernel_type == 2: # SIGMOID
@@ -45,13 +45,13 @@ cdef inline floating calculate_kernel_value(
     elif kernel_type == 102:  # EPANECHNIKOV
         return 0.75 * (1.0 - u * u)
     elif kernel_type == 103:  # BIWEIGHT
-        return 15.0 / 16.0 * pow(1.0 - u * u, 2.0)
+        return 15.0 / 16.0 * pow(<floating> 1.0 - u * u, <floating> 2.0)
     elif kernel_type == 104:  # TRIWEIGHT
-        return 35.0 / 32.0 * pow(1.0 - u * u, 3.0)
+        return 35.0 / 32.0 * pow(<floating> 1.0 - u * u, <floating> 3.0)
     elif kernel_type == 105:  # TRICUBE
-        return 70.0 / 81.0 * pow(1.0 - pow(abs(u), 3.0), 3.0)
+        return 70.0 / 81.0 * pow(<floating> 1.0 - pow(abs(u), <floating> 3.0), <floating> 3.0)
     elif kernel_type == 106:  # COSINE
-        return quarter_pi * cos(half_pi * u)
+        return <floating> quarter_pi * cos(<floating> half_pi * u)
     else:
         return 0.0
 
@@ -89,7 +89,7 @@ cdef void polyfit1d_helper(
     int deriv,
     int kernel_type
 ) noexcept nogil:
-    cdef int64_t n = x.shape[0], left = 0, right = n
+    cdef int64_t n = <int64_t> x.shape[0], left = 0, right = n
     cdef floating *left_it
     cdef floating *right_it
     cdef floating *x_start = &x[0]
@@ -105,8 +105,11 @@ cdef void polyfit1d_helper(
             return
 
     cdef int64_t n_rows = right - left, i = 0, j, k
-    cdef floating inv_deriv = 1.0 if deriv == 0.0 else 1.0 / deriv
-    cdef floating xj_minus_center = 0.0, u = 0.0, sqrt_wj = 0.0
+    cdef floating inv_deriv
+    if deriv == 0:
+        inv_deriv = 1.0
+    else:
+        inv_deriv = pow(<floating> deriv, -1.0)
     cdef floating *lx = <floating*> malloc(n_rows * (degree+1) * sizeof(floating))
     cdef floating *ly = <floating*> malloc(n_rows * sizeof(floating))
 
@@ -125,17 +128,17 @@ cdef void polyfit1d_helper(
 
         ly[i] = y[j] * sqrt_wj
         for k in range(degree + 1):
-            lx[i + n_rows * k] = pow(xj_minus_center, k) * sqrt_wj
+            lx[i + n_rows * k] = pow(xj_minus_center, <floating> k) * sqrt_wj
         i += 1
     cdef int info = 0
     _gels_helper(
-        110, n_rows, degree + 1, 1,
-        lx, n_rows,
-        ly, n_rows,
+        110, <int> n_rows, degree + 1, 1,
+        lx, <int> n_rows,
+        ly, <int> n_rows,
         &info
     )
     if info == 0:
-        mu[0] = ly[deriv] * factorials[deriv] * inv_deriv
+        mu[0] = ly[deriv] * <floating> factorials[deriv] * inv_deriv
     else:
         mu[0] = NAN
     free(lx)
@@ -152,7 +155,7 @@ def polyfit1d_f64(
     int degree,
     int deriv
 ) -> np.ndarray[np.float64_t]:
-    cdef int64_t x_new_size = x_new.shape[0]
+    cdef int64_t x_new_size = <int64_t> x_new.size
     cdef np.ndarray[np.float64_t] mu = np.empty(x_new_size, dtype=np.float64)
     cdef np.float64_t[:] x_view = x
     cdef np.float64_t[:] y_view = y
@@ -175,7 +178,7 @@ def polyfit1d_f32(
     int degree,
     int deriv
 ) -> np.ndarray[np.float32_t]:
-    cdef int64_t x_new_size = x_new.shape[0]
+    cdef int64_t x_new_size = <int64_t> x_new.size
     cdef np.ndarray[np.float32_t] mu = np.empty(x_new_size, dtype=np.float32)
     cdef np.float32_t[:] x_view = x
     cdef np.float32_t[:] y_view = y
@@ -207,13 +210,13 @@ cdef void polyfit2d_helper(
     cdef floating *right_it
     cdef floating *x1_start = &x_grid[0, 0]
     cdef floating *x1_end = &x_grid[0, 0] + n
-    cdef floating lb1, ub1, lb2, ub2
-    cdef int64_t num_lx_cols = (degree + 1) * (degree + 2) // 2
+    cdef floating lb1, ub1, lb2, ub2, epsilon = <floating> 1e-6
+    cdef int64_t num_lx_cols = (degree + 1) * (degree + 2) // 2, n_rows
     cdef vector[int64_t] idx = vector[int64_t]()
     cdef bint check_rank = 1, use_svd = 0
     if kernel_type >= 100:
-        lb1 = center1 - bw1 - 1e-6
-        ub1 = center1 + bw1 + 1e-6
+        lb1 = center1 - bw1 - epsilon
+        ub1 = center1 + bw1 + epsilon
         left_it = lower_bound(x1_start, x1_end, lb1)
         right_it = lower_bound(x1_start, x1_end, ub1)
         left = distance(x1_start, left_it)
@@ -222,8 +225,8 @@ cdef void polyfit2d_helper(
             mu[0] = NAN
             return
 
-        lb2 = center2 - bw2 - 1e-6
-        ub2 = center2 + bw2 + 1e-6
+        lb2 = center2 - bw2 - epsilon
+        ub2 = center2 + bw2 + epsilon
         for i in range(left, right):
             if x_grid[1, i] > lb2 and x_grid[1, i] < ub2:
                 idx.push_back(i)
@@ -233,7 +236,8 @@ cdef void polyfit2d_helper(
             mu[0] = NAN
             return
 
-        if idx.size() < num_lx_cols:
+        n_rows = <int64_t> idx.size()
+        if n_rows < num_lx_cols:
             check_rank = 0
             use_svd = 1
     else:
@@ -243,18 +247,18 @@ cdef void polyfit2d_helper(
         check_rank = 0
         use_svd = 0
 
-    cdef int64_t n_rows = <int64_t> idx.size(), j
+    cdef int64_t unique_grid_points_size
     cdef set[pair[floating, floating]] unique_grid_points
     if check_rank == 1:
         for i in range(n_rows):
-            j = idx[i]
-            unique_grid_points.insert(pair[floating, floating](x_grid[0, j], x_grid[1, j]))
-        if unique_grid_points.size() < num_lx_cols:
+            unique_grid_points.insert(pair[floating, floating](x_grid[0, idx[i]], x_grid[1, idx[i]]))
+        unique_grid_points_size = <int64_t> unique_grid_points.size()
+        if unique_grid_points_size < num_lx_cols:
             use_svd = 1
         else:
             use_svd = 0
 
-    cdef int64_t total_deg, py, col_idx
+    cdef int64_t total_deg, py, col_idx, j
     cdef floating *lx = <floating*> malloc(n_rows * num_lx_cols * sizeof(floating))
     cdef floating *ly = <floating*> malloc(n_rows * sizeof(floating))
     cdef floating x1j_minus_center1, x2j_minus_center2, u1, u2, sqrt_wj
@@ -270,29 +274,29 @@ cdef void polyfit2d_helper(
         for total_deg in range(degree + 1):
             for py in range(total_deg + 1):
                 col_idx = total_deg * (total_deg + 1) // 2 + py
-                lx[i + n_rows * col_idx] = pow(x1j_minus_center1, total_deg - py) * pow(x2j_minus_center2, py) * sqrt_wj
+                lx[i + n_rows * col_idx] = pow(x1j_minus_center1, <floating> (total_deg - py)) * pow(x2j_minus_center2, <floating> py) * sqrt_wj
 
     cdef int info = 0, rank = 0
     cdef floating rcond = -1.0
     if use_svd == 1:
         _gelss_helper(
-            n_rows, num_lx_cols, 1,
-            lx, n_rows,
-            ly, n_rows,
+            <int> n_rows, <int> num_lx_cols, 1,
+            lx, <int> n_rows,
+            ly, <int> n_rows,
             &rcond, &rank, &info
         )
     else:
         _gels_helper(
-            110, n_rows, num_lx_cols, 1,
-            lx, n_rows,
-            ly, n_rows,
+            110, <int> n_rows, <int> num_lx_cols, 1,
+            lx, <int> n_rows,
+            ly, <int> n_rows,
             &info
         )
 
     cdef int64_t total_deriv = <int64_t> deriv1 + <int64_t> deriv2
     cdef int64_t mu_idx = total_deriv * (total_deriv + 1) // 2 + deriv2
     if info == 0:
-        mu[0] = ly[mu_idx] * factorials[deriv1] * factorials[deriv2]
+        mu[0] = ly[mu_idx] * <floating> factorials[deriv1] * <floating> factorials[deriv2]
     else:
         mu[0] = NAN
     free(lx)
@@ -312,7 +316,7 @@ def polyfit2d_f64(
     int deriv1,
     int deriv2
 ) -> np.ndarray[np.float64_t]:
-    cdef int64_t n1 = x_new1.shape[0], n2 = x_new2.shape[0]
+    cdef int64_t n1 = <int64_t> x_new1.size, n2 = <int64_t> x_new2.size
     cdef np.ndarray[np.float64_t, ndim=2] mu = np.empty((n2, n1), order='C', dtype=np.float64)
     cdef np.float64_t[:, ::1] x_grid_view = x_grid
     cdef np.float64_t[:] y_view = y
@@ -348,7 +352,7 @@ def polyfit2d_f32(
     int deriv1,
     int deriv2
 ) -> np.ndarray[np.float32_t]:
-    cdef int64_t n1 = x_new1.shape[0], n2 = x_new2.shape[0]
+    cdef int64_t n1 = <int64_t> x_new1.size, n2 = <int64_t> x_new2.size
     cdef np.ndarray[np.float32_t, ndim=2] mu = np.empty((n2, n1), order='C', dtype=np.float32)
     cdef np.float32_t[:, ::1] x_grid_view = x_grid
     cdef np.float32_t[:] y_view = y

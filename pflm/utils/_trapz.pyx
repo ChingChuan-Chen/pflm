@@ -23,8 +23,8 @@ cdef void _trapz_mat_blas(
     # out = 0.5 * Y[:, :n-1] * dx
     _gemv(
         order, NoTrans,
-        m, n-1, alpha, # m, n, alpha
-        &y[0, 0], lda,
+        <int> m, <int> n-1, alpha, # m, n, alpha
+        &y[0, 0], <int> lda,
         dx, 1, beta0, # X, inc_X, beta
         &out[0], 1 # y, inc_y
     )
@@ -32,14 +32,14 @@ cdef void _trapz_mat_blas(
     # out += 0.5 * Y[:, 1:n] * dx   (shift by one COLUMN)
     _gemv(
         order, NoTrans,
-        m, n-1, alpha, # m, n, alpha
-        &y[0, 1], lda,
+        <int> m, <int> n-1, alpha, # m, n, alpha
+        &y[0, 1], <int> lda,
         dx, 1, beta1, # X, inc_X, beta
         &out[0], 1 # y, inc_y
     )
 
 
-cdef inline void _trapz_memview(
+cdef void _trapz_memview(
     floating[:, :] y,
     floating[:] x,
     floating[:] out,

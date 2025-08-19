@@ -24,17 +24,17 @@ cdef void rotate_polyfit2d_helper(
     floating[:] w,
     int kernel_type
 ):
-    cdef int64_t n = x_grid.shape[1], left = 0, right = n, i
+    cdef int64_t n = <int64_t> x_grid.shape[1], left = 0, right = n, n_rows, i
     cdef floating *left_it
     cdef floating *right_it
     cdef floating *x1_start = &x_grid[0, 0]
     cdef floating *x1_end = &x_grid[0, 0] + n
-    cdef floating lb1, ub1, lb2, ub2
+    cdef floating lb1, ub1, lb2, ub2, epsilon = <floating> 1e-6
     cdef vector[int64_t] idx = vector[int64_t]()
     cdef bint check_rank = 1, use_svd = 0
     if kernel_type >= 100:
-        lb1 = center1 - bw - 1e-6
-        ub1 = center1 + bw + 1e-6
+        lb1 = center1 - bw - epsilon
+        ub1 = center1 + bw + epsilon
         left_it = lower_bound(x1_start, x1_end, lb1)
         right_it = lower_bound(x1_start, x1_end, ub1)
         left = distance(x1_start, left_it)
@@ -43,8 +43,8 @@ cdef void rotate_polyfit2d_helper(
             mu[0] = NAN
             return
 
-        lb2 = center2 - bw - 1e-6
-        ub2 = center2 + bw + 1e-6
+        lb2 = center2 - bw - epsilon
+        ub2 = center2 + bw + epsilon
         for i in range(left, right):
             if x_grid[1, i] > lb2 and x_grid[1, i] < ub2:
                 idx.push_back(i)
@@ -53,7 +53,8 @@ cdef void rotate_polyfit2d_helper(
             mu[0] = NAN
             return
 
-        if idx.size() < 3:
+        n_rows = <int64_t> idx.size()
+        if n_rows < 3:
             check_rank = 0
             use_svd = 1
     else:
@@ -63,18 +64,16 @@ cdef void rotate_polyfit2d_helper(
         check_rank = 0
         use_svd = 0
 
-    cdef int64_t n_rows = <int64_t> idx.size(), j
     cdef set[pair[floating, floating]] unique_grid_points
     if check_rank == 1:
         for i in range(n_rows):
-            j = idx[i]
-            unique_grid_points.insert(pair[floating, floating](x_grid[0, j], x_grid[1, j]))
+            unique_grid_points.insert(pair[floating, floating](x_grid[0, idx[i]], x_grid[1, idx[i]]))
         if unique_grid_points.size() < 3:
             use_svd = 1
         else:
             use_svd = 0
 
-    cdef int64_t total_deg, py, col_idx
+    cdef int64_t total_deg, py, col_idx, j
     cdef floating *lx = <floating*> malloc(n_rows * 3 * sizeof(floating))
     cdef floating *ly = <floating*> malloc(n_rows * sizeof(floating))
     cdef floating x1j_minus_center1, x2j_minus_center2, u1, u2, sqrt_wj
@@ -88,23 +87,23 @@ cdef void rotate_polyfit2d_helper(
 
         ly[i] = y[j] * sqrt_wj
         lx[i] = sqrt_wj
-        lx[i + n_rows] = pow(x1j_minus_center1, 2.0) * sqrt_wj
+        lx[i + n_rows] = pow(x1j_minus_center1, <floating> 2.0) * sqrt_wj
         lx[i + n_rows * 2] = x2j_minus_center2 * sqrt_wj
 
     cdef int info = 0, rank = 0
     cdef floating rcond = -1.0
     if use_svd == 1:
         _gelss_helper(
-            n_rows, 3, 1,
-            lx, n_rows,
-            ly, n_rows,
+            <int> n_rows, 3, 1,
+            lx, <int> n_rows,
+            ly, <int> n_rows,
             &rcond, &rank, &info
         )
     else:
         _gels_helper(
-            110, n_rows, 3, 1,
-            lx, n_rows,
-            ly, n_rows,
+            110, <int> n_rows, 3, 1,
+            lx, <int> n_rows,
+            ly, <int> n_rows,
             &info
         )
 
@@ -124,7 +123,7 @@ def rotate_polyfit2d_f64(
     np.float64_t bandwidth,
     int kernel_type
 ):
-    cdef int64_t n_new = new_grid.shape[1]
+    cdef int64_t n_new = <int64_t> new_grid.shape[1]
     cdef np.ndarray[np.float64_t] mu = np.empty(n_new, dtype=np.float64)
     cdef np.float64_t[:, ::1] x_grid_view = x_grid
     cdef np.float64_t[:] y_view = y
@@ -146,7 +145,7 @@ def rotate_polyfit2d_f32(
     np.float32_t bandwidth,
     int kernel_type
 ):
-    cdef int64_t n_new = new_grid.shape[1]
+    cdef int64_t n_new = <int64_t> new_grid.shape[1]
     cdef np.ndarray[np.float32_t] mu = np.empty(n_new, dtype=np.float32)
     cdef np.float32_t[:, ::1] x_grid_view = x_grid
     cdef np.float32_t[:] y_view = y
