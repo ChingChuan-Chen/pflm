@@ -16,7 +16,7 @@ void find_le_indices(const T* a, std::uint64_t n, const T* b, std::uint64_t m, s
         // Special case for the largest element of b
         // If the largest element of b is equal to the last element of a,
         // we set the last element of b's index to the last element of a's index
-        if (i < n2) {
+        if (i < (std::int64_t) n2) {
             result[j] = i - 1;
         } else if (i == n2 && a[i - 1] == b[j]) {
             result[j] = n2 - 2;
@@ -27,13 +27,13 @@ void find_le_indices(const T* a, std::uint64_t n, const T* b, std::uint64_t m, s
 }
 
 template <typename T>
-void interp1d_linear(T x[], T y[], T x_new[], T y_new[], std::int64_t x_size, std::int64_t x_new_size) {
+void interp1d_linear(T x[], T y[], T x_new[], T y_new[], std::uint64_t x_size, std::uint64_t x_new_size) {
     std::int64_t i, j;
     std::int64_t *x_new_idx = new std::int64_t[x_new_size];
     find_le_indices<T>(x, x_size, x_new, x_new_size, x_new_idx);
 
     #pragma omp parallel for private(i)
-    for (i = 0; i < x_new_size; ++i) {
+    for (i = 0; i < (std::int64_t) x_new_size; ++i) {
         j = x_new_idx[i];
         if (j >= 0) {
             y_new[i] = y[j] + (x_new[i] - x[j]) * (y[j + 1] - y[j]) / (x[j + 1] - x[j]);
@@ -46,7 +46,7 @@ void interp1d_linear(T x[], T y[], T x_new[], T y_new[], std::int64_t x_size, st
 }
 
 template <typename T>
-void interp1d_spline_small(T x[], T y[], T x_new[], T y_new[], std::int64_t x_size, std::int64_t x_new_size) {
+void interp1d_spline_small(T x[], T y[], T x_new[], T y_new[], std::uint64_t x_size, std::uint64_t x_new_size) {
     T ca, cb, cc;
     if (x_size == 2) {
         cc = 0.0;
@@ -61,7 +61,7 @@ void interp1d_spline_small(T x[], T y[], T x_new[], T y_new[], std::int64_t x_si
     std::int64_t i;
     T s;
     #pragma omp parallel for private(i)
-    for (i = 0; i < x_new_size; ++i) {
+    for (i = 0; i < (std::int64_t) x_new_size; ++i) {
         // small size, so no need to use binary search
         if ((x_new[i] < x[0]) || (x_new[i] > x[x_size - 1])) {
             y_new[i] = std::numeric_limits<T>::quiet_NaN();
@@ -75,11 +75,11 @@ void interp1d_spline_small(T x[], T y[], T x_new[], T y_new[], std::int64_t x_si
 // Thomas algorithm for solving tri-diagonal systems of equations Ax = d
 // where A is a tri-diagonal matrix with sub-diagonal ldg, diagonal dg, and super-diagonal udg
 template <typename T>
-void thomas_algorithm(T ldg[], T dg[], T udg[], T g[], T x[], std::int64_t n) {
+void thomas_algorithm(T ldg[], T dg[], T udg[], T g[], T x[], std::uint64_t n) {
     std::int64_t i;
     T p;
     // Forward substitution
-    for (i = 1; i < n; ++i) {
+    for (i = 1; i < (std::int64_t) n; ++i) {
         p = ldg[i] / dg[i - 1];
         dg[i] -= p * udg[i - 1];
         g[i] -= p * g[i - 1];
@@ -87,18 +87,18 @@ void thomas_algorithm(T ldg[], T dg[], T udg[], T g[], T x[], std::int64_t n) {
 
     // Back substitution
     x[n - 1] = g[n - 1] / dg[n - 1];
-    for (i = n - 2; i >= 0; i--) {
+    for (i = (std::int64_t) n - 2; i >= 0; i--) {
         x[i] = (g[i] - udg[i] * x[i + 1]) / dg[i];
     }
 }
 
 template <typename T>
-void interp1d_spline(T x[], T y[], T x_new[], T y_new[], std::int64_t x_size, std::int64_t x_new_size) {
+void interp1d_spline(T x[], T y[], T x_new[], T y_new[], std::uint64_t x_size, std::uint64_t x_new_size) {
     T *h = new T[x_size - 1], *ca = new T[x_size - 1], *cb = new T[x_size - 1], *cc = new T[x_size], *cd = new T[x_size - 1], *g = new T[x_size - 1];
     std::int64_t i, j;
 
     #pragma omp parallel for private(i)
-    for (i = 0; i < x_size - 1; ++i) {
+    for (i = 0; i < (std::int64_t) x_size - 1; ++i) {
         cb[i] = y[i + 1] - y[i];
         h[i] = x[i + 1] - x[i];
     }
@@ -108,7 +108,7 @@ void interp1d_spline(T x[], T y[], T x_new[], T y_new[], std::int64_t x_size, st
     g[x_size - 3] = 3.0 / (h[x_size - 3] + h[x_size - 2]) * (h[x_size - 3] / h[x_size - 2] * cb[x_size - 2] - cb[x_size - 3]);
     if (x_size > 4) {
         #pragma omp parallel for private(i)
-        for (i = 1; i < x_size - 3; ++i) {
+        for (i = 1; i < (std::int64_t) x_size - 3; ++i) {
             g[i] = 3.0 * cb[i + 1] / h[i + 1] - 3.0 * cb[i] / h[i];
         }
 
@@ -116,7 +116,7 @@ void interp1d_spline(T x[], T y[], T x_new[], T y_new[], std::int64_t x_size, st
         ldg[0] = 0.0;
         udg[x_size - 3] = 0.0;
         #pragma omp parallel for private(i)
-        for (i = 0; i < x_size - 3; ++i)
+        for (i = 0; i < (std::int64_t) x_size - 3; ++i)
         {
             dg[i] = 2.0 * (h[i] + h[i + 1]);
             ldg[i + 1] = h[i + 1];
@@ -145,7 +145,7 @@ void interp1d_spline(T x[], T y[], T x_new[], T y_new[], std::int64_t x_size, st
     cc[x_size - 1] = cc[x_size - 2] + h[x_size - 2] / h[x_size - 3] * (cc[x_size - 2] - cc[x_size - 3]);
 
     #pragma omp parallel for private(i)
-    for (i = 0; i < x_size - 1; ++i)
+    for (i = 0; i < (std::int64_t) x_size - 1; ++i)
     {
         cb[i] /= h[i];
         cb[i] -= h[i] * (cc[i + 1] + 2.0 * cc[i]) / 3.0;
@@ -157,9 +157,9 @@ void interp1d_spline(T x[], T y[], T x_new[], T y_new[], std::int64_t x_size, st
 
     // Calculate the interpolated values
     #pragma omp parallel for private(i)
-    for (i = 0; i < x_new_size; ++i) {
+    for (i = 0; i < (std::int64_t) x_new_size; ++i) {
         j = x_new_idx[i];
-        if (j >= 0 && j < x_size - 1) {
+        if (j >= 0 && j < (std::int64_t) x_size - 1) {
             T s = x_new[i] - x[j];
             y_new[i] = ca[j] + s * cb[j] + std::pow(s, 2.0) * cc[j] + std::pow(s, 3.0) * cd[j];
         } else {
@@ -179,8 +179,8 @@ void interp1d_spline(T x[], T y[], T x_new[], T y_new[], std::int64_t x_size, st
 template <typename T>
 void interp2d_linear(
     T x[], T y[], T v[], T x_new[], T y_new[], T v_new[],
-    std::int64_t x_size, std::int64_t y_size,
-    std::int64_t x_new_size, std::int64_t y_new_size
+    std::uint64_t x_size, std::uint64_t y_size,
+    std::uint64_t x_new_size, std::uint64_t y_new_size
 ) {
     std::int64_t i;
     std::int64_t *x_new_idx = new std::int64_t[x_new_size];
@@ -189,9 +189,9 @@ void interp2d_linear(
     find_le_indices<T>(y, y_size, y_new, y_new_size, y_new_idx);
 
     #pragma omp parallel for private(i)
-    for (i = 0; i < x_new_size; ++i) {
+    for (i = 0; i < (std::int64_t) x_new_size; ++i) {
         std::int64_t x_idx = x_new_idx[i];
-        for (std::int64_t j = 0; j < y_new_size; ++j) {
+        for (std::int64_t j = 0; j < (std::int64_t) y_new_size; ++j) {
             std::int64_t y_idx = y_new_idx[j];
 
             if (x_idx < 0 || y_idx < 0) {
@@ -226,17 +226,17 @@ void transpose_matrix(T *src, T *dst, int64_t n_rows, int64_t n_cols) {
 template <typename T>
 void interp2d_spline(
     T x[], T y[], T v[], T x_new[], T y_new[], T v_new[],
-    std::int64_t x_size, std::int64_t y_size,
-    std::int64_t x_new_size, std::int64_t y_new_size
+    std::uint64_t x_size, std::uint64_t y_size,
+    std::uint64_t x_new_size, std::uint64_t y_new_size
 ) {
     std::int64_t i;
     T *tp_v = new T[y_size * x_size], *temp1 = new T[y_new_size * x_size], *temp2 = new T[y_new_size * x_size];
 
     // we need to transpose the matrix first for the spline interpolation on each row
-    transpose_matrix<T>(v, tp_v, y_size, x_size);
+    transpose_matrix<T>(v, tp_v, (std::int64_t) y_size, (std::int64_t) x_size);
 
     // do the spline interpolation on x axis first
-    for (i = 0; i < x_size; ++i) {
+    for (i = 0; i < (std::int64_t) x_size; ++i) {
         if (y_size <= 3) {
             interp1d_spline_small<T>(&y[0], &tp_v[i * y_size], &y_new[0], &temp1[i * y_new_size], y_size, y_new_size);
         } else {
@@ -248,7 +248,7 @@ void interp2d_spline(
     transpose_matrix<T>(temp1, temp2, x_size, y_new_size);
 
     // do the spline interpolation on y axis next
-    for (i = 0; i < y_new_size; ++i) {
+    for (i = 0; i < (std::int64_t) y_new_size; ++i) {
         if (x_size <= 3) {
             interp1d_spline_small<T>(&x[0], &temp2[i * x_size], &x_new[0], &v_new[i * x_new_size], x_size, x_new_size);
         } else {

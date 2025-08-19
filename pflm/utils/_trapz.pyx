@@ -2,7 +2,7 @@ import numpy as np
 cimport numpy as np
 from cython cimport floating
 from cython.parallel cimport prange
-from libc.stdint cimport int64_t
+from libc.stdint cimport int64_t, uint64_t
 from libc.stdlib cimport malloc, free
 from sklearn.utils._cython_blas cimport _gemv
 from sklearn.utils._cython_blas cimport BLAS_Order, ColMajor, RowMajor, NoTrans
@@ -11,11 +11,11 @@ cdef void _trapz_mat_blas(
     floating[:, :] y,        # shape (m, n)
     floating* dx,            # shape (n-1)
     floating[:] out,         # shape (m,)
-    int64_t m,
-    int64_t n,
+    uint64_t m,
+    uint64_t n,
     BLAS_Order order
 ) noexcept nogil:
-    cdef int64_t lda = m if order == ColMajor else n   # FULL leading dim (not n-1)
+    cdef uint64_t lda = m if order == ColMajor else n   # FULL leading dim (not n-1)
     cdef floating alpha = <floating> 0.5
     cdef floating beta0  = <floating> 0.0
     cdef floating beta1  = <floating> 1.0
@@ -43,8 +43,8 @@ cdef void _trapz_memview(
     floating[:, :] y,
     floating[:] x,
     floating[:] out,
-    int64_t m,
-    int64_t n,
+    uint64_t m,
+    uint64_t n,
     BLAS_Order order
 ) noexcept nogil:
     cdef int64_t i
@@ -54,7 +54,7 @@ cdef void _trapz_memview(
         # nothing we can do nogil; just return (out is untouched)
         return
 
-    for i in prange(n - 1, nogil=True):
+    for i in prange(<int64_t> n - 1, nogil=True):
         dx[i] = x[i + 1] - x[i]
 
     _trapz_mat_blas(y, dx, out, m, n, order)
@@ -75,7 +75,7 @@ def trapz_f64(
         # choose a contiguous layout; RowMajor is fine
         order, Y = RowMajor, np.ascontiguousarray(y)
 
-    cdef int64_t m = Y.shape[0], n = Y.shape[1]
+    cdef uint64_t m = Y.shape[0], n = Y.shape[1]
     if n < 2 or m == 0:
         return np.zeros(m, dtype=np.float64)
 
@@ -100,7 +100,7 @@ def trapz_f32(
     else:
         order, Y = RowMajor, np.ascontiguousarray(y)
 
-    cdef int64_t m = Y.shape[0], n = Y.shape[1]
+    cdef uint64_t m = Y.shape[0], n = Y.shape[1]
     if n < 2 or m == 0:
         return np.zeros(m, dtype=np.float32)
 

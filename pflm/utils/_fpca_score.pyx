@@ -2,7 +2,7 @@ import numpy as np
 cimport numpy as np
 from cython cimport floating
 from cython.parallel import prange
-from libc.stdint cimport int64_t
+from libc.stdint cimport int64_t, uint64_t
 from libcpp.vector cimport vector
 from libc.math cimport NAN
 from libc.stdlib cimport malloc, free
@@ -13,9 +13,9 @@ from sklearn.utils._cython_blas cimport ColMajor, NoTrans, Trans
 
 
 cdef void fpca_ce_score_helper(
-    int64_t nt,
-    int64_t data_cnt,
-    int64_t num_pcs,
+    uint64_t nt,
+    uint64_t data_cnt,
+    uint64_t num_pcs,
     floating* xi,         # shape: (data_cnt, num_pcs) row-major
     floating* xi_var,     # shape: (data_cnt, data_cnt) row-major
     floating* yy,
@@ -30,14 +30,14 @@ cdef void fpca_ce_score_helper(
     cdef floating* sub_sigma_lambda_phi = <floating*> malloc(num_pcs * data_cnt * sizeof(floating)) # shape: (data_cnt, num_pcs) col-major
     cdef floating* sub_sigma_y = <floating*> malloc(data_cnt * data_cnt * sizeof(floating))   # shape: (data_cnt, data_cnt) col-major, upper-triangular
     cdef floating* sub_y_minus_mu = <floating*> malloc(data_cnt * sizeof(floating))           # shape: (data_cnt, )
-    for i in range(data_cnt):
+    for i in range(<int64_t> data_cnt):
         sub_y_minus_mu[i] = yy[i] - mu[tid[i]]
-        for j in range(i, data_cnt):
+        for j in range(i, <int64_t> data_cnt):
             sub_sigma_y[i * data_cnt + j] = sigma_y[tid[i] * nt + tid[j]]
 
 
-    for j in range(num_pcs):
-        for i in range(data_cnt):
+    for j in range(<int64_t> num_pcs):
+        for i in range(<int64_t> data_cnt):
             sub_lambda_phi[i + j * data_cnt] = lambda_phi[tid[i] * num_pcs + j]
     memcpy(sub_sigma_lambda_phi, sub_lambda_phi, num_pcs * data_cnt * sizeof(floating))
 
@@ -46,7 +46,7 @@ cdef void fpca_ce_score_helper(
     with nogil:
         _posv(108, <int> data_cnt, <int> num_pcs, sub_sigma_y, <int> data_cnt, sub_sigma_lambda_phi, <int> data_cnt, &info)
     if info != 0:
-        for j in range(num_pcs):
+        for j in range(<int64_t> num_pcs):
             xi[j] = NAN
 
     # # perform A * (y - mu) with _gemv: y = alpha * A^T * x + beta * y
@@ -87,13 +87,14 @@ def fpca_ce_score_f64(
     np.ndarray[np.int64_t] unique_sid,
     np.ndarray[np.int64_t] sid_cnt
 ):
-    cdef int64_t i, num_unique_sid = <int64_t> unique_sid.size, num_pcs = <int64_t> lambda_phi.shape[1], nt = <int64_t> mu.size
+    cdef uint64_t num_unique_sid = unique_sid.size, num_pcs = lambda_phi.shape[1], nt = mu.size
     cdef np.ndarray[np.int64_t] sid_cum_cnt = np.cumsum(sid_cnt)
     cdef np.ndarray[np.float64_t, ndim=2] xi = np.zeros((num_unique_sid, num_pcs), order='C', dtype=np.float64)
     cdef list xi_var = []
     cdef vector[np.float64_t*] xi_var_ptrs
     cdef np.ndarray[np.float64_t, ndim=2] temp_xi_var
-    for i in range(num_unique_sid):
+    cdef int64_t i
+    for i in range(<int64_t> num_unique_sid):
         temp_xi_var = np.diag(fpca_lambda)
         xi_var.append(temp_xi_var)
         xi_var_ptrs.push_back(<np.float64_t*> &temp_xi_var.data[0])
@@ -107,8 +108,9 @@ def fpca_ce_score_f64(
     cdef int64_t[:] sid_cum_cnt_view = sid_cum_cnt
     cdef np.float64_t[:, ::1] xi_view = xi
 
-    cdef int64_t idx, data_start_idx, data_cnt
-    for idx in prange(num_unique_sid, nogil=True):
+    cdef uint64_t data_start_idx, data_cnt
+    cdef int64_t idx
+    for idx in prange(<int64_t> num_unique_sid, nogil=True):
         data_start_idx = sid_cum_cnt_view[idx - 1] if idx > 0 else 0
         data_cnt = sid_cum_cnt_view[idx] - data_start_idx
         fpca_ce_score_helper(
@@ -130,13 +132,14 @@ def fpca_ce_score_f32(
     np.ndarray[np.int64_t] unique_sid,
     np.ndarray[np.int64_t] sid_cnt
 ):
-    cdef int64_t i, num_unique_sid = <int64_t> unique_sid.size, num_pcs = <int64_t> lambda_phi.shape[1], nt = <int64_t> mu.size
+    cdef uint64_t num_unique_sid = unique_sid.size, num_pcs = lambda_phi.shape[1], nt = mu.size
     cdef np.ndarray[np.int64_t] sid_cum_cnt = np.cumsum(sid_cnt)
     cdef np.ndarray[np.float32_t, ndim=2] xi = np.zeros((num_unique_sid, num_pcs), order='C', dtype=np.float32)
     cdef list xi_var = []
     cdef vector[np.float32_t*] xi_var_ptrs
     cdef np.ndarray[np.float32_t, ndim=2] temp_xi_var
-    for i in range(num_unique_sid):
+    cdef int64_t i
+    for i in range(<int64_t> num_unique_sid):
         temp_xi_var = np.diag(fpca_lambda)
         xi_var.append(temp_xi_var)
         xi_var_ptrs.push_back(<np.float32_t*> &temp_xi_var.data[0])
@@ -150,8 +153,9 @@ def fpca_ce_score_f32(
     cdef int64_t[:] sid_cum_cnt_view = sid_cum_cnt
     cdef np.float32_t[:, ::1] xi_view = xi
 
-    cdef int64_t idx, data_start_idx, data_cnt
-    for idx in prange(num_unique_sid, nogil=True):
+    cdef uint64_t data_start_idx, data_cnt
+    cdef int64_t idx
+    for idx in prange(<int64_t> num_unique_sid, nogil=True):
         data_start_idx = sid_cum_cnt_view[idx - 1] if idx > 0 else 0
         data_cnt = sid_cum_cnt_view[idx] - data_start_idx
         fpca_ce_score_helper(
