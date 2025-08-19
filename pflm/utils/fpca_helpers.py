@@ -3,12 +3,12 @@
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 import warnings
-from typing import Tuple, List
+from typing import List, Tuple
 
 import numpy as np
 
+from pflm.utils._fpca_score import fpca_ce_score_f32, fpca_ce_score_f64
 from pflm.utils._lapack_helper import _syevd_memview_f32, _syevd_memview_f64
-from pflm.utils._fpca_score import fpca_ce_score_f64, fpca_ce_score_f32
 from pflm.utils.utility import trapz
 
 
@@ -129,8 +129,8 @@ def get_fpca_ce_score(
     fitted_cov: np.ndarray,
     fpca_lambda: np.ndarray,
     fpca_phi: np.ndarray,
-    sigma2: float
-) -> Tuple[np.ndarray, List[np.ndarray]]:
+    sigma2: float,
+) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray]:
     if yy.ndim != 1 or tt.ndim != 1:
         raise ValueError("yy and tt must be 1D arrays.")
     if yy.size != tt.size:
@@ -153,8 +153,8 @@ def get_fpca_ce_score(
     fpca_ce_score_func = fpca_ce_score_f64 if yy.dtype == np.float64 else fpca_ce_score_f32
     lambda_phi = np.ascontiguousarray(fpca_phi @ np.diag(fpca_lambda)).astype(yy.dtype, copy=False)
     xi, xi_var = fpca_ce_score_func(yy, tt, tid, mu, sigma_y, fpca_lambda, lambda_phi, unique_sid, sid_cnt)
-    yhat = mu + fpca_phi @ xi.T
-    return xi, xi_var, yhat
+    fitted_y = mu + fpca_phi @ xi.T
+    return xi, xi_var, fitted_y
 
 
 def estimate_rho(
@@ -167,16 +167,16 @@ def estimate_rho(
     fitted_cov: np.ndarray,
     fpca_lambda: np.ndarray,
     fpca_phi: np.ndarray,
-    sigma2: float
+    sigma2: float,
 ):
-    _, _, yhat = get_fpca_ce_score(yy, tt, tid, sid, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2)
+    _, _, fitted_y = get_fpca_ce_score(yy, tt, tid, sid, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2)
     unique_sid = np.unique(sid, sorted=True)
-    yhat_list = [yhat[tid[sid == i], i] for i in unique_sid]
-    rss = np.mean([np.mean((yhat_i - mu[tid[sid == i]])**2) for i, yhat_i in zip(unique_sid, yhat_list)])
+    fitted_y_list = [fitted_y[tid[sid == i], i] for i in unique_sid]
+    rss = np.mean([np.mean((fitted_y_i - mu[tid[sid == i]]) ** 2) for i, fitted_y_i in zip(unique_sid, fitted_y_list)])
 
     obs_grid = np.unique(tt, sorted=True)
     total_fpca_lambda = np.sum(fpca_lambda)
-    if method_rho == 'ridge':
+    if method_rho == "ridge":
         r = np.sqrt((trapz(obs_grid, mu**2) + total_fpca_lambda) / (obs_grid[-1] - obs_grid[0]))
         rho_candidates = np.exp(np.linspace(-13, -1.5, 50, dtype=yy.dtype)) * r
     else:
@@ -193,4 +193,4 @@ def estimate_rho(
 
 
 def get_fpca_in_score():
-    return np.array([]), np.array([])
+    return np.array([]), [], np.array([])

@@ -4,11 +4,9 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from pflm.utils.utility import flatten_and_sort_data_matrices
 from pflm.utils.covariance_utils import get_covariance_matrix, get_raw_cov
-from pflm.utils.fpca_helpers import (estimate_rho, get_eigen_analysis_results, get_fpca_phi,
-                                     select_num_pcs_fve, get_fpca_ce_score)
-from pflm.utils.utility import trapz
+from pflm.utils.fpca_helpers import estimate_rho, get_eigen_analysis_results, get_fpca_ce_score, get_fpca_phi, select_num_pcs_fve
+from pflm.utils.utility import flatten_and_sort_data_matrices, trapz
 
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32])
@@ -252,7 +250,9 @@ def test_get_fpca_ce_score_fpca_phi_shape_mismatch():
         get_fpca_ce_score(yy, tt, tid, sid, mu, fitted_cov, fpca_lambda, bad_phi, sigma2)
 
 
-@pytest.mark.parametrize("method_rho, dtype", [('ridge', np.float64), ('ridge', np.float32), ('truncated', np.float64), ('truncated', np.float32)])
+@pytest.mark.parametrize(
+    "method_rho, dtype", [("ridge", np.float64), ("ridge", np.float32), ("truncated", np.float64), ("truncated", np.float32)]
+)
 def test_estimate_rho_happy_path(method_rho, dtype):
     y = [np.array([1.0, 2.0, 2.0], dtype=dtype), np.array([3.0, 4.0], dtype=dtype), np.array([4.0, 5.0], dtype=dtype)]
     t = [np.array([0.1, 0.2, 0.3], dtype=dtype), np.array([0.2, 0.3], dtype=dtype), np.array([0.1, 0.3], dtype=dtype)]
@@ -277,5 +277,5 @@ def test_estimate_rho_happy_path(method_rho, dtype):
     assert rho_scores.size == 50
     assert rho_scores.dtype == dtype
     assert np.issubdtype(rho_estimate.dtype, np.floating)
-    rho_expected = {'truncated': 2.640398194116153, 'ridge': 1.2621163260376023e-05}.get(method_rho, 0.0)
+    rho_expected = {"truncated": 2.640398194116153, "ridge": 1.2621163260376023e-05}.get(method_rho, 0.0)
     assert np.allclose(rho_estimate, rho_expected, rtol=1e-5, atol=1e-5)

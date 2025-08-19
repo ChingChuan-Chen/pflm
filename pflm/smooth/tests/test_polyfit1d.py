@@ -694,8 +694,6 @@ def test_polyfit1d_polyfit_predict_fail(monkeypatch):
     model = Polyfit1DModel(random_seed=100)
     model.fit(x, y, sample_weight=w, reg_grid=x_new)
 
-    import pflm.smooth.polyfit_model as pm
-
     def fake_polyfit1d(x, y, w, x_new, bandwidth, kernel_type, degree, deriv):
         raise ValueError("Error during polynomial fitting")
 

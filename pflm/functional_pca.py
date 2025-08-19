@@ -18,9 +18,9 @@ from pflm.utils import (
     flatten_and_sort_data_matrices,
     get_covariance_matrix,
     get_eigen_analysis_results,
-    get_fpca_phi,
     get_fpca_ce_score,
     get_fpca_in_score,
+    get_fpca_phi,
     get_measurement_error_variance,
     get_raw_cov,
     select_num_pcs_fve,
@@ -514,17 +514,17 @@ class FunctionalPCA(BaseEstimator):
             if not use_user_cov:
                 np.fill_diagonal(self.obs_cov_, self.obs_cov_.diagonal() - self.sigma2_)
 
-        self.xi_, self.xi_var_ = self.fit_score(
+        self.xi_, self.xi_var_, self.fitted_y_ = self.fit_score(
             self.method_pcs_, self.method_select_num_pcs_, self.max_num_pcs_, self.impute_scores_, self.fit_eigen_values_, self.fve_threshold_
         )
         return self
 
     def fitted_values(self) -> List[np.ndarray]:
-        check_is_fitted(self, ["fpca_eigen_results_", "xi_", "xi_var_"])
-        return np.array([])
+        check_is_fitted(self, ["fpca_eigen_results_", "xi_", "xi_var_", "fitted_y_"])
+        return self.fitted_y_
 
     def predict(self, t: List[Union[np.ndarray, List[float]]]) -> List[np.ndarray]:
-        check_is_fitted(self, ["fpca_eigen_results_", "xi_", "xi_var_"])
+        check_is_fitted(self, ["fpca_eigen_results_", "xi_", "xi_var_", "fitted_y"])
         return np.array([])
 
     def fit_score(
@@ -553,9 +553,9 @@ class FunctionalPCA(BaseEstimator):
         method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, optional
             Method to select the number of principal components. If empty, it will be determined based on the explained variance.
             If an integer is provided, it specifies the number of principal components to use.
-        method_rho : {'truncated', 'ridge'}, default='truncated'
+        method_rho : {'truncated', 'ridge', 'vanilla'}, default='vanilla'
             Method to estimate the regularization factor which is added to diagonal of covariance surface in estimating principal component
-            scores. 'truncated' is using truncation of sigma2, 'ridge' is using rho as a ridge parameter.
+            scores. 'truncated' is using truncation of sigma2, 'ridge' is using rho as a ridge parameter, 'vanilla' is using vanilla approach.
         max_num_pcs : int, optional
             Maximum number of principal components to consider. If None, it will be set to the minimum of
             (number of samples - 2, number of points in reg_grid - 2).
@@ -604,24 +604,28 @@ class FunctionalPCA(BaseEstimator):
             self.fpca_phi_obs_[:, i] = interp1d(self.reg_grid_, self.fpca_phi_reg_[:, i], self.obs_grid_, method="spline")
         self.fitted_cov_obs_ = interp2d(self.reg_grid_, self.reg_grid_, self.fitted_cov_reg_, self.obs_grid_, self.obs_grid_, method="spline")
 
+        self.sigma2_origin_ = self.sigma2_
         if impute_scores:
             if method_pcs == "CE":
-                if self.user_params.rho is not None:
-                    self.rho_ = self.user_params.rho
-                else:
-                    self.rho_ = estimate_rho(
-                        method_rho,
-                        self.yy_,
-                        self.tt_,
-                        self.tid_,
-                        self.sid_,
-                        self.obs_mu_,
-                        self.fitted_cov_obs_,
-                        self.fpca_lambda_,
-                        self.fpca_phi_obs_,
-                        self.sigma2_
-                    )
-                self.xi_, self.xi_var_ = get_fpca_ce_score(
+                if method_rho != "vanilla":
+                    if self.user_params.rho is not None:
+                        self.rho_ = self.user_params.rho
+                    else:
+                        self.rho_, self.rho_candidates, self.rho_scores_ = estimate_rho(
+                            method_rho,
+                            self.yy_,
+                            self.tt_,
+                            self.tid_,
+                            self.sid_,
+                            self.obs_mu_,
+                            self.fitted_cov_obs_,
+                            self.fpca_lambda_,
+                            self.fpca_phi_obs_,
+                            self.sigma2_,
+                        )
+                    self.sigma2_ = self.rho_
+
+                self.xi_, self.xi_var_, self.fitted_y_ = get_fpca_ce_score(
                     self.yy_,
                     self.tt_,
                     self.tid_,
@@ -630,12 +634,12 @@ class FunctionalPCA(BaseEstimator):
                     self.fitted_cov_obs_,
                     self.fpca_lambda_,
                     self.fpca_phi_obs_,
-                    self.sigma2_
+                    self.sigma2_,
                 )
             elif method_pcs == "IN":
-                self.xi_, self.xi_var_ = get_fpca_in_score()
+                self.xi_, self.xi_var_, self.fitted_y_ = get_fpca_in_score()
 
         if fit_eigen_values:
             self.fit_eigen_values_ = np.zeros(self.num_pcs, dtype=self._input_dtype)
 
-        return self.xi_, self.xi_var_
+        return self.xi_, self.xi_var_, self.fitted_y_
