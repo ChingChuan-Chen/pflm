@@ -553,9 +553,9 @@ class FunctionalPCA(BaseEstimator):
         method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, optional
             Method to select the number of principal components. If empty, it will be determined based on the explained variance.
             If an integer is provided, it specifies the number of principal components to use.
-        method_rho : {'trunc', 'ridge', 'vanilla'}, default='vanilla'
+        method_rho : {'truncated', 'ridge'}, default='truncated'
             Method to estimate the regularization factor which is added to diagonal of covariance surface in estimating principal component
-            scores. 'trunc' is using truncation of sigma2, 'ridge' is using rho as a ridge parameter, 'vanilla' is vanilla approach.
+            scores. 'truncated' is using truncation of sigma2, 'ridge' is using rho as a ridge parameter.
         max_num_pcs : int, optional
             Maximum number of principal components to consider. If None, it will be set to the minimum of
             (number of samples - 2, number of points in reg_grid - 2).
@@ -609,7 +609,18 @@ class FunctionalPCA(BaseEstimator):
                 if self.user_params.rho is not None:
                     self.rho_ = self.user_params.rho
                 else:
-                    self.rho_ = estimate_rho()
+                    self.rho_ = estimate_rho(
+                        method_rho,
+                        self.yy_,
+                        self.tt_,
+                        self.tid_,
+                        self.sid_,
+                        self.obs_mu_,
+                        self.fitted_cov_obs_,
+                        self.fpca_lambda_,
+                        self.fpca_phi_obs_,
+                        self.sigma2_
+                    )
                 self.xi_, self.xi_var_ = get_fpca_ce_score(
                     self.yy_,
                     self.tt_,

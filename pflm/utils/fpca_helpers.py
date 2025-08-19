@@ -153,11 +153,43 @@ def get_fpca_ce_score(
     fpca_ce_score_func = fpca_ce_score_f64 if yy.dtype == np.float64 else fpca_ce_score_f32
     lambda_phi = np.ascontiguousarray(fpca_phi @ np.diag(fpca_lambda)).astype(yy.dtype, copy=False)
     xi, xi_var = fpca_ce_score_func(yy, tt, tid, mu, sigma_y, fpca_lambda, lambda_phi, unique_sid, sid_cnt)
-    return xi, xi_var
+    yhat = mu + fpca_phi @ xi.T
+    return xi, xi_var, yhat
 
 
-def estimate_rho():
-    return 0.0
+def estimate_rho(
+    method_rho: str,
+    yy: np.ndarray,
+    tt: np.ndarray,
+    tid: np.ndarray,
+    sid: np.ndarray,
+    mu: np.ndarray,
+    fitted_cov: np.ndarray,
+    fpca_lambda: np.ndarray,
+    fpca_phi: np.ndarray,
+    sigma2: float
+):
+    _, _, yhat = get_fpca_ce_score(yy, tt, tid, sid, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2)
+    unique_sid = np.unique(sid, sorted=True)
+    yhat_list = [yhat[tid[sid == i], i] for i in unique_sid]
+    rss = np.mean([np.mean((yhat_i - mu[tid[sid == i]])**2) for i, yhat_i in zip(unique_sid, yhat_list)])
+
+    obs_grid = np.unique(tt, sorted=True)
+    total_fpca_lambda = np.sum(fpca_lambda)
+    if method_rho == 'ridge':
+        r = np.sqrt((trapz(obs_grid, mu**2) + total_fpca_lambda) / (obs_grid[-1] - obs_grid[0]))
+        rho_candidates = np.exp(np.linspace(-13, -1.5, 50, dtype=yy.dtype)) * r
+    else:
+        rho_candidates = np.linspace(1, 10, 50, dtype=yy.dtype) * rss
+
+    num_pcs = fpca_lambda.size
+    rho_scores = np.zeros(len(rho_candidates), dtype=yy.dtype)
+    for idx, rho in enumerate(rho_candidates):
+        xi, _, _ = get_fpca_ce_score(yy, tt, tid, sid, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2=rho)
+        fitted_y = mu + xi[:, :num_pcs] @ fpca_phi[:, :num_pcs].T
+        var_y = np.var(fitted_y, axis=0)
+        rho_scores[idx] = (total_fpca_lambda - trapz(obs_grid, var_y)) ** 2
+    return rho_candidates[np.argmin(rho_scores)], rho_candidates, rho_scores
 
 
 def get_fpca_in_score():

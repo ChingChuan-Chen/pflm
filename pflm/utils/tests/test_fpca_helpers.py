@@ -6,7 +6,7 @@ from numpy.testing import assert_allclose
 
 from pflm.utils.utility import flatten_and_sort_data_matrices
 from pflm.utils.covariance_utils import get_covariance_matrix, get_raw_cov
-from pflm.utils.fpca_helpers import (get_eigen_analysis_results, get_fpca_phi,
+from pflm.utils.fpca_helpers import (estimate_rho, get_eigen_analysis_results, get_fpca_phi,
                                      select_num_pcs_fve, get_fpca_ce_score)
 from pflm.utils.utility import trapz
 
@@ -167,7 +167,7 @@ def test_fpca_ce_score_happy_path(dtype):
     fitted_cov = fpca_phi @ lambda_phi.T
     sigma2 = 0.3
 
-    xi, xi_var = get_fpca_ce_score(yy, tt, tid, sid, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2)
+    xi, xi_var, yhat = get_fpca_ce_score(yy, tt, tid, sid, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2)
     sigma_y = fitted_cov + np.eye(fitted_cov.shape[0]) * sigma2
 
     xi_expected = np.zeros((3, num_pcs), dtype=dtype)
@@ -178,12 +178,15 @@ def test_fpca_ce_score_happy_path(dtype):
         xi_expected[i] = sigma_lambda_phi.T @ (yi - mu[tid_mask])
         xi_var_expected.append(lambda_mat - lambda_phi[tid_mask, :].T @ sigma_lambda_phi)
 
-    assert xi.shape == (3, 2)
+    assert xi.shape == (len(y), num_pcs)
     assert_allclose(xi, xi_expected, rtol=1e-5, atol=1e-5)
-    assert len(xi_var) == 3
+    assert len(xi_var) == len(y)
     for i in range(len(y)):
         assert xi_var[i].shape == (num_pcs, num_pcs)
         assert_allclose(xi_var[i], xi_var_expected[i], rtol=1e-5, atol=1e-5)
+    assert yhat.shape == (mu.size, len(y))
+    yhat_expected = mu + fpca_phi @ xi.T
+    assert_allclose(yhat, yhat_expected, rtol=1e-5, atol=1e-5)
 
 
 def _valid_fpca_ce_inputs():
@@ -247,3 +250,32 @@ def test_get_fpca_ce_score_fpca_phi_shape_mismatch():
     bad_phi = np.array([[0.8, 0.1], [0.6, 0.2]])  # shape (2,2) but num_pcs = 1
     with pytest.raises(ValueError, match="fpca_phi must have shape"):
         get_fpca_ce_score(yy, tt, tid, sid, mu, fitted_cov, fpca_lambda, bad_phi, sigma2)
+
+
+@pytest.mark.parametrize("method_rho, dtype", [('ridge', np.float64), ('ridge', np.float32), ('truncated', np.float64), ('truncated', np.float32)])
+def test_estimate_rho_happy_path(method_rho, dtype):
+    y = [np.array([1.0, 2.0, 2.0], dtype=dtype), np.array([3.0, 4.0], dtype=dtype), np.array([4.0, 5.0], dtype=dtype)]
+    t = [np.array([0.1, 0.2, 0.3], dtype=dtype), np.array([0.2, 0.3], dtype=dtype), np.array([0.1, 0.3], dtype=dtype)]
+    w = np.array([1.0, 2.0, 2.0], dtype=dtype)
+    yy, tt, ww, sid = flatten_and_sort_data_matrices(y, t, dtype, w)
+    obs_grid = np.unique(tt, sorted=True)
+    tid = np.digitize(tt, obs_grid, right=True)
+    mu = (np.bincount(tid, yy) / np.bincount(tid)).astype(dtype, copy=False)
+    raw_cov = get_raw_cov(yy, tt, ww, mu, tid, sid)
+    obs_cov = get_covariance_matrix(raw_cov, obs_grid)
+    with pytest.warns(UserWarning, match="Eigenvalues contain NaN or negative values."):
+        eig_lambda, eig_vector = get_eigen_analysis_results(obs_cov)
+    num_pcs = 2
+    fpca_lambda, fpca_phi = get_fpca_phi(num_pcs, obs_grid, mu, eig_lambda, eig_vector)
+    lambda_phi = fpca_phi @ np.diag(fpca_lambda)
+    fitted_cov = fpca_phi @ lambda_phi.T
+    sigma2 = 0.3
+
+    rho_estimate, rho_candidates, rho_scores = estimate_rho(method_rho, yy, tt, tid, sid, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2)
+    assert rho_candidates.size == 50
+    assert rho_candidates.dtype == dtype
+    assert rho_scores.size == 50
+    assert rho_scores.dtype == dtype
+    assert np.issubdtype(rho_estimate.dtype, np.floating)
+    rho_expected = {'truncated': 2.640398194116153, 'ridge': 1.2621163260376023e-05}.get(method_rho, 0.0)
+    assert np.allclose(rho_estimate, rho_expected, rtol=1e-5, atol=1e-5)
