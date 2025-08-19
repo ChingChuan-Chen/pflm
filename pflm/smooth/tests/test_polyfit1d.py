@@ -672,3 +672,48 @@ def test_polyfit1d_unable_generate_bandwidth_candidates():
     model = Polyfit1DModel(random_seed=100)
     with pytest.raises(ValueError, match="Not enough unique support points"):
         model.fit(x, y, sample_weight=w, reg_grid=x)
+
+
+def test_polyfit1d_polyfit_fail(monkeypatch):
+    x, y, w, x_new = make_test_inputs()
+    model = Polyfit1DModel(random_seed=100)
+
+    import pflm.smooth.polyfit_model as pm
+
+    def fake_polyfit1d(x, y, w, x_new, bandwidth, kernel_type, degree, deriv):
+        raise ValueError("Error during polynomial fitting")
+
+    monkeypatch.setattr(pm, "polyfit1d_f32", fake_polyfit1d, raising=True)
+    monkeypatch.setattr(pm, "polyfit1d_f64", fake_polyfit1d, raising=True)
+    with pytest.raises(ValueError, match="Error in polyfit1d"):
+        model.fit(x, y, sample_weight=w, bandwidth=0.5, reg_grid=x_new)
+
+
+def test_polyfit1d_polyfit_predict_fail(monkeypatch):
+    x, y, w, x_new = make_test_inputs()
+    model = Polyfit1DModel(random_seed=100)
+    model.fit(x, y, sample_weight=w, reg_grid=x_new)
+
+    import pflm.smooth.polyfit_model as pm
+
+    def fake_polyfit1d(x, y, w, x_new, bandwidth, kernel_type, degree, deriv):
+        raise ValueError("Error during polynomial fitting")
+
+    monkeypatch.setattr(model, "_polyfit1d_func", fake_polyfit1d, raising=True)
+    with pytest.raises(ValueError, match="Error during polynomial fitting"):
+        model.predict(x_new, use_model_interp=False)
+
+
+def test_polyfit1d_predict_interp_fail(monkeypatch):
+    x, y, w, x_new = make_test_inputs()
+    model = Polyfit1DModel(random_seed=100)
+    model.fit(x, y, sample_weight=w, reg_grid=x_new)
+
+    import pflm.smooth.polyfit_model as pm
+
+    def fake_interp1d(x, y, x_new, method):
+        raise ValueError("Error during interpolation")
+
+    monkeypatch.setattr(pm, "interp1d", fake_interp1d, raising=True)
+    with pytest.raises(ValueError, match="Error during interpolation"):
+        model.predict(x_new, use_model_interp=True)

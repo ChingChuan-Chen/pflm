@@ -822,3 +822,48 @@ def test_polyfit2d_bandwidth_selection_2dim(same_bandwidth_for_2dim: bool) -> No
     assert hasattr(model, "bandwidth1_"), "bandwidth1_ should be set after fitting"
     assert hasattr(model, "bandwidth2_"), "bandwidth2_ should be set after fitting"
     assert hasattr(model, "bandwidth_selection_results_"), "bandwidth_selection_results_ should be set after fitting"
+
+
+def test_polyfit2d_polyfit_fail(monkeypatch):
+    X, y, w, x_new1, x_new2 = make_test_inputs_2d()
+    model = Polyfit2DModel(random_seed=100)
+
+    import pflm.smooth.polyfit_model as pm
+
+    def fake_polyfit2d(x_grid, y, w, x_new1, x_new2, bandwidth1, bandwidth2, kernel_type, degree, deriv1, deriv2):
+        raise ValueError("Error during polynomial fitting")
+
+    monkeypatch.setattr(pm, "polyfit2d_f32", fake_polyfit2d, raising=True)
+    monkeypatch.setattr(pm, "polyfit2d_f64", fake_polyfit2d, raising=True)
+    with pytest.raises(ValueError, match="Error in polyfit2d"):
+        model.fit(X, y, sample_weight=w, bandwidth1=0.5, bandwidth2=0.5, reg_grid1=x_new1, reg_grid2=x_new2)
+
+
+def test_polyfit2d_polyfit_predict_fail(monkeypatch):
+    X, y, w, x_new1, x_new2 = make_test_inputs_2d()
+    model = Polyfit2DModel(random_seed=100)
+    model.fit(X, y, sample_weight=w, reg_grid1=x_new1, reg_grid2=x_new2)
+
+    import pflm.smooth.polyfit_model as pm
+
+    def fake_polyfit2d(x_grid, y, w, x_new1, x_new2, bandwidth1, bandwidth2, kernel_type, degree, deriv1, deriv2):
+        raise ValueError("Error during polynomial fitting")
+
+    monkeypatch.setattr(model, "_polyfit2d_func", fake_polyfit2d, raising=True)
+    with pytest.raises(ValueError, match="Error during polynomial fitting"):
+        model.predict(x_new1, x_new2, use_model_interp=False)
+
+
+def test_polyfit2d_predict_interp_fail(monkeypatch):
+    X, y, w, x_new1, x_new2 = make_test_inputs_2d()
+    model = Polyfit2DModel(random_seed=100)
+    model.fit(X, y, sample_weight=w, reg_grid1=x_new1, reg_grid2=x_new2)
+
+    import pflm.smooth.polyfit_model as pm
+
+    def fake_interp2d(x, y, z, grid_x, grid_y, method):
+        raise ValueError("Error during interpolation")
+
+    monkeypatch.setattr(pm, "interp2d", fake_interp2d, raising=True)
+    with pytest.raises(ValueError, match="Error during interpolation"):
+        model.predict(x_new1, x_new2, use_model_interp=True)
