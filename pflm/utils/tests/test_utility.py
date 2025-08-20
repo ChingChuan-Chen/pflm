@@ -2,51 +2,67 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from pflm.utils import flatten_and_sort_data_matrices
+from pflm.utils import flatten_and_sort_data_matrices, FlattenFunctionalData
 
 
-def test_flatten_and_sort_data_matrices_happy_path():
-    y = [np.array([1.0, 2.0]), np.array([3.0])]
-    t = [np.array([0.1, 0.2]), np.array([0.15])]
-    w = np.array([1.0, 2.0])
-    yy, tt, ww, sid = flatten_and_sort_data_matrices(y, t, np.float64, w)
+@pytest.mark.parametrize("dtype", [np.float64, np.float32])
+def test_flatten_and_sort_data_matrices_happy_path(dtype):
+    y = [np.array([1.0, 2.0, 2.0], dtype=dtype), np.array([3.0, 4.0], dtype=dtype), np.array([4.0, 5.0], dtype=dtype)]
+    t = [np.array([0.1, 0.2, 0.3], dtype=dtype), np.array([0.2, 0.3], dtype=dtype), np.array([0.1, 0.3], dtype=dtype)]
+    w = np.array([1.0, 2.0, 2.0], dtype=dtype)
+    ffd = flatten_and_sort_data_matrices(y, t, dtype, w)
+
     # check shapes
-    assert yy.shape == (3,)
-    assert tt.shape == (3,)
-    assert ww.shape == (3,)
-    assert sid.shape == (3,)
+    assert ffd.y.shape == (7,)
+    assert ffd.t.shape == (7,)
+    assert ffd.w.shape == (7,)
+    assert ffd.sid.shape == (7,)
+    assert ffd.unique_tid.shape == (3,)
+    assert ffd.inverse_tid_idx.shape == (7,)
+    assert ffd.unique_sid.shape == (3,)
+    assert ffd.sid_cnt.shape == (3,)
+
     # check types
-    assert isinstance(yy, np.ndarray)
-    assert isinstance(tt, np.ndarray)
-    assert isinstance(ww, np.ndarray)
-    assert isinstance(sid, np.ndarray)
+    assert isinstance(ffd.y, np.ndarray)
+    assert isinstance(ffd.t, np.ndarray)
+    assert isinstance(ffd.w, np.ndarray)
+    assert isinstance(ffd.sid, np.ndarray)
+    assert isinstance(ffd.unique_tid, np.ndarray)
+    assert isinstance(ffd.inverse_tid_idx, np.ndarray)
+    assert isinstance(ffd.unique_sid, np.ndarray)
+    assert isinstance(ffd.sid_cnt, np.ndarray)
+
     # check sid correspondence
-    assert set(sid) == {0, 1}
+    assert set(ffd.sid) == {0, 1, 2}
+    assert_allclose(ffd.unique_tid, np.array([0.1, 0.2, 0.3]))
+    assert_allclose(ffd.inverse_tid_idx, np.array([0, 1, 2, 1, 2, 0, 2]))
+    assert_allclose(ffd.unique_sid, np.array([0, 1, 2]))
+    assert_allclose(ffd.sid_cnt, np.array([3, 2, 2]))
 
 
 def test_flatten_and_sort_data_matrices_default_weights():
     y = [np.array([1.0, 2.0]), np.array([3.0])]
     t = [np.array([0.1, 0.2]), np.array([0.15])]
-    yy, tt, ww, sid = flatten_and_sort_data_matrices(y, t)
-    assert_allclose(ww, [1.0, 1.0, 1.0])
+    ffd = flatten_and_sort_data_matrices(y, t)
+    assert_allclose(ffd.w, [1.0, 1.0, 1.0])
 
 
 def test_flatten_and_sort_data_matrices_empty_sample():
     y = [np.array([]), np.array([3.0])]
     t = [np.array([]), np.array([0.15])]
-    sid, yy, tt, ww = flatten_and_sort_data_matrices(y, t)
-    assert len(sid) == 1
-    assert len(yy) == 1
-    assert len(tt) == 1
-    assert len(ww) == 1
+    ffd = flatten_and_sort_data_matrices(y, t)
+    assert len(ffd.sid) == 1
+    assert len(ffd.y) == 1
+    assert len(ffd.t) == 1
+    assert len(ffd.w) == 1
 
 
 def test_flatten_and_sort_data_matrices_nan_handling():
     y = [np.array([1.0, np.nan]), np.array([3.0])]
     t = [np.array([0.1, 0.2]), np.array([0.15])]
-    yy, tt, ww, sid = flatten_and_sort_data_matrices(y, t)
+    ffd = flatten_and_sort_data_matrices(y, t)
     # should only include non-NaN values
-    assert np.all(~np.isnan(yy))
+    assert np.all(~np.isnan(ffd.y))
 
 
 def test_flatten_and_sort_data_matrices_all_nan():

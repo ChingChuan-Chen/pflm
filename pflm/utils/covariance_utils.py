@@ -9,10 +9,10 @@ from sklearn.utils.validation import check_array
 from pflm.smooth import KernelType, Polyfit1DModel
 from pflm.utils._raw_cov import get_raw_cov_f32, get_raw_cov_f64
 from pflm.utils._rotate_polyfit2d import rotate_polyfit2d_f32, rotate_polyfit2d_f64
-from pflm.utils.utility import trapz
+from pflm.utils.utility import trapz, FlattenFunctionalData
 
 
-def get_raw_cov(yy: np.ndarray, tt: np.ndarray, ww: np.ndarray, mu: np.ndarray, tid: np.ndarray, sid: np.ndarray) -> np.ndarray:
+def get_raw_cov(flatten_func_data: FlattenFunctionalData, mu: np.ndarray) -> np.ndarray:
     """
     Get the dense covariance matrix from the flattened data matrices.
 
@@ -24,42 +24,28 @@ def get_raw_cov(yy: np.ndarray, tt: np.ndarray, ww: np.ndarray, mu: np.ndarray, 
 
     Parameters
     ----------
-    yy : np.ndarray
-        Flattened response values without NaNs.
-    tt : np.ndarray
-        Corresponding time points to `yy`.
-    ww : np.ndarray
-        Weights corresponding to `yy`.
+    flatten_func_data : FlattenFunctionalData
+        Flattened functional data containing response values, time points, and weights.
     mu : np.ndarray
         Mean function values at the observation grid.
-    tid : np.ndarray
-        Time indices corresponding to `tt`.
-    sid : np.ndarray
-        Sample indices corresponding to `yy`.
 
     Returns
     -------
-    np.ndarray
+    raw_cov : np.ndarray
         The raw covariance matrix with columns representing (sid, t1, t2, w, cov).
         The shape is (num_pairs, 5), where num_pairs is the number of unique pairs of samples.
     """
-    if yy.ndim != 1 or tt.ndim != 1 or ww.ndim != 1:
-        raise ValueError("yy, tt, and ww must be 1D arrays.")
-    if yy.size != tt.size or yy.size != ww.size:
-        raise ValueError("yy, tt, and ww must have the same length.")
-    unique_tid = np.unique(tid)
-    if unique_tid.size != mu.size:
-        raise ValueError("The length of mu must match the number of unique time indices in tid.")
-    if sid.ndim != 1 or sid.size != yy.size:
-        raise ValueError("sid must be a 1D array with the same length as yy.")
-    if np.any(np.diff(sid) < 0):
-        raise ValueError("The sample indices, sid, must be sorted in ascending order.")
-    unique_sid, sid_cnt = np.unique(sid, return_counts=True, sorted=True)
-    if np.any(sid_cnt < 2):
-        raise ValueError("Each sample must have at least two observations for covariance calculation.")
+    nt = flatten_func_data.unique_tid.size
+    if mu.size != nt:
+        raise ValueError("The length of mu must match the number of unique time indices.")
 
-    get_raw_cov_func = get_raw_cov_f64 if yy.dtype == np.float64 else get_raw_cov_f32
-    return get_raw_cov_func(yy, tt, ww, mu, tid, unique_sid, sid_cnt)
+    input_dtype = flatten_func_data.y.dtype
+    get_raw_cov_func = get_raw_cov_f64 if input_dtype == np.float64 else get_raw_cov_f32
+    raw_cov = get_raw_cov_func(
+        flatten_func_data.y, flatten_func_data.t, flatten_func_data.w,
+        mu, flatten_func_data.tid, flatten_func_data.unique_sid, flatten_func_data.sid_cnt
+    )
+    return raw_cov
 
 
 def get_covariance_matrix(raw_cov: np.ndarray, obs_grid: np.ndarray) -> np.ndarray:

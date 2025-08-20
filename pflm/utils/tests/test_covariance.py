@@ -5,19 +5,24 @@ from numpy.testing import assert_allclose
 from pflm.utils import flatten_and_sort_data_matrices, get_covariance_matrix, get_raw_cov
 
 
-@pytest.mark.parametrize("dtype", [np.float64, np.float32])
-def test_get_raw_cov_happy_path(dtype):
+def _build_flatten_data(dtype):
     y = [np.array([1.0, 2.0, 2.0], dtype=dtype), np.array([3.0, 4.0], dtype=dtype), np.array([4.0, 5.0], dtype=dtype)]
     t = [np.array([0.1, 0.2, 0.3], dtype=dtype), np.array([0.2, 0.3], dtype=dtype), np.array([0.1, 0.3], dtype=dtype)]
     w = np.array([1.0, 2.0, 2.0], dtype=dtype)
-    yy, tt, ww, sid = flatten_and_sort_data_matrices(y, t, dtype, w)
-    obs_grid = np.unique(tt, sorted=True)
-    tid = np.digitize(tt, obs_grid, right=True)
-    mu = (np.bincount(tid, yy) / np.bincount(tid)).astype(dtype, copy=False)
-    raw_cov = get_raw_cov(yy, tt, ww, mu, tid, sid)
+    ffd = flatten_and_sort_data_matrices(y, t, dtype, w)
+    mu = (np.bincount(ffd.tid, ffd.y) / np.bincount(ffd.tid)).astype(dtype, copy=False)
+    return ffd, mu
 
-    unique_sid, sid_cnt = np.unique(sid, return_counts=True, sorted=True)
-    expected_num_pairs = np.sum(sid_cnt * (sid_cnt + 1) // 2)
+
+@pytest.mark.parametrize("dtype", [np.float64, np.float32])
+def test_get_raw_cov_happy_path(dtype):
+    ffd, mu = _build_flatten_data(dtype)
+    mu = (np.bincount(ffd.tid, ffd.y) / np.bincount(ffd.tid)).astype(dtype, copy=False)
+    print(mu)
+    print(ffd.tid)
+    print(ffd.sid)
+    raw_cov = get_raw_cov(ffd, mu)
+    expected_num_pairs = np.sum(ffd.sid_cnt * (ffd.sid_cnt + 1) // 2)
 
     # check shape
     assert raw_cov.shape[0] == expected_num_pairs
@@ -48,28 +53,10 @@ def test_get_raw_cov_happy_path(dtype):
 
 
 def test_get_raw_cov_wrong_shape():
-    # prepare simple data
-    y = [np.array([1.0, 2.0]), np.array([3.0])]
-    t = [np.array([0.1, 0.2]), np.array([0.15])]
-    w = np.array([1.0, 2.0])
-    yy, tt, ww, sid = flatten_and_sort_data_matrices(y, t, np.float64, w)
-    obs_grid = np.unique(tt)
-    tid = np.digitize(tt, obs_grid, right=True)
-    mu = (np.bincount(tid, yy) / np.bincount(tid)).astype(np.float64, copy=False)
-    with pytest.raises(ValueError, match="yy, tt, and ww must be 1D arrays."):
-        get_raw_cov(yy.reshape((3, 1)), tt, ww, mu, tid, sid)
-    with pytest.raises(ValueError, match="yy, tt, and ww must have the same length."):
-        get_raw_cov(yy[:-1], tt, ww, mu, tid, sid)
-    with pytest.raises(ValueError, match="yy, tt, and ww must have the same length."):
-        get_raw_cov(yy, tt, ww[:-1], mu, tid, sid)
-    with pytest.raises(ValueError, match="The length of mu must match the number of unique time indices in tid."):
-        get_raw_cov(yy, tt, ww, mu[:-1], tid, sid)
-    with pytest.raises(ValueError, match="sid must be a 1D array with the same length as yy."):
-        get_raw_cov(yy, tt, ww, mu, tid, sid[:-1])
-    with pytest.raises(ValueError, match="The sample indices, sid, must be sorted in ascending order."):
-        get_raw_cov(yy, tt, ww, mu, tid, np.array([0, 1, 0]))
-    with pytest.raises(ValueError, match="Each sample must have at least two observations for covariance calculation."):
-        get_raw_cov(yy, tt, ww, mu, tid, sid)
+    ffd, mu = _build_flatten_data(np.float64)
+    mu = (np.bincount(ffd.tid, ffd.y) / np.bincount(ffd.tid)).astype(np.float64, copy=False)
+    with pytest.raises(ValueError, match="The length of mu must match the number of unique time indices"):
+        get_raw_cov(ffd, mu[:-1])
 
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32])

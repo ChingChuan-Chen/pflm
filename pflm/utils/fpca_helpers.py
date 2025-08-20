@@ -9,8 +9,7 @@ import numpy as np
 
 from pflm.utils._fpca_score import fpca_ce_score_f32, fpca_ce_score_f64
 from pflm.utils._lapack_helper import _syevd_memview_f32, _syevd_memview_f64
-from pflm.utils.fpca_result_class import FlattenFunctionalData
-from pflm.utils.utility import trapz
+from pflm.utils.utility import trapz, FlattenFunctionalData
 
 
 def get_eigen_analysis_results(reg_cov: np.ndarray, is_upper_triangular: bool = False) -> Tuple[np.ndarray, np.ndarray]:

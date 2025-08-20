@@ -12,8 +12,7 @@ from pflm.utils.fpca_helpers import (
     get_fpca_phi,
     select_num_pcs_fve,
 )
-from pflm.utils.fpca_result_class import FlattenFunctionalData
-from pflm.utils.utility import flatten_and_sort_data_matrices, trapz
+from pflm.utils.utility import flatten_and_sort_data_matrices, FlattenFunctionalData, trapz
 
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32])
@@ -147,8 +146,7 @@ def _build_flatten_data(dtype):
     y = [np.array([1.0, 2.0, 2.0], dtype=dtype), np.array([3.0, 4.0], dtype=dtype), np.array([4.0, 5.0], dtype=dtype)]
     t = [np.array([0.1, 0.2, 0.3], dtype=dtype), np.array([0.2, 0.3], dtype=dtype), np.array([0.1, 0.3], dtype=dtype)]
     w = np.array([1.0, 2.0, 2.0], dtype=dtype)
-    yy, tt, ww, sid = flatten_and_sort_data_matrices(y, t, dtype, w)
-    ffd = FlattenFunctionalData(yy, tt, ww, sid)
+    ffd = flatten_and_sort_data_matrices(y, t, dtype, w)
     mu = (np.bincount(ffd.tid, ffd.y) / np.bincount(ffd.tid)).astype(dtype, copy=False)
     return ffd, mu
 
@@ -157,7 +155,7 @@ def _build_flatten_data(dtype):
 def test_fpca_ce_score_happy_path(dtype):
     ffd, mu = _build_flatten_data(dtype)
     num_samples = len(ffd.sid_cnt)
-    raw_cov = get_raw_cov(ffd.y, ffd.t, ffd.w, mu, ffd.tid, ffd.sid)
+    raw_cov = get_raw_cov(ffd, mu)
     obs_cov = get_covariance_matrix(raw_cov, ffd.unique_tid)
     with pytest.warns(UserWarning, match="Eigenvalues contain NaN or negative values."):
         eig_lambda, eig_vector = get_eigen_analysis_results(obs_cov)
@@ -212,8 +210,7 @@ def test_get_fpca_ce_score_fpca_phi_shape_mismatch():
 @pytest.mark.parametrize("method_rho,dtype", [("ridge", np.float64), ("ridge", np.float32), ("truncated", np.float64), ("truncated", np.float32)])
 def test_estimate_rho_happy_path(method_rho, dtype):
     ffd, mu = _build_flatten_data(dtype)
-    num_samples = len(ffd.sid_cnt)
-    raw_cov = get_raw_cov(ffd.y, ffd.t, ffd.w, mu, ffd.tid, ffd.sid)
+    raw_cov = get_raw_cov(ffd, mu)
     obs_cov = get_covariance_matrix(raw_cov, ffd.unique_tid)
     with pytest.warns(UserWarning, match="Eigenvalues contain NaN or negative values."):
         eig_lambda, eig_vector = get_eigen_analysis_results(obs_cov)

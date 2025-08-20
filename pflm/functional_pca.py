@@ -200,42 +200,18 @@ class FunctionalPCA(BaseEstimator):
         List of time points corresponding to the observations in `y_`.
     w_ : List[np.ndarray]
         List of weights for each observation. If None, equal weights are assumed.
-    sid_ : np.ndarray
-        Sorted indices of the observations.
-    tt_ : np.ndarray
-        Sorted time points corresponding to the observations in `y_`.
-    yy_ : np.ndarray
-        Sorted functional data observations.
-    ww_ : np.ndarray
-        Weights corresponding to the sorted observations.
-    tid_ : np.ndarray
-        Indices of the regular grid points corresponding to the sorted time points.
-    reg_grid_: np.ndarray
-        Regular grid points used for regression.
-    obs_grid_: np.ndarray
-        Unique observation grid points derived from `tt_`.
-    obs_mu_ : np.ndarray
-        Estimated mean function values at the observation grid points (obs_grid_).
-    reg_mu_ : np.ndarray
-        Estimated mean function values at the regular grid points (reg_grid_).
-    obs_cov_ : np.ndarray
-        Estimated covariance function values at the observation grid points (obs_grid_).
-    reg_cov_ : np.ndarray
-        Estimated covariance function values at the regular grid points (reg_grid_).
-    fpca_eigen_results_ : dict
-        Dictionary containing eigenvalues and eigenvectors of the covariance function.
-    num_pcs_ : int
-        Number of principal component scores used in the model.
-    xi : np.ndarray
-        Principal component scores for the functional data.
-    xi_var : np.ndarray
-        Variance of the principal component scores.
+    flatten_func_data_ : FlattenFunctionalData
+        Flattened and sorted functional data. It includes `yy`, `ww`, `tt`, `tid`, `unique_tid`, `inverse_tid_idx`, `sid`, `unique_sid`, and `sid_cnt`.
+    smoothed_model_result_obs_ : SmoothedModelResult
+        The smoothed model result for the observation grid points.
+    smoothed_model_result_reg_ : SmoothedModelResult
+        The smoothed model result for the regular grid points.
+    fpca_model_result_ : FpcaModelResult
+        The functional PCA model result.
     fitted_y : List[np.ndarray]
         Fitted values of the functional data based on the estimated mean and principal component scores.
-    rho_ : float
-        Estimated correlation function value at the regular grid points.
-    sigma2_ : float
-        Estimated variance function value at the regular grid points.
+    measurement_error_variance_ : float
+        Estimated measurement error variance at the regular grid points.
 
     See Also
     --------
@@ -403,8 +379,8 @@ class FunctionalPCA(BaseEstimator):
             self.y_.append(yi)
 
         # Flatten and sort the data matrices
-        yy, tt, ww, sid = flatten_and_sort_data_matrices(self.y_, self.t_, self._input_dtype, w)
-        self.flatten_func_data_ = FlattenFunctionalData(yy, tt, ww, sid)
+        self.flatten_func_data_ = flatten_and_sort_data_matrices(self.y_, self.t_, self._input_dtype, w)
+        tt = self.flatten_func_data_.t
         obs_grid = self.flatten_func_data_.unique_tid
 
         if np.any(self.flatten_func_data_.sid_cnt < 2):
@@ -462,13 +438,7 @@ class FunctionalPCA(BaseEstimator):
 
         # calculate the covariance function
         use_user_cov = False
-        self.raw_cov_ = get_raw_cov(
-            self.flatten_func_data_.y,
-            self.flatten_func_data_.t,
-            self.flatten_func_data_.w,
-            self.flatten_func_data_.tid,
-            self.flatten_func_data_.sid,
-        )
+        self.raw_cov_ = get_raw_cov(self.flatten_func_data_, mu_obs)
         if self.user_params.t_cov is not None and self.user_params.cov is not None:
             t_cov = check_array(self.user_params.t_cov, ensure_2d=False, dtype=self._input_dtype)
             cov = check_array(self.user_params.cov, ensure_2d=False, dtype=self._input_dtype)
@@ -605,10 +575,17 @@ class FunctionalPCA(BaseEstimator):
 
         Returns
         -------
-        Tuple[np.ndarray, np.ndarray]
-            A tuple containing:
+        fpca_model_result_ : FpcaModelResult
+            A named tuple containing the results of the functional PCA model fitting.
             - xi: Principal component scores for the functional data.
             - xi_var: Variance of the principal component scores.
+            - num_pcs: Number of principal components used.
+            - fpca_lambda: Eigenvalues of the functional PCA model.
+            - eigen_results: A dict containing the eigenvalue decomposition results.
+            - rho: Regularization parameter used in the model.
+
+        fitted_y : np.ndarray
+            Fitted values for the functional data.
         """
         check_is_fitted(self, ["smoothed_model_result_obs_", "smoothed_model_result_reg_"])
         self.__check_fit_params(
@@ -694,7 +671,7 @@ class FunctionalPCA(BaseEstimator):
             num_pcs=num_pcs,
             fpca_lambda=fpca_lambda,
             eigen_results={"eigenvalues": eig_lambda, "eigenvectors": eig_vector},
-            rho=rho,
+            rho=rho
         )
 
-        return self.xi_, self.xi_var_, self.fitted_y_
+        return self.fpca_model_result_, self.fitted_y_

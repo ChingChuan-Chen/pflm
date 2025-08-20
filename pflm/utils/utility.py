@@ -3,6 +3,7 @@
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 from typing import List, Optional, Tuple, Union
+from dataclasses import dataclass
 
 import numpy as np
 from sklearn.utils.validation import check_array
@@ -43,12 +44,25 @@ def trapz(y: np.ndarray, x: np.ndarray) -> Union[np.ndarray, float]:
         return trapz_result
 
 
+@dataclass
+class FlattenFunctionalData:
+    y: np.ndarray
+    t: np.ndarray
+    w: np.ndarray
+    tid: np.ndarray
+    unique_tid: np.ndarray
+    inverse_tid_idx: np.ndarray
+    sid: np.ndarray
+    unique_sid: np.ndarray
+    sid_cnt: np.ndarray
+
+
 def flatten_and_sort_data_matrices(
     y: List[np.ndarray],
     t: List[np.ndarray],
     input_dtype: Union[str, np.dtype] = np.float64,
     w: Optional[np.ndarray] = None,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> FlattenFunctionalData:
     """Flatten and sort the data matrices.
 
     This function takes a list of response matrices `y` and corresponding time points `t`,
@@ -109,4 +123,9 @@ def flatten_and_sort_data_matrices(
     tt = np.concatenate(t).astype(input_dtype, copy=False)[non_nan_mask]
     ww = np.concatenate([np.full(yi.size, wi, dtype=input_dtype) for yi, wi in zip(y, w)])[non_nan_mask]
     sid = np.concatenate([np.full(yi.size, i, dtype=np.int64) for i, yi in enumerate(y)])[non_nan_mask]
-    return yy[non_nan_mask], tt, ww, sid
+
+    unique_tid, inverse_tid_idx = np.unique(tt, return_inverse=True, sorted=True)
+    tid = np.digitize(tt, unique_tid, right=True)
+    unique_sid, sid_cnt = np.unique(sid, return_counts=True)
+
+    return FlattenFunctionalData(yy[non_nan_mask], tt, ww, tid, unique_tid, inverse_tid_idx, sid, unique_sid, sid_cnt)
