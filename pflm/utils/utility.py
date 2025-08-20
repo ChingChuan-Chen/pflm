@@ -2,8 +2,8 @@
 
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
-from typing import List, Optional, Tuple, Union
 from dataclasses import dataclass
+from typing import List, Optional, Union
 
 import numpy as np
 from sklearn.utils.validation import check_array

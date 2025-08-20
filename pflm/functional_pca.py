@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 
 import warnings
-from typing import List, Literal, Optional, Union
+from typing import List, Literal, Optional, Tuple, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -14,8 +14,9 @@ from sklearn.utils.validation import check_array, check_is_fitted
 from pflm.interp import interp1d, interp2d
 from pflm.smooth import KernelType, Polyfit1DModel, Polyfit2DModel
 from pflm.utils import (
-    FlattenFunctionalData,
-    FpcaModelResult,
+    FpcaEigenFunction,
+    FpcaFittedCovariance,
+    FpcaModelParams,
     SmoothedModelResult,
     estimate_rho,
     flatten_and_sort_data_matrices,
@@ -201,17 +202,27 @@ class FunctionalPCA(BaseEstimator):
     w_ : List[np.ndarray]
         List of weights for each observation. If None, equal weights are assumed.
     flatten_func_data_ : FlattenFunctionalData
-        Flattened and sorted functional data. It includes `yy`, `ww`, `tt`, `tid`, `unique_tid`, `inverse_tid_idx`, `sid`, `unique_sid`, and `sid_cnt`.
+        Flattened and sorted functional data. It includes `yy`, `ww`, `tt`, `tid`, `unique_tid`, `inverse_tid_idx`, `sid`,
+        `unique_sid`, and `sid_cnt`.
     smoothed_model_result_obs_ : SmoothedModelResult
-        The smoothed model result for the observation grid points.
+        The smoothed model result for the observation grid points containing `grid`, `mu` and `cov`.
     smoothed_model_result_reg_ : SmoothedModelResult
-        The smoothed model result for the regular grid points.
-    fpca_model_result_ : FpcaModelResult
-        The functional PCA model result.
-    fitted_y : List[np.ndarray]
-        Fitted values of the functional data based on the estimated mean and principal component scores.
-    measurement_error_variance_ : float
-        Estimated measurement error variance at the regular grid points.
+        The smoothed model result for the regular grid points containing `grid`, `mu` and `cov`.
+    fpca_model_params_ : FpcaModelParams
+        The parameters estimated from the FPCA model containing `measurement_error_variance`, `eigen_results`, `select_num_pcs_result`,
+        `method_rho`, `fpca_lambda`, `fpca_phi`, `num_pcs`, `fitted_covariance`, `rho` and `eigenvalue_fit`.
+    method_pcs_ : str
+        The method used for calculating principal components scores.
+    xi_ : np.ndarray
+        Estimated functional principal component scores.
+    xi_var_ : np.ndarray
+        Estimated variances of the functional principal component scores.
+    fitted_y_mat_ : np.ndarray
+        The fitted functional data values of shape (nt, num_samples).
+    fitted_y_ : List[np.ndarray]
+        The fitted functional data values for each unique subject ID.
+    elapsed_time_ : Dict[str, float]
+        The elapsed time for each stage of the FPCA fitting process.
 
     See Also
     --------
@@ -264,8 +275,8 @@ class FunctionalPCA(BaseEstimator):
         method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
         method_rho: Literal["trunc", "ridge", "vanilla"] = "vanilla",
         max_num_pcs: Optional[int] = None,
-        impute_scores: bool = True,
-        fit_eigen_values: bool = False,
+        if_impute_scores: bool = True,
+        if_fit_eigen_values: bool = False,
         fve_threshold: float = 0.99,
     ):
         if method_pcs not in ["IN", "CE"]:
@@ -276,25 +287,18 @@ class FunctionalPCA(BaseEstimator):
             raise ValueError("If method_select_num_pcs is an integer, it must be a positive integer.")
         if isinstance(method_select_num_pcs, str) and method_select_num_pcs not in ["FVE", "AIC", "BIC"]:
             raise ValueError("method_select_num_pcs must be one of 'FVE', 'AIC', 'BIC' or a positive integer.")
-        if method_rho not in ["trunc", "ridge", "vanilla"]:
-            raise ValueError("method_rho must be one of 'trunc', 'ridge', 'vanilla'.")
+        if method_rho not in ["truncated", "ridge", "vanilla"]:
+            raise ValueError("method_rho must be one of 'truncated', 'ridge', 'vanilla'.")
         if max_num_pcs is not None and (not isinstance(max_num_pcs, int) or max_num_pcs <= 0):
             raise ValueError("max_num_pcs must be a positive integer.")
         if max_num_pcs is None:
             self.max_num_pcs = min(num_samples - 2, self.num_points_reg_grid - 2)
         if not isinstance(fve_threshold, float) or fve_threshold <= 0 or fve_threshold > 1:
             raise ValueError("fve_threshold must be a float between 0 and 1.")
-        if not isinstance(impute_scores, bool):
-            raise ValueError("impute_scores must be a boolean value.")
-        if not isinstance(fit_eigen_values, bool):
-            raise ValueError("fit_eigen_values must be a boolean value.")
-
-        self.method_pcs_ = method_pcs
-        self.method_select_num_pcs_ = method_select_num_pcs
-        self.fve_threshold_ = fve_threshold
-        self.max_num_pcs_ = max_num_pcs
-        self.impute_scores_ = impute_scores
-        self.fit_eigen_values_ = fit_eigen_values
+        if not isinstance(if_impute_scores, bool):
+            raise ValueError("if_impute_scores must be a boolean value.")
+        if not isinstance(if_fit_eigen_values, bool):
+            raise ValueError("if_fit_eigen_values must be a boolean value.")
 
     def fit(
         self,
@@ -305,8 +309,8 @@ class FunctionalPCA(BaseEstimator):
         method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
         method_rho: Literal["trunc", "ridge", "vanilla"] = "vanilla",
         max_num_pcs: Optional[int] = None,
-        impute_scores: bool = True,
-        fit_eigen_values: bool = False,
+        if_impute_scores: bool = True,
+        if_fit_eigen_values: bool = False,
         fve_threshold: float = 0.99,
         reg_grid: Union[np.ndarray, List[float]] = None,
     ) -> "FunctionalPCA":
@@ -332,9 +336,9 @@ class FunctionalPCA(BaseEstimator):
         max_num_pcs : int, optional
             Maximum number of principal component scores to consider. If None, it will be set to the minimum of
             (number of samples - 2, number of points in reg_grid - 2).
-        impute_scores : bool, default=True
+        if_impute_scores : bool, default=True
             Whether to impute missing scores in the functional data.
-        fit_eigen_values: bool, default=False
+        if_fit_eigen_values: bool, default=False
             Whether to obtain a regression fit of the eigenvalues.
         fve_threshold : float, default=0.99
             Threshold for the explained variance when using 'FVE' method to select the number of principal component scores.
@@ -354,8 +358,8 @@ class FunctionalPCA(BaseEstimator):
             method_select_num_pcs=method_select_num_pcs,
             method_rho=method_rho,
             max_num_pcs=max_num_pcs,
-            impute_scores=impute_scores,
-            fit_eigen_values=fit_eigen_values,
+            if_impute_scores=if_impute_scores,
+            if_fit_eigen_values=if_fit_eigen_values,
             fve_threshold=fve_threshold,
         )
 
@@ -437,6 +441,7 @@ class FunctionalPCA(BaseEstimator):
             mu_reg = interp1d(obs_grid, mu_obs, reg_grid, method="spline")
 
         # calculate the covariance function
+        sigma2 = None
         use_user_cov = False
         self.raw_cov_ = get_raw_cov(self.flatten_func_data_, mu_obs)
         if self.user_params.t_cov is not None and self.user_params.cov is not None:
@@ -448,7 +453,7 @@ class FunctionalPCA(BaseEstimator):
                 raise ValueError("t_cov must match the dimensions of cov.")
             use_user_cov = True
             cov_obs = interp2d(t_cov, t_cov, cov, obs_grid, obs_grid, method="spline")
-            reg_obs = interp2d(t_cov, t_cov, cov, reg_grid, reg_grid, method="spline")
+            cov_reg = interp2d(t_cov, t_cov, cov, reg_grid, reg_grid, method="spline")
         elif self.mu_cov_params.estimate_method == "smooth":
             cov_func_model = Polyfit2DModel(
                 kernel_type=self.mu_cov_params.kernel_type, interp_kind="spline", random_seed=self.mu_cov_params.random_seed
@@ -494,28 +499,22 @@ class FunctionalPCA(BaseEstimator):
             sigma2 = np.average(diff_2nd_order[diff_mask] ** 2) / 6.0
             if not use_user_cov:
                 np.fill_diagonal(cov_obs, cov_obs.diagonal() - sigma2)
-        self.measurement_error_variance_ = sigma2
 
         # Create / update smoothed result containers (phi / fitted_cov filled later in fit_score)
-        self.smoothed_model_result_obs_ = SmoothedModelResult(
-            grid=obs_grid,
-            mu=mu_obs,
-            cov=cov_obs,
-            phi=None,
-            fitted_cov=None,
-            grid_type="obs",
-        )
-        self.smoothed_model_result_reg_ = SmoothedModelResult(
-            grid=reg_grid,
-            mu=mu_reg,
-            cov=cov_reg,
-            phi=None,
-            fitted_cov=None,
-            grid_type="reg",
+        self.smoothed_model_result_obs_ = SmoothedModelResult(grid=obs_grid, mu=mu_obs, cov=cov_obs, grid_type="obs")
+        self.smoothed_model_result_reg_ = SmoothedModelResult(grid=reg_grid, mu=mu_reg, cov=cov_reg, grid_type="reg")
+
+        # Create model parameters
+        eig_lambda, eig_vector = get_eigen_analysis_results(self.smoothed_model_result_reg_.cov)
+        self.fpca_model_params_ = FpcaModelParams(
+            measurement_error_variance=sigma2,
+            eigen_results={"eigenvalues": eig_lambda, "eigenvectors": eig_vector},
+            select_num_pcs_result={"method": method_select_num_pcs, "criterion": np.array([])},
+            method_rho=method_rho,
         )
 
-        self.fpca_model_result_ = self.fit_score(
-            self.method_pcs_, self.method_select_num_pcs_, self.max_num_pcs_, self.impute_scores_, self.fit_eigen_values_, self.fve_threshold_
+        self.xi_, self.xi_var_, self.fitted_y_mat_, self.fitted_y_ = self.fit_score(
+            method_pcs, method_select_num_pcs, method_rho, max_num_pcs, if_impute_scores, if_fit_eigen_values, fve_threshold
         )
         return self
 
@@ -526,13 +525,74 @@ class FunctionalPCA(BaseEstimator):
             f"user_params={self.user_params}, verbose={self.verbose})"
         )
 
-    def fitted_values(self) -> List[np.ndarray]:
-        check_is_fitted(self, ["fpca_model_result_", "fitted_y_"])
-        return self.fitted_y_
+    def fitted_values(self) -> Tuple[np.ndarray, List[np.ndarray]]:
+        """
+        Get the fitted functional data values.
 
-    def predict(self, t: List[Union[np.ndarray, List[float]]]) -> List[np.ndarray]:
-        check_is_fitted(self, ["fpca_model_result_", "fitted_y_"])
-        return np.array([])
+        Returns
+        -------
+        fitted_y_mat : np.ndarray
+            The fitted functional data values of shape (nt, n_samples).
+        fitted_y : List[np.ndarray]
+            The fitted functional data values for each unique subject ID.
+        """
+        check_is_fitted(self, ["fpca_model_params_", "fitted_y_"])
+        return self.fitted_y_mat_, self.fitted_y_
+
+    def predict(
+        self,
+        y: List[Union[np.ndarray, List[float]]],
+        t: List[Union[np.ndarray, List[float]]],
+        w: Optional[List[Union[np.ndarray, List[float]]]] = None,
+        num_pcs: Optional[int] = None
+    ) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray, List[np.ndarray]]:
+        """
+        Predict the functional data values for new observations.
+
+        Parameters
+        ----------
+        y : List[Union[np.ndarray, List[float]]]
+            The functional data values to predict.
+        t : List[Union[np.ndarray, List[float]]]
+            The corresponding time points for the functional data.
+        w : Optional[List[Union[np.ndarray, List[float]]]], default=None
+            The weights for the functional data.
+        num_pcs : Optional[int], default=None
+            The number of principal components to use for prediction.
+
+        Returns
+        -------
+        new_xi_ : np.ndarray
+            The predicted functional principal component scores.
+        new_xi_var_ : np.ndarray
+            The variances of the predicted functional principal component scores.
+        new_fitted_y_mat_ : np.ndarray
+            The predicted functional data values of shape (nt, n_samples).
+        new_fitted_y_ : List[np.ndarray]
+            The predicted functional data values for each unique subject ID.
+        """
+        check_is_fitted(self, ["fpca_model_params_", "fitted_y_"])
+        new_flatten_func_data = flatten_and_sort_data_matrices(y, t, self._input_dtype, w)
+
+        if self.method_pcs_ == "CE":
+            new_xi_, new_xi_var_, new_fitted_y_mat_, new_fitted_y_ = get_fpca_ce_score(
+                new_flatten_func_data,
+                num_pcs,
+                self.fpca_model_params_.fitted_covariance[1].values,
+                self.fpca_model_params_.fpca_lambda,
+                self.fpca_model_params_.fpca_phi[1].values,
+                self.fpca_model_params_.measurement_error_variance,
+            )
+        elif self.method_pcs_ == "IN":
+            new_xi_, new_xi_var_, new_fitted_y_mat_, new_fitted_y_ = get_fpca_in_score(
+                new_flatten_func_data,
+                num_pcs,
+                self.fpca_model_params_.fitted_covariance[1].values,
+                self.fpca_model_params_.fpca_lambda,
+                self.fpca_model_params_.fpca_phi[1].values,
+                self.fpca_model_params_.measurement_error_variance,
+            )
+        return new_xi_, new_xi_var_, new_fitted_y_mat_, new_fitted_y_
 
     def fit_score(
         self,
@@ -540,10 +600,10 @@ class FunctionalPCA(BaseEstimator):
         method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
         method_rho: Literal["trunc", "ridge", "vanilla"] = "vanilla",
         max_num_pcs: Optional[int] = None,
-        impute_scores: bool = True,
-        fit_eigen_values: bool = False,
+        if_impute_scores: bool = True,
+        if_fit_eigen_values: bool = False,
         fve_threshold: float = 0.99,
-    ) -> FpcaModelResult:
+    ) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray, List[np.ndarray]]:
         """
         Fit the principal component scores for the functional data.
 
@@ -566,26 +626,23 @@ class FunctionalPCA(BaseEstimator):
         max_num_pcs : int, optional
             Maximum number of principal components to consider. If None, it will be set to the minimum of
             (number of samples - 2, number of points in reg_grid - 2).
-        impute_scores : bool, default=True
+        if_impute_scores : bool, default=True
             Whether to impute missing scores in the functional data.
-        fit_eigen_values : bool, default=False
+        if_fit_eigen_values : bool, default=False
             Whether to obtain a regression fit of the eigenvalues.
         fve_threshold : float, default=0.99
             Threshold for the explained variance when using 'FVE' method to select the number of principal components.
 
         Returns
         -------
-        fpca_model_result_ : FpcaModelResult
-            A named tuple containing the results of the functional PCA model fitting.
-            - xi: Principal component scores for the functional data.
-            - xi_var: Variance of the principal component scores.
-            - num_pcs: Number of principal components used.
-            - fpca_lambda: Eigenvalues of the functional PCA model.
-            - eigen_results: A dict containing the eigenvalue decomposition results.
-            - rho: Regularization parameter used in the model.
-
-        fitted_y : np.ndarray
-            Fitted values for the functional data.
+        xi : np.ndarray
+            The FPCA scores of shape (num_samples, num_pcs).
+        xi_var : np.ndarray
+            The variances of the FPCA scores of shape (num_samples, num_pcs).
+        fitted_y_mat : np.ndarray
+            The fitted functional data values of shape (nt, num_samples).
+        fitted_y : List[np.ndarray]
+            The fitted functional data values for each unique subject ID.
         """
         check_is_fitted(self, ["smoothed_model_result_obs_", "smoothed_model_result_reg_"])
         self.__check_fit_params(
@@ -594,17 +651,19 @@ class FunctionalPCA(BaseEstimator):
             method_select_num_pcs=method_select_num_pcs,
             method_rho=method_rho,
             max_num_pcs=max_num_pcs,
-            impute_scores=impute_scores,
-            fit_eigen_values=fit_eigen_values,
+            if_impute_scores=if_impute_scores,
+            if_fit_eigen_values=if_fit_eigen_values,
             fve_threshold=fve_threshold,
         )
 
-        eig_lambda, eig_vector = get_eigen_analysis_results(self.smoothed_model_result_reg_.cov)
         if isinstance(method_select_num_pcs, str):
             if method_select_num_pcs == "FVE":
-                cumulative_fve, num_pcs = select_num_pcs_fve(eig_lambda, self.fve_threshold_, self.max_num_pcs_)
+                self.fpca_model_params_.select_num_pcs_result["criterion"], num_pcs = select_num_pcs_fve(
+                    self.fpca_model_params_.eigen_results["eig_lambda"], self.fve_threshold_, self.max_num_pcs_
+                )
             elif method_select_num_pcs in ["AIC", "BIC"]:
                 # implement AIC/BIC-based function to choose number of principal components
+                # self.fpca_model_params_.select_num_pcs_result['criterion'], num_pcs = select_num_pcs_ic(eig_lambda, method_select_num_pcs)
                 raise NotImplementedError("AIC/BIC-based selection method is not implemented yet.")
         elif isinstance(method_select_num_pcs, int):
             num_pcs = method_select_num_pcs
@@ -614,64 +673,69 @@ class FunctionalPCA(BaseEstimator):
         obs_grid = self.smoothed_model_result_obs_.grid
         reg_grid = self.smoothed_model_result_reg_.grid
 
-        fpca_lambda, fpca_phi_reg = get_fpca_phi(num_pcs, reg_grid, self.smoothed_model_result_reg_.mu, eig_lambda, eig_vector)
-        fitted_cov_reg = fpca_phi_reg @ np.diag(fpca_lambda) @ fpca_phi_reg.T
+        fpca_lambda, fpca_phi_reg = get_fpca_phi(
+            num_pcs,
+            reg_grid,
+            self.smoothed_model_result_reg_.mu,
+            self.fpca_model_params_.eigen_results["eig_lambda"],
+            self.fpca_model_params_.eigen_results["eig_vector"],
+        )
         fpca_phi_obs = np.zeros((len(obs_grid), num_pcs), dtype=self._input_dtype)
         for i in range(num_pcs):
             fpca_phi_obs[:, i] = interp1d(reg_grid, fpca_phi_reg[:, i], obs_grid, method="spline")
-        fitted_cov_obs = interp2d(reg_grid, reg_grid, fitted_cov_reg, obs_grid, obs_grid, method="spline")
+        self.fpca_model_params_.fpca_lambda = fpca_lambda
+        self.fpca_model_params_.fpca_phi = [
+            FpcaEigenFunction(grid=reg_grid, value=fpca_phi_reg, grid_type="reg"),
+            FpcaEigenFunction(grid=obs_grid, value=fpca_phi_obs, grid_type="obs"),
+        ]
 
-        # fill phi/fitted_cov
-        self.smoothed_model_result_obs_.phi = fpca_phi_obs
-        self.smoothed_model_result_obs_.fitted_cov = fitted_cov_obs
-        self.smoothed_model_result_reg_.phi = fpca_phi_reg
-        self.smoothed_model_result_reg_.fitted_cov = fitted_cov_reg
+        fitted_cov_reg = fpca_phi_reg @ np.diag(fpca_lambda) @ fpca_phi_reg.T
+        fitted_cov_obs = interp2d(reg_grid, reg_grid, fitted_cov_reg, obs_grid, obs_grid, method="spline")
+        self.fpca_model_params_.fitted_covariance = [
+            FpcaFittedCovariance(grid=reg_grid, value=fitted_cov_reg, grid_type="reg"),
+            FpcaFittedCovariance(grid=obs_grid, value=fitted_cov_obs, grid_type="obs"),
+        ]
 
         # select rho and calculate the functional principal component score
-        self.measurement_error_variance_origin_ = self.measurement_error_variance_
-        if impute_scores:
+        rho = None
+        self.xi = None
+        self.xi_var = None
+        if if_impute_scores:
             if method_pcs == "CE":
                 if method_rho != "vanilla":
-                    if self.user_params.rho is not None:
-                        rho = self.user_params.rho
-                    else:
+                    if self.user_params.rho is None:
                         rho = estimate_rho(
                             method_rho,
                             self.flatten_func_data_,
                             fitted_cov_obs,
                             fpca_lambda,
                             fpca_phi_obs,
-                            self.measurement_error_variance_,
+                            self.fpca_model_params_.measurement_error_variance,
                         )
-                    self.measurement_error_variance_ = rho
+                        self.fpca_model_params_.measurement_error_variance = rho
+                    else:
+                        rho = self.user_params.rho
 
-                xi, xi_var, self.fitted_y_ = get_fpca_ce_score(
+                self.xi_, self.xi_var_, self.fitted_y_mat_, self.fitted_y_ = get_fpca_ce_score(
                     self.flatten_func_data_,
+                    num_pcs,
                     fitted_cov_obs,
                     fpca_lambda,
                     fpca_phi_obs,
-                    self.measurement_error_variance_,
+                    self.fpca_model_params_.measurement_error_variance,
                 )
             elif method_pcs == "IN":
-                xi, xi_var, self.fitted_y_ = get_fpca_in_score(
+                self.xi_, self.xi_var_, self.fitted_y_mat_, self.fitted_y_ = get_fpca_in_score(
                     self.flatten_func_data_,
+                    num_pcs,
                     fitted_cov_obs,
                     fpca_lambda,
                     fpca_phi_obs,
-                    self.measurement_error_variance_,
+                    self.fpca_model_params_.measurement_error_variance,
                 )
+        self.method_pcs_ = method_pcs
 
-        if fit_eigen_values:
-            self.fit_eigen_values_ = np.zeros(num_pcs, dtype=self._input_dtype)
+        if if_fit_eigen_values:
+            self.fpca_model_params_.eigenvalue_fit = np.zeros(num_pcs, dtype=self._input_dtype)
 
-        # Create FPCA result object
-        self.fpca_model_result_ = FpcaModelResult(
-            xi=xi,
-            xi_var=xi_var,
-            num_pcs=num_pcs,
-            fpca_lambda=fpca_lambda,
-            eigen_results={"eigenvalues": eig_lambda, "eigenvectors": eig_vector},
-            rho=rho
-        )
-
-        return self.fpca_model_result_, self.fitted_y_
+        return self.xi_, self.xi_var_, self.fitted_y_mat_, self.fitted_y_

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from pflm.utils import flatten_and_sort_data_matrices, FlattenFunctionalData
+from pflm.utils import flatten_and_sort_data_matrices
 
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32])

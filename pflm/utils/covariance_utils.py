@@ -9,7 +9,7 @@ from sklearn.utils.validation import check_array
 from pflm.smooth import KernelType, Polyfit1DModel
 from pflm.utils._raw_cov import get_raw_cov_f32, get_raw_cov_f64
 from pflm.utils._rotate_polyfit2d import rotate_polyfit2d_f32, rotate_polyfit2d_f64
-from pflm.utils.utility import trapz, FlattenFunctionalData
+from pflm.utils.utility import FlattenFunctionalData, trapz
 
 
 def get_raw_cov(flatten_func_data: FlattenFunctionalData, mu: np.ndarray) -> np.ndarray:
@@ -42,8 +42,13 @@ def get_raw_cov(flatten_func_data: FlattenFunctionalData, mu: np.ndarray) -> np.
     input_dtype = flatten_func_data.y.dtype
     get_raw_cov_func = get_raw_cov_f64 if input_dtype == np.float64 else get_raw_cov_f32
     raw_cov = get_raw_cov_func(
-        flatten_func_data.y, flatten_func_data.t, flatten_func_data.w,
-        mu, flatten_func_data.tid, flatten_func_data.unique_sid, flatten_func_data.sid_cnt
+        flatten_func_data.y,
+        flatten_func_data.t,
+        flatten_func_data.w,
+        mu,
+        flatten_func_data.tid,
+        flatten_func_data.unique_sid,
+        flatten_func_data.sid_cnt,
     )
     return raw_cov
 

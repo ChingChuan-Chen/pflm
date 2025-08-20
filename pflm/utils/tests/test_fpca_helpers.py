@@ -12,7 +12,7 @@ from pflm.utils.fpca_helpers import (
     get_fpca_phi,
     select_num_pcs_fve,
 )
-from pflm.utils.utility import flatten_and_sort_data_matrices, FlattenFunctionalData, trapz
+from pflm.utils.utility import flatten_and_sort_data_matrices, trapz
 
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32])
@@ -166,7 +166,7 @@ def test_fpca_ce_score_happy_path(dtype):
     fitted_cov = fpca_phi @ (fpca_phi @ lambda_mat).T
     sigma2 = dtype(0.3)
 
-    xi, xi_var, yhat = get_fpca_ce_score(ffd, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2)
+    xi, xi_var, yhat_mat, yhat = get_fpca_ce_score(ffd, num_pcs, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2)
     sigma_y = fitted_cov + np.eye(fitted_cov.shape[0], dtype=dtype) * sigma2
 
     # manual expected
@@ -186,9 +186,19 @@ def test_fpca_ce_score_happy_path(dtype):
     for i in range(num_samples):
         assert xi_var[i].shape == (num_pcs, num_pcs)
         assert_allclose(xi_var[i], xi_var_expected[i], rtol=1e-5, atol=1e-5)
-    assert yhat.shape == (mu.size, num_samples)
-    yhat_expected = mu + fpca_phi @ xi.T
-    assert_allclose(yhat, yhat_expected, rtol=1e-5, atol=1e-5)
+    assert yhat_mat.shape == (mu.size, num_samples)
+    yhat_mat_expected = mu + fpca_phi @ xi.T
+    assert_allclose(yhat_mat, yhat_mat_expected, rtol=1e-5, atol=1e-5)
+    assert len(yhat) == num_samples
+    assert all(yi_cnt == len(yhat_i) for yi_cnt, yhat_i in zip(ffd.sid_cnt, yhat))
+
+
+def test_get_fpca_ce_score_too_many_num_pcs():
+    ffd, mu = _build_flatten_data(np.float64)
+    fitted_cov = np.eye(ffd.unique_tid.size, dtype=np.float64)  # dummy covariance
+    fpca_phi = np.array([[0.8, 0.1], [0.6, 0.2], [0.1, 0.3]])
+    with pytest.raises(ValueError, match="num_pcs must be less than or equal to the number of eigenvalues"):
+        get_fpca_ce_score(ffd, 3, mu, fitted_cov, np.array([[2.0, 1.0]]), fpca_phi, 0.5)
 
 
 def test_get_fpca_ce_score_fitted_cov_shape_mismatch():
@@ -196,7 +206,7 @@ def test_get_fpca_ce_score_fitted_cov_shape_mismatch():
     fitted_cov = np.eye(ffd.unique_tid.size + 1, dtype=np.float64)  # dummy covariance
     fpca_phi = np.array([[0.8, 0.1], [0.6, 0.2], [0.1, 0.3]])
     with pytest.raises(ValueError, match="fitted_cov must have shape"):
-        get_fpca_ce_score(ffd, mu, fitted_cov, np.array([[2.0, 1.0]]), fpca_phi, 0.5)
+        get_fpca_ce_score(ffd, 2, mu, fitted_cov, np.array([[2.0, 1.0]]), fpca_phi, 0.5)
 
 
 def test_get_fpca_ce_score_fpca_phi_shape_mismatch():
@@ -204,7 +214,7 @@ def test_get_fpca_ce_score_fpca_phi_shape_mismatch():
     fitted_cov = np.eye(ffd.unique_tid.size, dtype=np.float64)  # dummy covariance
     bad_phi = np.array([[0.8, 0.1], [0.6, 0.2]])
     with pytest.raises(ValueError, match="fpca_phi must have shape"):
-        get_fpca_ce_score(ffd, mu, fitted_cov, np.array([[2.0, 1.0]]), bad_phi, 0.5)
+        get_fpca_ce_score(ffd, 2, mu, fitted_cov, np.array([[2.0, 1.0]]), bad_phi, 0.5)
 
 
 @pytest.mark.parametrize("method_rho,dtype", [("ridge", np.float64), ("ridge", np.float32), ("truncated", np.float64), ("truncated", np.float32)])
