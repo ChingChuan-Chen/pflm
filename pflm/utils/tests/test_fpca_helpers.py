@@ -196,9 +196,9 @@ def test_fpca_ce_score_happy_path(dtype):
 def test_get_fpca_ce_score_fitted_cov_shape_mismatch():
     ffd, mu = _build_flatten_data(np.float64)
     fitted_cov = np.eye(ffd.unique_tid.size + 1, dtype=np.float64)  # dummy covariance
-    bad_phi = np.array([[0.8, 0.1], [0.6, 0.2], [0.1, 0.3]])
+    fpca_phi = np.array([[0.8, 0.1], [0.6, 0.2], [0.1, 0.3]])
     with pytest.raises(ValueError, match="fitted_cov must have shape"):
-        get_fpca_ce_score(ffd, mu, fitted_cov, np.array([[2.0, 1.0]]), bad_phi, 0.5)
+        get_fpca_ce_score(ffd, mu, fitted_cov, np.array([[2.0, 1.0]]), fpca_phi, 0.5)
 
 
 def test_get_fpca_ce_score_fpca_phi_shape_mismatch():
