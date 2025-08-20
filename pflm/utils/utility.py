@@ -69,10 +69,10 @@ def flatten_and_sort_data_matrices(
 
     Returns
     -------
-    yy : np.ndarray
-        A 1D array of the flattened response values, sorted by sample index and time points.
     tt : np.ndarray
         A 1D array of the corresponding time points, sorted to match `yy`.
+    yy : np.ndarray
+        A 1D array of the flattened response values, sorted by sample index and time points.
     ww : np.ndarray
         A 1D array of the weights corresponding to `yy`, sorted to match `yy`.
     sid : np.ndarray

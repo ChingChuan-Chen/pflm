@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 
 import warnings
-from typing import List, Literal, Optional, Tuple, Union
+from typing import List, Literal, Optional, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -14,6 +14,9 @@ from sklearn.utils.validation import check_array, check_is_fitted
 from pflm.interp import interp1d, interp2d
 from pflm.smooth import KernelType, Polyfit1DModel, Polyfit2DModel
 from pflm.utils import (
+    FlattenFunctionalData,
+    FpcaModelResult,
+    SmoothedModelResult,
     estimate_rho,
     flatten_and_sort_data_matrices,
     get_covariance_matrix,
@@ -400,30 +403,31 @@ class FunctionalPCA(BaseEstimator):
             self.y_.append(yi)
 
         # Flatten and sort the data matrices
-        self.tt_, self.yy_, self.ww_, self.sid_ = flatten_and_sort_data_matrices(self.y_, self.t_, self._input_dtype, w)
+        yy, tt, ww, sid = flatten_and_sort_data_matrices(self.y_, self.t_, self._input_dtype, w)
+        self.flatten_func_data_ = FlattenFunctionalData(yy, tt, ww, sid)
+        obs_grid = self.flatten_func_data_.unique_tid
 
-        # get observation grid and time indices
-        self.obs_grid_, self.obs_grid_idx_ = np.unique(self.tt_, return_inverse=True, sorted=True)
-        self.tid_ = np.digitize(self.tt_, self.obs_grid_, right=True)
+        if np.any(self.flatten_func_data_.sid_cnt < 2):
+            raise ValueError("Each sample must have at least two observations for covariance calculation.")
 
         # create reg_grid_
         if reg_grid is not None:
             # Use custom grid
-            self.reg_grid_ = check_array(reg_grid, ensure_2d=False, dtype=self._input_dtype)
-            if self.reg_grid_.ndim != 1:
+            reg_grid = check_array(reg_grid, ensure_2d=False, dtype=self._input_dtype)
+            if reg_grid.ndim != 1:
                 raise ValueError("reg_grid must be a 1D array")
-            if len(self.reg_grid_) < 2:
+            if len(reg_grid) < 2:
                 raise ValueError("reg_grid must have at least 2 points")
 
             # Check if grid is within the range of input X
-            if np.min(self.reg_grid_) < self.tt_[0] or np.max(self.reg_grid_) > self.tt_[-1]:
+            if np.min(reg_grid) < tt[0] or np.max(reg_grid) > tt[-1]:
                 raise ValueError(
-                    f"reg_grid must be within the range of input X [{self.tt_[0]:.6f}, {self.tt_[-1]:.6f}]. "
-                    f"Got reg_grid range [{np.min(self.reg_grid_):.6f}, {np.max(self.reg_grid_):.6f}]"
+                    f"reg_grid must be within the range of input X [{tt[0]:.6f}, {tt[-1]:.6f}]. "
+                    f"Got reg_grid range [{np.min(reg_grid):.6f}, {np.max(reg_grid):.6f}]"
                 )
         else:
             # Create uniform grid within the range of input X
-            self.reg_grid_ = np.linspace(self.tt_[0], self.tt_[-1], self.num_points_reg_grid, dtype=self._input_dtype)
+            reg_grid = np.linspace(tt[0], tt[-1], self.num_points_reg_grid, dtype=self._input_dtype)
 
         # calculate the mean function
         if self.user_params.t_mu is not None and self.user_params.mu is not None:
@@ -433,29 +437,38 @@ class FunctionalPCA(BaseEstimator):
                 raise ValueError("t_mu and mu must be 1D arrays.")
             if t_mu.size != mu.size:
                 raise ValueError("t_mu and mu must have the same length.")
-            self.reg_mu_ = interp1d(t_mu, mu, self.reg_grid_, method="spline")
-            self.obs_mu_ = interp1d(t_mu, mu, self.obs_grid_, method="spline")
+            mu_reg = interp1d(t_mu, mu, reg_grid, method="spline")
+            mu_obs = interp1d(t_mu, mu, obs_grid, method="spline")
         elif self.mu_cov_params.estimate_method == "smooth":
-            self.mean_func_fit_ = Polyfit1DModel(
+            mean_func_model = Polyfit1DModel(
                 kernel_type=self.mu_cov_params.kernel_type, interp_kind="spline", random_seed=self.mu_cov_params.random_seed
             )
-            self.mean_func_fit_.fit(
-                self.tt_,
-                self.yy_,
-                self.ww_,
+            mean_func_model.fit(
+                self.flatten_func_data_.t,
+                self.flatten_func_data_.y,
+                self.flatten_func_data_.w,
                 bandwidth=self.mu_cov_params.bw_mu,
-                reg_grid=self.reg_grid_,
+                reg_grid=reg_grid,
                 bandwidth_selection_method=self.mu_cov_params.method_select_mu_bw,
                 cv_folds=self.mu_cov_params.cv_folds_mu,
             )
-            self.reg_mu_ = self.mean_func_fit_.fitted_values()
-            self.obs_mu_ = interp1d(self.reg_mu_, self.reg_mu_, self.obs_grid_, method="spline")
+            mu_reg = mean_func_model.fitted_values()
+            mu_obs = interp1d(reg_grid, mu_reg, obs_grid, method="spline")
         elif self.mu_cov_params.estimate_method == "cross-sectional":
-            self.obs_mu_ = (np.bincount(self.tid_, self.yy_) / np.bincount(self.tid_)).astype(self._input_dtype, copy=False)
-            self.reg_mu_ = interp1d(self.obs_grid_, self.obs_mu_, self.reg_grid_, method="spline")
+            mu_obs = (np.bincount(self.flatten_func_data_.tid, self.flatten_func_data_.y) / np.bincount(self.flatten_func_data_.tid)).astype(
+                self._input_dtype, copy=False
+            )
+            mu_reg = interp1d(obs_grid, mu_obs, reg_grid, method="spline")
 
         # calculate the covariance function
         use_user_cov = False
+        self.raw_cov_ = get_raw_cov(
+            self.flatten_func_data_.y,
+            self.flatten_func_data_.t,
+            self.flatten_func_data_.w,
+            self.flatten_func_data_.tid,
+            self.flatten_func_data_.sid,
+        )
         if self.user_params.t_cov is not None and self.user_params.cov is not None:
             t_cov = check_array(self.user_params.t_cov, ensure_2d=False, dtype=self._input_dtype)
             cov = check_array(self.user_params.cov, ensure_2d=False, dtype=self._input_dtype)
@@ -464,67 +477,91 @@ class FunctionalPCA(BaseEstimator):
             if t_cov.size != cov.shape[0] or t_cov.size != cov.shape[1]:
                 raise ValueError("t_cov must match the dimensions of cov.")
             use_user_cov = True
-            self.obs_cov_ = interp2d(t_cov, t_cov, cov, self.obs_grid_, self.obs_grid_, method="spline")
-            self.reg_cov_ = interp2d(t_cov, t_cov, cov, self.reg_grid_, self.reg_grid_, method="spline")
-            # get raw covariance
-            self.raw_cov_ = get_raw_cov(self.yy_, self.tt_, self.ww_, self.obs_mu_, self.tid_, self.sid_)
+            cov_obs = interp2d(t_cov, t_cov, cov, obs_grid, obs_grid, method="spline")
+            reg_obs = interp2d(t_cov, t_cov, cov, reg_grid, reg_grid, method="spline")
         elif self.mu_cov_params.estimate_method == "smooth":
-            self.raw_cov_ = get_raw_cov(self.yy_, self.tt_, self.ww_, self.obs_mu_, self.tid_, self.sid_)
-            self.cov_func_fit_ = Polyfit2DModel(
+            cov_func_model = Polyfit2DModel(
                 kernel_type=self.mu_cov_params.kernel_type, interp_kind="spline", random_seed=self.mu_cov_params.random_seed
             )
-            self.cov_func_fit_.fit(
+            cov_func_model.fit(
                 self.raw_cov_[:, [1, 2]],
                 self.raw_cov_[:, 4],
                 sample_weight=self.raw_cov_[:, 3],
                 bandwidth1=self.mu_cov_params.bw_cov,
                 bandwidth2=self.mu_cov_params.bw_cov,
-                reg_grid1=self.obs_grid_,
-                reg_grid2=self.obs_grid_,
+                reg_grid1=obs_grid,
+                reg_grid2=obs_grid,
                 bandwidth_selection_method=self.mu_cov_params.method_select_cov_bw,
                 cv_folds=self.mu_cov_params.cv_folds_cov,
             )
-            self.obs_cov_ = self.cov_func_fit_.fitted_values()
-            self.reg_cov_ = interp2d(self.obs_grid_, self.obs_grid_, self.obs_cov_, self.reg_grid_, self.reg_grid_, method="spline")
+            cov_obs = cov_func_model.fitted_values()
+            cov_reg = interp2d(obs_grid, obs_grid, cov_obs, reg_grid, reg_grid, method="spline")
         elif self.mu_cov_params.estimate_method == "cross-sectional":
-            self.raw_cov_ = get_raw_cov(self.yy_, self.tt_, self.ww_, self.obs_mu_, self.tid_, self.sid_)
-            self.obs_cov_ = get_covariance_matrix(self.raw_cov_, self.obs_grid_)
-            self.reg_cov_ = interp2d(self.obs_grid_, self.obs_grid_, self.obs_cov_, self.reg_grid_, self.reg_grid_, method="spline")
+            cov_obs = get_covariance_matrix(self.raw_cov_, obs_grid)
+            cov_reg = interp2d(obs_grid, obs_grid, cov_obs, reg_grid, reg_grid, method="spline")
 
         if self.assume_measurement_error and self.user_params.sigma2 is not None:
-            self.sigma2_ = float(self.user_params.sigma2)
+            sigma2 = float(self.user_params.sigma2)
         elif self.assume_measurement_error and self.mu_cov_params.estimate_method == "smooth":
             if use_user_cov:
-                diag_obs_var = np.diagonal(get_covariance_matrix(self.raw_cov_, self.obs_grid_))
-                diag_reg_var = interp1d(self.obs_grid_, diag_obs_var, self.reg_grid_)
-                self.sigma2_ = np.average(diag_reg_var - np.diagonal(self.reg_cov_))
+                diag_obs_var = np.diagonal(get_covariance_matrix(self.raw_cov_, obs_grid))
+                diag_reg_var = interp1d(obs_grid, diag_obs_var, reg_grid)
+                sigma2 = np.average(diag_reg_var - np.diagonal(cov_reg))
             else:
-                self.sigma2_ = get_measurement_error_variance(
+                sigma2 = get_measurement_error_variance(
                     self.raw_cov_,
-                    self.reg_grid_,
-                    self.cov_func_fit_.bandwidth1_,
+                    reg_grid,
+                    cov_func_model.bandwidth1_,
                     self.mu_cov_params.kernel_type,
                 )
         elif self.assume_measurement_error and self.mu_cov_params.estimate_method == "cross-sectional":
             # Use user-defined covariance or cross-sectional method
-            diff_mask = (self.tid_[:-2] - self.tid_[2:] == 2) & (self.sid_[:-2] == self.sid_[2:])
-            diff_2nd_order = self.yy_[:-2] - self.yy_[2:]
+            diff_mask = (self.flatten_func_data_.tid[:-2] - self.flatten_func_data_.tid[2:] == 2) & (
+                self.flatten_func_data_.sid[:-2] == self.flatten_func_data_.sid[2:]
+            )
+            diff_2nd_order = self.flatten_func_data_.y[:-2] - self.flatten_func_data_.y[2:]
             # Calculate sigma2 using the second-order difference method (6.0 = 4C2)
-            self.sigma2_ = np.average(diff_2nd_order[diff_mask] ** 2) / 6.0
+            sigma2 = np.average(diff_2nd_order[diff_mask] ** 2) / 6.0
             if not use_user_cov:
-                np.fill_diagonal(self.obs_cov_, self.obs_cov_.diagonal() - self.sigma2_)
+                np.fill_diagonal(cov_obs, cov_obs.diagonal() - sigma2)
+        self.measurement_error_variance_ = sigma2
 
-        self.xi_, self.xi_var_, self.fitted_y_ = self.fit_score(
+        # Create / update smoothed result containers (phi / fitted_cov filled later in fit_score)
+        self.smoothed_model_result_obs_ = SmoothedModelResult(
+            grid=obs_grid,
+            mu=mu_obs,
+            cov=cov_obs,
+            phi=None,
+            fitted_cov=None,
+            grid_type="obs",
+        )
+        self.smoothed_model_result_reg_ = SmoothedModelResult(
+            grid=reg_grid,
+            mu=mu_reg,
+            cov=cov_reg,
+            phi=None,
+            fitted_cov=None,
+            grid_type="reg",
+        )
+
+        self.fpca_model_result_ = self.fit_score(
             self.method_pcs_, self.method_select_num_pcs_, self.max_num_pcs_, self.impute_scores_, self.fit_eigen_values_, self.fve_threshold_
         )
         return self
 
+    def __repr__(self):
+        return (
+            f"FunctionalPCA(assume_measurement_error={self.assume_measurement_error}, "
+            f"num_points_reg_grid={self.num_points_reg_grid}, mu_cov_params={self.mu_cov_params}, "
+            f"user_params={self.user_params}, verbose={self.verbose})"
+        )
+
     def fitted_values(self) -> List[np.ndarray]:
-        check_is_fitted(self, ["fpca_eigen_results_", "xi_", "xi_var_", "fitted_y_"])
+        check_is_fitted(self, ["fpca_model_result_", "fitted_y_"])
         return self.fitted_y_
 
     def predict(self, t: List[Union[np.ndarray, List[float]]]) -> List[np.ndarray]:
-        check_is_fitted(self, ["fpca_eigen_results_", "xi_", "xi_var_", "fitted_y"])
+        check_is_fitted(self, ["fpca_model_result_", "fitted_y_"])
         return np.array([])
 
     def fit_score(
@@ -536,7 +573,7 @@ class FunctionalPCA(BaseEstimator):
         impute_scores: bool = True,
         fit_eigen_values: bool = False,
         fve_threshold: float = 0.99,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> FpcaModelResult:
         """
         Fit the principal component scores for the functional data.
 
@@ -573,7 +610,7 @@ class FunctionalPCA(BaseEstimator):
             - xi: Principal component scores for the functional data.
             - xi_var: Variance of the principal component scores.
         """
-        check_is_fitted(self, ["fpca_eigen_results_"])
+        check_is_fitted(self, ["smoothed_model_result_obs_", "smoothed_model_result_reg_"])
         self.__check_fit_params(
             num_samples=self.num_samples_,
             method_pcs=method_pcs,
@@ -585,61 +622,79 @@ class FunctionalPCA(BaseEstimator):
             fve_threshold=fve_threshold,
         )
 
-        eig_lambda, eig_vector = get_eigen_analysis_results(self.reg_cov_)
+        eig_lambda, eig_vector = get_eigen_analysis_results(self.smoothed_model_result_reg_.cov)
         if isinstance(method_select_num_pcs, str):
             if method_select_num_pcs == "FVE":
-                self.cumulative_fve, self.num_pcs = select_num_pcs_fve(eig_lambda, self.fve_threshold_, self.max_num_pcs_)
+                cumulative_fve, num_pcs = select_num_pcs_fve(eig_lambda, self.fve_threshold_, self.max_num_pcs_)
             elif method_select_num_pcs in ["AIC", "BIC"]:
                 # implement AIC/BIC-based function to choose number of principal components
                 raise NotImplementedError("AIC/BIC-based selection method is not implemented yet.")
         elif isinstance(method_select_num_pcs, int):
-            self.num_pcs = method_select_num_pcs
+            num_pcs = method_select_num_pcs
         else:
             raise ValueError("Invalid method_select_num_pcs. Must be one of ['FVE', 'AIC', 'BIC'] or an integer.")
 
-        self.fpca_lambda_, self.fpca_phi_reg_ = get_fpca_phi(self.num_pcs, self.reg_grid_, self.reg_mu_, eig_lambda, eig_vector)
-        self.fitted_cov_reg_ = self.fpca_phi_reg_ @ np.diag(self.fpca_lambda_) @ self.fpca_phi_reg_.T
-        self.fpca_phi_obs_ = np.zeros((len(self.obs_grid_), self.num_pcs), dtype=self._input_dtype)
-        for i in range(self.num_pcs):
-            self.fpca_phi_obs_[:, i] = interp1d(self.reg_grid_, self.fpca_phi_reg_[:, i], self.obs_grid_, method="spline")
-        self.fitted_cov_obs_ = interp2d(self.reg_grid_, self.reg_grid_, self.fitted_cov_reg_, self.obs_grid_, self.obs_grid_, method="spline")
+        obs_grid = self.smoothed_model_result_obs_.grid
+        reg_grid = self.smoothed_model_result_reg_.grid
 
-        self.sigma2_origin_ = self.sigma2_
+        fpca_lambda, fpca_phi_reg = get_fpca_phi(num_pcs, reg_grid, self.smoothed_model_result_reg_.mu, eig_lambda, eig_vector)
+        fitted_cov_reg = fpca_phi_reg @ np.diag(fpca_lambda) @ fpca_phi_reg.T
+        fpca_phi_obs = np.zeros((len(obs_grid), num_pcs), dtype=self._input_dtype)
+        for i in range(num_pcs):
+            fpca_phi_obs[:, i] = interp1d(reg_grid, fpca_phi_reg[:, i], obs_grid, method="spline")
+        fitted_cov_obs = interp2d(reg_grid, reg_grid, fitted_cov_reg, obs_grid, obs_grid, method="spline")
+
+        # fill phi/fitted_cov
+        self.smoothed_model_result_obs_.phi = fpca_phi_obs
+        self.smoothed_model_result_obs_.fitted_cov = fitted_cov_obs
+        self.smoothed_model_result_reg_.phi = fpca_phi_reg
+        self.smoothed_model_result_reg_.fitted_cov = fitted_cov_reg
+
+        # select rho and calculate the functional principal component score
+        self.measurement_error_variance_origin_ = self.measurement_error_variance_
         if impute_scores:
             if method_pcs == "CE":
                 if method_rho != "vanilla":
                     if self.user_params.rho is not None:
-                        self.rho_ = self.user_params.rho
+                        rho = self.user_params.rho
                     else:
-                        self.rho_, self.rho_candidates, self.rho_scores_ = estimate_rho(
+                        rho = estimate_rho(
                             method_rho,
-                            self.yy_,
-                            self.tt_,
-                            self.tid_,
-                            self.sid_,
-                            self.obs_mu_,
-                            self.fitted_cov_obs_,
-                            self.fpca_lambda_,
-                            self.fpca_phi_obs_,
-                            self.sigma2_,
+                            self.flatten_func_data_,
+                            fitted_cov_obs,
+                            fpca_lambda,
+                            fpca_phi_obs,
+                            self.measurement_error_variance_,
                         )
-                    self.sigma2_ = self.rho_
+                    self.measurement_error_variance_ = rho
 
-                self.xi_, self.xi_var_, self.fitted_y_ = get_fpca_ce_score(
-                    self.yy_,
-                    self.tt_,
-                    self.tid_,
-                    self.sid_,
-                    self.obs_mu_,
-                    self.fitted_cov_obs_,
-                    self.fpca_lambda_,
-                    self.fpca_phi_obs_,
-                    self.sigma2_,
+                xi, xi_var, self.fitted_y_ = get_fpca_ce_score(
+                    self.flatten_func_data_,
+                    fitted_cov_obs,
+                    fpca_lambda,
+                    fpca_phi_obs,
+                    self.measurement_error_variance_,
                 )
             elif method_pcs == "IN":
-                self.xi_, self.xi_var_, self.fitted_y_ = get_fpca_in_score()
+                xi, xi_var, self.fitted_y_ = get_fpca_in_score(
+                    self.flatten_func_data_,
+                    fitted_cov_obs,
+                    fpca_lambda,
+                    fpca_phi_obs,
+                    self.measurement_error_variance_,
+                )
 
         if fit_eigen_values:
-            self.fit_eigen_values_ = np.zeros(self.num_pcs, dtype=self._input_dtype)
+            self.fit_eigen_values_ = np.zeros(num_pcs, dtype=self._input_dtype)
+
+        # Create FPCA result object
+        self.fpca_model_result_ = FpcaModelResult(
+            xi=xi,
+            xi_var=xi_var,
+            num_pcs=num_pcs,
+            fpca_lambda=fpca_lambda,
+            eigen_results={"eigenvalues": eig_lambda, "eigenvectors": eig_vector},
+            rho=rho,
+        )
 
         return self.xi_, self.xi_var_, self.fitted_y_

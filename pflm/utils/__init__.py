@@ -11,9 +11,13 @@ from pflm.utils.fpca_helpers import (
     get_fpca_phi,
     select_num_pcs_fve,
 )
+from pflm.utils.fpca_result_class import FlattenFunctionalData, FpcaModelResult, SmoothedModelResult
 from pflm.utils.utility import flatten_and_sort_data_matrices, trapz
 
 __all__ = [
+    "FlattenFunctionalData",
+    "FpcaModelResult",
+    "SmoothedModelResult",
     "estimate_rho",
     "flatten_and_sort_data_matrices",
     "get_covariance_matrix",

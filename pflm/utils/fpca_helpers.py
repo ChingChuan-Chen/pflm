@@ -9,6 +9,7 @@ import numpy as np
 
 from pflm.utils._fpca_score import fpca_ce_score_f32, fpca_ce_score_f64
 from pflm.utils._lapack_helper import _syevd_memview_f32, _syevd_memview_f64
+from pflm.utils.fpca_result_class import FlattenFunctionalData
 from pflm.utils.utility import trapz
 
 
@@ -37,7 +38,7 @@ def get_eigen_analysis_results(reg_cov: np.ndarray, is_upper_triangular: bool = 
 
     # compute eigenvalues and eigenvectors
     eig_func = _syevd_memview_f64 if reg_cov.dtype == np.float64 else _syevd_memview_f32
-    uplo = 117 if is_upper_triangular else 108
+    uplo = 117 if is_upper_triangular else 108  # 'u'/'l'
     info = eig_func(eig_vector, eig_lambda, uplo, nt, nt)
     if info != 0:
         warnings.warn(f"LAPACK syevd failed with info={info}")
@@ -47,9 +48,9 @@ def get_eigen_analysis_results(reg_cov: np.ndarray, is_upper_triangular: bool = 
 
     # sort eigen values and corresponding eigen vectors
     mask = np.isfinite(eig_lambda) & (eig_lambda > 10.0 * np.finfo(eig_lambda.dtype).eps)  # only leave significant eigenvalues
-    ord = np.argsort(eig_lambda[mask])[::-1]
-    eig_lambda = eig_lambda[mask][ord]
-    eig_vector = eig_vector.reshape(nt, -1).T[:, mask][:, ord]
+    ord_idx = np.argsort(eig_lambda[mask])[::-1]
+    eig_lambda = eig_lambda[mask][ord_idx]
+    eig_vector = eig_vector.reshape(nt, -1).T[:, mask][:, ord_idx]
     return eig_lambda, eig_vector
 
 
@@ -121,76 +122,133 @@ def get_fpca_phi(num_pcs: int, reg_grid: np.ndarray, reg_mu: np.ndarray, eig_lam
 
 
 def get_fpca_ce_score(
-    yy: np.ndarray,
-    tt: np.ndarray,
-    tid: np.ndarray,
-    sid: np.ndarray,
+    flatten_func_data: FlattenFunctionalData,
     mu: np.ndarray,
     fitted_cov: np.ndarray,
     fpca_lambda: np.ndarray,
     fpca_phi: np.ndarray,
     sigma2: float,
 ) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray]:
-    if yy.ndim != 1 or tt.ndim != 1:
-        raise ValueError("yy and tt must be 1D arrays.")
-    if yy.size != tt.size:
-        raise ValueError("yy and tt must have the same length.")
-    unique_tid = np.unique(tid)
-    if unique_tid.size != mu.size:
-        raise ValueError("The length of mu must match the number of unique time indices in tid.")
-    if sid.ndim != 1 or sid.size != yy.size:
-        raise ValueError("sid must be a 1D array with the same length as yy.")
-    if np.any(np.diff(sid) < 0):
-        raise ValueError("The sample indices, sid, must be sorted in ascending order.")
-    unique_sid, sid_cnt = np.unique(sid, return_counts=True, sorted=True)
-    if np.any(sid_cnt < 2):
-        raise ValueError("Each sample must have at least two observations for covariance calculation.")
-    num_pcs = len(fpca_lambda)
-    if fpca_phi.shape[0] != mu.size or fpca_phi.shape[1] != num_pcs:
-        raise ValueError("fpca_phi must have shape (mu.size, num_pcs).")
+    """
+    Compute the functional principal component analysis (FPCA) scores and fitted values.
 
-    sigma_y = (fitted_cov + np.eye(fitted_cov.shape[0]) * sigma2).astype(yy.dtype, copy=False)
-    fpca_ce_score_func = fpca_ce_score_f64 if yy.dtype == np.float64 else fpca_ce_score_f32
-    lambda_phi = np.ascontiguousarray(fpca_phi @ np.diag(fpca_lambda)).astype(yy.dtype, copy=False)
-    xi, xi_var = fpca_ce_score_func(yy, tt, tid, mu, sigma_y, fpca_lambda, lambda_phi, unique_sid, sid_cnt)
-    fitted_y = mu + fpca_phi @ xi.T
+    Parameters
+    ----------
+    flatten_func_data : FlattenFunctionalData
+        The flattened functional data containing y, t, tid, unique_sid, and sid_cnt.
+    mu : np.ndarray
+        The mean function values at the grid points with shape (nt,).
+    fitted_cov : np.ndarray
+        The fitted covariance matrix of shape (nt, nt).
+    fpca_lambda : np.ndarray
+        The eigenvalues corresponding to the functional principal components.
+    fpca_phi : np.ndarray
+        The functional principal component basis functions of shape (nt, num_pcs).
+    sigma2 : float
+        The noise variance.
+
+    Returns
+    -------
+    xi : np.ndarray
+        The FPCA scores of shape (num_samples, num_pcs).
+    xi_var : np.ndarray
+        The variances of the FPCA scores of shape (num_samples, num_pcs).
+    fitted_y : np.ndarray
+        The fitted functional data values of shape (nt, num_samples).
+    """
+    nt = flatten_func_data.unique_tid.size
+    if fitted_cov.shape != (nt, nt):
+        raise ValueError("fitted_cov must have shape (nt, nt).")
+    num_pcs = len(fpca_lambda)
+    if fpca_phi.shape != (nt, num_pcs):
+        raise ValueError("fpca_phi must have shape (nt, num_pcs).")
+
+    input_dtype = flatten_func_data.y.dtype
+    sigma_y = (fitted_cov + np.eye(fitted_cov.shape[0]) * sigma2).astype(input_dtype, copy=False)
+    fpca_ce_score_func = fpca_ce_score_f64 if input_dtype == np.float64 else fpca_ce_score_f32
+    lambda_phi = np.ascontiguousarray(fpca_phi @ np.diag(fpca_lambda)).astype(input_dtype, copy=False)
+    xi, xi_var = fpca_ce_score_func(
+        flatten_func_data.y,
+        flatten_func_data.t,
+        flatten_func_data.tid,
+        mu,
+        sigma_y,
+        fpca_lambda,
+        lambda_phi,
+        flatten_func_data.unique_sid,
+        flatten_func_data.sid_cnt,
+    )
+    fitted_y = mu + fpca_phi @ xi.T  # (nt, n_samples)
     return xi, xi_var, fitted_y
 
 
 def estimate_rho(
     method_rho: str,
-    yy: np.ndarray,
-    tt: np.ndarray,
-    tid: np.ndarray,
-    sid: np.ndarray,
+    flatten_func_data: FlattenFunctionalData,
     mu: np.ndarray,
     fitted_cov: np.ndarray,
     fpca_lambda: np.ndarray,
     fpca_phi: np.ndarray,
     sigma2: float,
-):
-    _, _, fitted_y = get_fpca_ce_score(yy, tt, tid, sid, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2)
-    unique_sid = np.unique(sid, sorted=True)
-    fitted_y_list = [fitted_y[tid[sid == i], i] for i in unique_sid]
-    rss = np.mean([np.mean((fitted_y_i - mu[tid[sid == i]]) ** 2) for i, fitted_y_i in zip(unique_sid, fitted_y_list)])
+) -> float:
+    """
+    Estimate the optimal rho parameter for the FPCA model.
 
-    obs_grid = np.unique(tt, sorted=True)
+    Parameters
+    ----------
+    method_rho : str
+        The method for estimating rho, either 'ridge' or 'trunc'.
+    flatten_func_data : FlattenFunctionalData
+        The flattened functional data containing y, t, tid, unique_sid, and sid_cnt.
+    mu : np.ndarray
+        The mean function values at the grid points with shape (nt,).
+    fitted_cov : np.ndarray
+        The fitted covariance matrix of shape (nt, nt).
+    fpca_lambda : np.ndarray
+        The eigenvalues corresponding to the functional principal components.
+    fpca_phi : np.ndarray
+        The functional principal component basis functions of shape (nt, num_pcs).
+    sigma2 : float
+        The noise variance.
+
+    Returns
+    -------
+    float
+        The estimated optimal rho value.
+    """
+    # initial fit
+    xi_init, _, fitted_y_init = get_fpca_ce_score(flatten_func_data, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2)
+    unique_sid = flatten_func_data.unique_sid
+    # per-sample fitted values on its observed time indices
+    fitted_y_list = [fitted_y_init[flatten_func_data.tid[flatten_func_data.sid == i], i] for i in unique_sid]
+    rss = np.mean(
+        [
+            np.mean((fy_i - mu[flatten_func_data.tid[flatten_func_data.sid == i]]) ** 2)
+            for i, fy_i in zip(unique_sid, fitted_y_list)
+        ]
+    )
+
+    input_dtype = flatten_func_data.y.dtype
+    obs_grid = flatten_func_data.unique_tid
     total_fpca_lambda = np.sum(fpca_lambda)
     if method_rho == "ridge":
-        r = np.sqrt((trapz(obs_grid, mu**2) + total_fpca_lambda) / (obs_grid[-1] - obs_grid[0]))
-        rho_candidates = np.exp(np.linspace(-13, -1.5, 50, dtype=yy.dtype)) * r
+        r = np.sqrt((trapz(mu**2, obs_grid) + total_fpca_lambda) / (obs_grid[-1] - obs_grid[0]))
+        rho_candidates = np.exp(np.linspace(-13, -1.5, 50, dtype=input_dtype)) * r
     else:
-        rho_candidates = np.linspace(1, 10, 50, dtype=yy.dtype) * rss
+        rho_candidates = np.linspace(1, 10, 50, dtype=input_dtype) * rss
 
-    num_pcs = fpca_lambda.size
-    rho_scores = np.zeros(len(rho_candidates), dtype=yy.dtype)
+    rho_scores = np.zeros(len(rho_candidates), dtype=input_dtype)
     for idx, rho in enumerate(rho_candidates):
-        xi, _, _ = get_fpca_ce_score(yy, tt, tid, sid, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2=rho)
-        fitted_y = mu + xi[:, :num_pcs] @ fpca_phi[:, :num_pcs].T
-        var_y = np.var(fitted_y, axis=0)
-        rho_scores[idx] = (total_fpca_lambda - trapz(obs_grid, var_y)) ** 2
-    return rho_candidates[np.argmin(rho_scores)], rho_candidates, rho_scores
+        xi, _, _ = get_fpca_ce_score(flatten_func_data, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2=rho)
+        # reconstruct curves
+        fitted_y = mu + fpca_phi @ xi.T  # (nt, n_samples)
+        var_y = np.var(fitted_y, axis=1)  # variance across samples per time point
+        rho_scores[idx] = (total_fpca_lambda - trapz(var_y, obs_grid)) ** 2
+    return rho_candidates[np.argmin(rho_scores)]
 
 
-def get_fpca_in_score():
+def get_fpca_in_score(
+    flatten_func_data: FlattenFunctionalData, fitted_cov: np.ndarray, fpca_lambda: np.ndarray, fpca_phi: np.ndarray, sigma2: float
+) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray]:
+    # Placeholder
     return np.array([]), [], np.array([])
