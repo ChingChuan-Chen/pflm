@@ -7,14 +7,20 @@ from libc.stdlib cimport malloc, free
 from sklearn.utils._cython_blas cimport _gemv
 from sklearn.utils._cython_blas cimport BLAS_Order, ColMajor, RowMajor, NoTrans
 
-cdef void _trapz_mat_blas(
-    floating[:, :] y,        # shape (m, n)
-    floating* dx,            # shape (n-1)
-    floating[:] out,         # shape (m,)
+cdef void trapz_mat_blas(
+    floating* y,             # shape (m, n)
+    floating* x,             # shape (n)
+    floating* out,           # shape (m,)
     uint64_t m,
     uint64_t n,
     BLAS_Order order
 ) noexcept nogil:
+    cdef int64_t i
+    cdef floating *dx = <floating*> malloc((n - 1) * sizeof(floating))
+    for i in prange(<int64_t> n - 1, nogil=True):
+        dx[i] = x[i + 1] - x[i]
+
+    cdef int y_shift = m if order == ColMajor else 1
     cdef uint64_t lda = m if order == ColMajor else n   # FULL leading dim (not n-1)
     cdef floating alpha = <floating> 0.5
     cdef floating beta0  = <floating> 0.0
@@ -24,22 +30,23 @@ cdef void _trapz_mat_blas(
     _gemv(
         order, NoTrans,
         <int> m, <int> n-1, alpha, # m, n, alpha
-        &y[0, 0], <int> lda,
+        y, <int> lda,
         dx, 1, beta0, # X, inc_X, beta
-        &out[0], 1 # y, inc_y
+        out, 1 # y, inc_y
     )
 
     # out += 0.5 * Y[:, 1:n] * dx   (shift by one COLUMN)
     _gemv(
         order, NoTrans,
         <int> m, <int> n-1, alpha, # m, n, alpha
-        &y[0, 1], <int> lda,
+        y + y_shift, <int> lda,
         dx, 1, beta1, # X, inc_X, beta
-        &out[0], 1 # y, inc_y
+        out, 1 # y, inc_y
     )
+    free(dx)
 
 
-cdef void _trapz_memview(
+cdef void trapz_memview(
     floating[:, :] y,
     floating[:] x,
     floating[:] out,
@@ -47,18 +54,7 @@ cdef void _trapz_memview(
     uint64_t n,
     BLAS_Order order
 ) noexcept nogil:
-    cdef int64_t i
-    cdef floating *dx = <floating*> malloc((n - 1) * sizeof(floating))
-
-    if dx == NULL:
-        # nothing we can do nogil; just return (out is untouched)
-        return
-
-    for i in prange(<int64_t> n - 1, nogil=True):
-        dx[i] = x[i + 1] - x[i]
-
-    _trapz_mat_blas(y, dx, out, m, n, order)
-    free(dx)
+    trapz_mat_blas(&y[0, 0], &x[0], &out[0], m, n, order)
 
 
 def trapz_f64(
@@ -83,7 +79,8 @@ def trapz_f64(
     cdef np.float64_t[:, :] y_view = Y
     cdef np.float64_t[:] x_view = x
     cdef np.float64_t[:] out_view = out
-    _trapz_memview(y_view, x_view, out_view, m, n, order)
+    with nogil:
+        trapz_mat_blas(&y_view[0, 0], &x_view[0], &out_view[0], m, n, order)
     return out
 
 
@@ -108,5 +105,6 @@ def trapz_f32(
     cdef np.float32_t[:, :] y_view = Y
     cdef np.float32_t[:] x_view = x
     cdef np.float32_t[:] out_view = out
-    _trapz_memview(y_view, x_view, out_view, m, n, order)
+    with nogil:
+        trapz_mat_blas(&y_view[0, 0], &x_view[0], &out_view[0], m, n, order)
     return out

@@ -7,7 +7,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-from pflm.utils._fpca_score import fpca_ce_score_f32, fpca_ce_score_f64
+from pflm.utils._fpca_score import fpca_ce_score_f32, fpca_ce_score_f64, fpca_in_score_f32, fpca_in_score_f64
 from pflm.utils._lapack_helper import _syevd_memview_f32, _syevd_memview_f64
 from pflm.utils.utility import FlattenFunctionalData, trapz
 
@@ -122,11 +122,11 @@ def get_fpca_phi(num_pcs: int, reg_grid: np.ndarray, reg_mu: np.ndarray, eig_lam
 
 def get_fpca_ce_score(
     flatten_func_data: FlattenFunctionalData,
-    num_pcs: int,
     mu: np.ndarray,
-    fitted_cov: np.ndarray,
+    num_pcs: int,
     fpca_lambda: np.ndarray,
     fpca_phi: np.ndarray,
+    fitted_cov: np.ndarray,
     sigma2: float,
 ) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
     """
@@ -136,16 +136,16 @@ def get_fpca_ce_score(
     ----------
     flatten_func_data : FlattenFunctionalData
         The flattened functional data containing y, t, tid, unique_sid, and sid_cnt.
-    num_pcs : int
-        The number of principal components to compute.
     mu : np.ndarray
         The mean function values at the grid points with shape (nt,).
-    fitted_cov : np.ndarray
-        The fitted covariance matrix of shape (nt, nt).
+    num_pcs : int
+        The number of principal components to compute.
     fpca_lambda : np.ndarray
         The eigenvalues corresponding to the functional principal components.
     fpca_phi : np.ndarray
         The functional principal component basis functions of shape (nt, num_pcs).
+    fitted_cov : np.ndarray
+        The fitted covariance matrix of shape (nt, nt).
     sigma2 : float
         The noise variance.
 
@@ -165,8 +165,8 @@ def get_fpca_ce_score(
         raise ValueError("fitted_cov must have shape (nt, nt).")
     if num_pcs > fpca_lambda.size:
         raise ValueError("num_pcs must be less than or equal to the number of eigenvalues.")
-    if fpca_phi.shape != (nt, len(fpca_lambda)):
-        raise ValueError("fpca_phi must have shape (nt, len(fpca_lambda)).")
+    if fpca_phi.shape != (nt, fpca_lambda.size):
+        raise ValueError("fpca_phi must have shape (nt, fpca_lambda.size).")
 
     input_dtype = flatten_func_data.y.dtype
     sigma_y = (fitted_cov + np.eye(fitted_cov.shape[0]) * sigma2).astype(input_dtype, copy=False)
@@ -192,9 +192,9 @@ def estimate_rho(
     method_rho: str,
     flatten_func_data: FlattenFunctionalData,
     mu: np.ndarray,
-    fitted_cov: np.ndarray,
     fpca_lambda: np.ndarray,
     fpca_phi: np.ndarray,
+    fitted_cov: np.ndarray,
     sigma2: float,
 ) -> float:
     """
@@ -208,12 +208,12 @@ def estimate_rho(
         The flattened functional data containing y, t, tid, unique_sid, and sid_cnt.
     mu : np.ndarray
         The mean function values at the grid points with shape (nt,).
-    fitted_cov : np.ndarray
-        The fitted covariance matrix of shape (nt, nt).
     fpca_lambda : np.ndarray
         The eigenvalues corresponding to the functional principal components.
     fpca_phi : np.ndarray
         The functional principal component basis functions of shape (nt, num_pcs).
+    fitted_cov : np.ndarray
+        The fitted covariance matrix of shape (nt, nt).
     sigma2 : float
         The noise variance.
 
@@ -224,7 +224,7 @@ def estimate_rho(
     """
     num_pcs = fpca_lambda.size
     # initial fit
-    _, _, fitted_y_mat, fitted_y = get_fpca_ce_score(flatten_func_data, num_pcs, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2)
+    _, _, fitted_y_mat, fitted_y = get_fpca_ce_score(flatten_func_data, mu, num_pcs, fpca_lambda, fpca_phi, fitted_cov, sigma2)
 
     # calculate residual sum of squared errors (RSS)
     idx = flatten_func_data.tid * flatten_func_data.unique_tid.size + flatten_func_data.sid
@@ -244,7 +244,7 @@ def estimate_rho(
     # calculate rho scores
     rho_scores = np.zeros(len(rho_candidates), dtype=input_dtype)
     for idx, rho in enumerate(rho_candidates):
-        xi, _, _, _ = get_fpca_ce_score(flatten_func_data, num_pcs, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2=rho)
+        xi, _, _, _ = get_fpca_ce_score(flatten_func_data, mu, num_pcs, fpca_lambda, fpca_phi, fitted_cov, sigma2=rho)
         # reconstruct curves
         fitted_y = mu + fpca_phi @ xi.T  # (nt, n_samples)
         var_y = np.var(fitted_y, axis=1)  # variance across samples per time point
@@ -253,7 +253,71 @@ def estimate_rho(
 
 
 def get_fpca_in_score(
-    flatten_func_data: FlattenFunctionalData, num_pcs: int, fitted_cov: np.ndarray, fpca_lambda: np.ndarray, fpca_phi: np.ndarray, sigma2: float
+    flatten_func_data: FlattenFunctionalData,
+    mu: np.ndarray,
+    num_pcs: int,
+    fpca_lambda: np.ndarray,
+    fpca_phi: np.ndarray,
+    sigma2: float,
+    if_shrinkage: bool = False
 ) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray, List[np.ndarray]]:
-    # Placeholder
-    return np.array([]), [], np.array([]), []
+    """
+    Compute the functional principal component analysis (FPCA) scores and fitted values.
+
+    Parameters
+    ----------
+    flatten_func_data : FlattenFunctionalData
+        The flattened functional data containing y, t, tid, unique_sid, and sid_cnt.
+    mu : np.ndarray
+        The mean function values at the grid points with shape (nt,).
+    num_pcs : int
+        The number of principal components to compute.
+    fpca_lambda : np.ndarray
+        The eigenvalues corresponding to the functional principal components.
+    fpca_phi : np.ndarray
+        The functional principal component basis functions of shape (nt, num_pcs).
+    sigma2 : float
+        The noise variance.
+    if_shrinkage : bool
+        Whether to apply shrinkage to the FPCA scores.
+
+    Returns
+    -------
+    xi : np.ndarray
+        The FPCA scores of shape (num_samples, num_pcs).
+    xi_var : np.ndarray
+        The variances of the FPCA scores of shape (num_samples, num_pcs).
+    fitted_y_mat : np.ndarray
+        The fitted functional data values of shape (nt, num_samples).
+    fitted_y : List[np.ndarray]
+        The fitted functional data values for each unique subject ID.
+    """
+    nt = flatten_func_data.unique_tid.size
+    if num_pcs > fpca_lambda.size:
+        raise ValueError("num_pcs must be less than or equal to the number of eigenvalues.")
+    if fpca_phi.shape != (nt, fpca_lambda.size):
+        raise ValueError("fpca_phi must have shape (nt, fpca_lambda.size).")
+    if not isinstance(if_shrinkage, bool):
+        raise ValueError("if_shrinkage must be a boolean.")
+
+    input_dtype = flatten_func_data.y.dtype
+    fpca_in_score_func = fpca_in_score_f64 if input_dtype == np.float64 else fpca_in_score_f32
+    fpca_phi_ = np.ascontiguousarray(fpca_phi).astype(input_dtype, copy=False)
+    t_range = flatten_func_data.unique_tid[-1] - flatten_func_data.unique_tid[0]
+    xi = fpca_in_score_func(
+        flatten_func_data.y,
+        flatten_func_data.t,
+        flatten_func_data.tid,
+        mu,
+        fpca_lambda,
+        fpca_phi_,
+        flatten_func_data.unique_sid,
+        flatten_func_data.sid_cnt,
+        sigma2,
+        t_range,
+        if_shrinkage
+    )
+    xi_var = [np.zeros((num_pcs, num_pcs), dtype=input_dtype) for data_cnt in flatten_func_data.sid_cnt]
+    fitted_y_mat = mu + fpca_phi[:, :num_pcs] @ xi.T  # (nt, n_samples)
+    fitted_y = [fitted_y_mat[flatten_func_data.tid[flatten_func_data.sid == i], i] for i in flatten_func_data.unique_sid]
+    return xi, xi_var, fitted_y_mat, fitted_y

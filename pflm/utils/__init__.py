@@ -11,13 +11,11 @@ from pflm.utils.fpca_helpers import (
     get_fpca_phi,
     select_num_pcs_fve,
 )
-from pflm.utils.fpca_result_class import FpcaEigenFunction, FpcaFittedCovariance, FpcaModelParams, SmoothedModelResult
+from pflm.utils.fpca_result_class import FpcaModelParams, SmoothedModelResult
 from pflm.utils.utility import FlattenFunctionalData, flatten_and_sort_data_matrices, trapz
 
 __all__ = [
     "FlattenFunctionalData",
-    "FpcaEigenFunction",
-    "FpcaFittedCovariance",
     "FpcaModelParams",
     "SmoothedModelResult",
     "estimate_rho",

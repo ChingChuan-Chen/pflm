@@ -7,16 +7,17 @@ from libcpp.vector cimport vector
 from libc.math cimport NAN
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
-from pflm.utils._lapack_helper cimport _posv
 from sklearn.utils._cython_blas cimport _gemv, _gemm
 from sklearn.utils._cython_blas cimport ColMajor, NoTrans, Trans
+from pflm.utils._lapack_helper cimport _posv
+from pflm.utils._trapz cimport trapz_mat_blas
 
 
 cdef void fpca_ce_score_helper(
     uint64_t nt,
     uint64_t data_cnt,
     uint64_t num_pcs,
-    floating* xi,         # shape: (data_cnt, num_pcs) row-major
+    floating* xi,         # shape: (num_samples, num_pcs) row-major (pointer to xi[idx, 0])
     floating* xi_var,     # shape: (data_cnt, data_cnt) row-major
     floating* yy,
     floating* tt,
@@ -43,13 +44,12 @@ cdef void fpca_ce_score_helper(
 
     # perform A = inv(sub_sigma_y) * sub_lambda_phi
     cdef int info = 0
-    with nogil:
-        _posv(108, <int> data_cnt, <int> num_pcs, sub_sigma_y, <int> data_cnt, sub_sigma_lambda_phi, <int> data_cnt, &info)
+    _posv(108, <int> data_cnt, <int> num_pcs, sub_sigma_y, <int> data_cnt, sub_sigma_lambda_phi, <int> data_cnt, &info)
     if info != 0:
         for j in range(<int64_t> num_pcs):
             xi[j] = NAN
 
-    # # perform A * (y - mu) with _gemv: y = alpha * A^T * x + beta * y
+    # perform A * (y - mu) with _gemv: y = alpha * A^T * x + beta * y
     _gemv(
         ColMajor, Trans,
         <int> data_cnt, <int> num_pcs, # m, n
@@ -164,3 +164,118 @@ def fpca_ce_score_f32(
             &tid_view[data_start_idx], &mu_view[0], &sigma_y_view[0, 0], &lambda_phi_view[0, 0]
         )
     return xi, xi_var
+
+
+cdef void fpca_in_score_helper(
+    uint64_t nt,
+    uint64_t data_cnt,
+    uint64_t num_pcs,
+    floating* xi,          # shape: (num_samples, num_pcs) row-major (pointer to xi[idx, 0])
+    floating* yy,
+    floating* tt,
+    int64_t* tid,
+    floating* mu,          # shape: (nt, )
+    floating* fpca_lambda, # shape: (num_pcs, )
+    floating* fpca_phi,    # shape: (nt, num_pcs) row-major
+    floating sigma2,
+    floating t_range,
+    bint if_shrinkage
+) noexcept nogil:
+    cdef int64_t i, j
+    cdef floating* temp = <floating*> malloc(num_pcs * data_cnt * sizeof(floating))       # shape: (num_pcs, data_cnt) col-major
+    cdef floating* sub_y_minus_mu = <floating*> malloc(data_cnt * sizeof(floating))       # shape: (data_cnt, )
+    cdef floating* sub_t = <floating*> malloc(data_cnt * sizeof(floating))                # shape: (data_cnt, )
+    for i in range(<int64_t> data_cnt):
+        sub_y_minus_mu[i] = yy[i] - mu[tid[i]]
+        sub_t[i] = tt[i]
+        for j in range(<int64_t> num_pcs):
+            temp[j + i * num_pcs] = fpca_phi[tid[i] * num_pcs + j] * sub_y_minus_mu[i]
+
+    trapz_mat_blas(temp, sub_t, xi, num_pcs, data_cnt, ColMajor)
+    if if_shrinkage:
+        for i in range(<int64_t> num_pcs):
+            xi[i] *= fpca_lambda[i] / (fpca_lambda[i] + t_range * sigma2 / data_cnt)
+
+    free(temp)
+    free(sub_y_minus_mu)
+    free(sub_t)
+
+
+def fpca_in_score_f64(
+    np.ndarray[np.float64_t] yy,
+    np.ndarray[np.float64_t] tt,
+    np.ndarray[np.int64_t] tid,
+    np.ndarray[np.float64_t] mu,
+    np.ndarray[np.float64_t] fpca_lambda,
+    np.ndarray[np.float64_t, ndim=2] fpca_phi,
+    np.ndarray[np.int64_t] unique_sid,
+    np.ndarray[np.int64_t] sid_cnt,
+    np.float64_t sigma2,
+    np.float64_t t_range,
+    bint if_shrinkage
+):
+    cdef uint64_t num_unique_sid = unique_sid.size, num_pcs = fpca_phi.shape[1], nt = mu.size
+    cdef np.ndarray[np.int64_t] sid_cum_cnt = np.cumsum(sid_cnt)
+    cdef np.ndarray[np.float64_t, ndim=2] xi = np.zeros((num_unique_sid, num_pcs), order='C', dtype=np.float64)
+
+    cdef np.float64_t[:] yy_view = yy
+    cdef np.float64_t[:] tt_view = tt
+    cdef int64_t[:] tid_view = tid
+    cdef np.float64_t[:] mu_view = mu
+    cdef np.float64_t[:] fpca_lambda_view = fpca_lambda
+    cdef np.float64_t[:, ::1] fpca_phi_view = fpca_phi
+    cdef int64_t[:] sid_cum_cnt_view = sid_cum_cnt
+    cdef np.float64_t[:, ::1] xi_view = xi
+
+    cdef uint64_t data_start_idx, data_cnt
+    cdef int64_t idx
+    for idx in prange(<int64_t> num_unique_sid, nogil=True):
+        data_start_idx = sid_cum_cnt_view[idx - 1] if idx > 0 else 0
+        data_cnt = sid_cum_cnt_view[idx] - data_start_idx
+        fpca_in_score_helper(
+            nt, data_cnt, num_pcs,
+            &xi_view[idx, 0], &yy_view[data_start_idx], &tt_view[data_start_idx],
+            &tid_view[data_start_idx], &mu_view[0], &fpca_lambda_view[0], &fpca_phi_view[0, 0],
+            sigma2, t_range, if_shrinkage
+        )
+    return xi
+
+
+def fpca_in_score_f32(
+    np.ndarray[np.float32_t] yy,
+    np.ndarray[np.float32_t] tt,
+    np.ndarray[np.int64_t] tid,
+    np.ndarray[np.float32_t] mu,
+    np.ndarray[np.float32_t] fpca_lambda,
+    np.ndarray[np.float32_t, ndim=2] fpca_phi,
+    np.ndarray[np.int64_t] unique_sid,
+    np.ndarray[np.int64_t] sid_cnt,
+    np.float32_t sigma2,
+    np.float32_t t_range,
+    bint if_shrinkage
+):
+    cdef uint64_t num_unique_sid = unique_sid.size, num_pcs = fpca_phi.shape[1], nt = mu.size
+    cdef np.ndarray[np.int64_t] sid_cum_cnt = np.cumsum(sid_cnt)
+    cdef np.ndarray[np.float32_t, ndim=2] xi = np.zeros((num_unique_sid, num_pcs), order='C', dtype=np.float32)
+
+    cdef np.float32_t[:] yy_view = yy
+    cdef np.float32_t[:] tt_view = tt
+    cdef int64_t[:] tid_view = tid
+    cdef np.float32_t[:] mu_view = mu
+    cdef np.float32_t[:] fpca_lambda_view = fpca_lambda
+    cdef np.float32_t[:, ::1] fpca_phi_view = fpca_phi
+    cdef int64_t[:] sid_cum_cnt_view = sid_cum_cnt
+    cdef np.float32_t[:, ::1] xi_view = xi
+
+    cdef uint64_t data_start_idx, data_cnt
+    cdef int64_t idx
+    for idx in prange(<int64_t> num_unique_sid, nogil=True):
+        data_start_idx = sid_cum_cnt_view[idx - 1] if idx > 0 else 0
+        data_cnt = sid_cum_cnt_view[idx] - data_start_idx
+        fpca_in_score_helper(
+            nt, data_cnt, num_pcs,
+            &xi_view[idx, 0], &yy_view[data_start_idx], &tt_view[data_start_idx],
+            &tid_view[data_start_idx], &mu_view[0], &fpca_lambda_view[0], &fpca_phi_view[0, 0],
+            sigma2, t_range, if_shrinkage
+        )
+    return xi

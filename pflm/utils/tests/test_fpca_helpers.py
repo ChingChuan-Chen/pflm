@@ -9,6 +9,7 @@ from pflm.utils.fpca_helpers import (
     estimate_rho,
     get_eigen_analysis_results,
     get_fpca_ce_score,
+    get_fpca_in_score,
     get_fpca_phi,
     select_num_pcs_fve,
 )
@@ -154,7 +155,7 @@ def _build_flatten_data(dtype):
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_fpca_ce_score_happy_path(dtype):
     ffd, mu = _build_flatten_data(dtype)
-    num_samples = len(ffd.sid_cnt)
+    num_samples = ffd.sid_cnt.size
     raw_cov = get_raw_cov(ffd, mu)
     obs_cov = get_covariance_matrix(raw_cov, ffd.unique_tid)
     with pytest.warns(UserWarning, match="Eigenvalues contain NaN or negative values."):
@@ -166,7 +167,7 @@ def test_fpca_ce_score_happy_path(dtype):
     fitted_cov = fpca_phi @ (fpca_phi @ lambda_mat).T
     sigma2 = dtype(0.3)
 
-    xi, xi_var, yhat_mat, yhat = get_fpca_ce_score(ffd, num_pcs, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2)
+    xi, xi_var, yhat_mat, yhat = get_fpca_ce_score(ffd, mu, num_pcs, fpca_lambda, fpca_phi, fitted_cov, sigma2)
     sigma_y = fitted_cov + np.eye(fitted_cov.shape[0], dtype=dtype) * sigma2
 
     # manual expected
@@ -198,7 +199,7 @@ def test_get_fpca_ce_score_too_many_num_pcs():
     fitted_cov = np.eye(ffd.unique_tid.size, dtype=np.float64)  # dummy covariance
     fpca_phi = np.array([[0.8, 0.1], [0.6, 0.2], [0.1, 0.3]])
     with pytest.raises(ValueError, match="num_pcs must be less than or equal to the number of eigenvalues"):
-        get_fpca_ce_score(ffd, 3, mu, fitted_cov, np.array([[2.0, 1.0]]), fpca_phi, 0.5)
+        get_fpca_ce_score(ffd, mu, 3, np.array([[2.0, 1.0]]), fpca_phi, fitted_cov, 0.5)
 
 
 def test_get_fpca_ce_score_fitted_cov_shape_mismatch():
@@ -206,7 +207,7 @@ def test_get_fpca_ce_score_fitted_cov_shape_mismatch():
     fitted_cov = np.eye(ffd.unique_tid.size + 1, dtype=np.float64)  # dummy covariance
     fpca_phi = np.array([[0.8, 0.1], [0.6, 0.2], [0.1, 0.3]])
     with pytest.raises(ValueError, match="fitted_cov must have shape"):
-        get_fpca_ce_score(ffd, 2, mu, fitted_cov, np.array([[2.0, 1.0]]), fpca_phi, 0.5)
+        get_fpca_ce_score(ffd, mu, 2, np.array([[2.0, 1.0]]), fpca_phi, fitted_cov, 0.5)
 
 
 def test_get_fpca_ce_score_fpca_phi_shape_mismatch():
@@ -214,7 +215,7 @@ def test_get_fpca_ce_score_fpca_phi_shape_mismatch():
     fitted_cov = np.eye(ffd.unique_tid.size, dtype=np.float64)  # dummy covariance
     bad_phi = np.array([[0.8, 0.1], [0.6, 0.2]])
     with pytest.raises(ValueError, match="fpca_phi must have shape"):
-        get_fpca_ce_score(ffd, 2, mu, fitted_cov, np.array([[2.0, 1.0]]), bad_phi, 0.5)
+        get_fpca_ce_score(ffd, mu, 2, np.array([[2.0, 1.0]]), bad_phi, fitted_cov, 0.5)
 
 
 @pytest.mark.parametrize("method_rho,dtype", [("ridge", np.float64), ("ridge", np.float32), ("truncated", np.float64), ("truncated", np.float32)])
@@ -231,9 +232,71 @@ def test_estimate_rho_happy_path(method_rho, dtype):
     fitted_cov = fpca_phi @ (fpca_phi @ lambda_mat).T
     sigma2 = dtype(0.3)
 
-    rho_estimate = estimate_rho(method_rho, ffd, mu, fitted_cov, fpca_lambda, fpca_phi, sigma2)
-    print(f"Estimated rho: {rho_estimate}")
+    rho_estimate = estimate_rho(method_rho, ffd, mu, fpca_lambda, fpca_phi, fitted_cov, sigma2)
     assert np.issubdtype(rho_estimate.dtype, np.floating)
     assert rho_estimate > 0
     if method_rho == "truncated":
         assert np.allclose(rho_estimate, 2.640398, rtol=1e-5, atol=1e-5)
+
+
+@pytest.mark.parametrize("dtype,if_shrinkage", [(np.float64, True), (np.float64, False), (np.float32, True), (np.float32, False)])
+def test_get_fpca_in_score_happy_path(dtype, if_shrinkage):
+    ffd, mu = _build_flatten_data(dtype)
+    num_samples = ffd.sid_cnt.size
+    raw_cov = get_raw_cov(ffd, mu)
+    obs_cov = get_covariance_matrix(raw_cov, ffd.unique_tid)
+    with pytest.warns(UserWarning, match="Eigenvalues contain NaN or negative values."):
+        eig_lambda, eig_vector = get_eigen_analysis_results(obs_cov)
+    assert np.sum(eig_lambda > 0) >= 2
+    num_pcs = 2
+    fpca_lambda, fpca_phi = get_fpca_phi(num_pcs, ffd.unique_tid, mu, eig_lambda, eig_vector)
+    sigma2 = dtype(0.3)
+
+    expected_xi = np.zeros((num_samples, num_pcs), dtype=dtype)
+    t_range = ffd.unique_tid[-1] - ffd.unique_tid[0]
+    for i, sid_val in enumerate(ffd.unique_sid):
+        mask = ffd.sid == sid_val
+        tid_i = ffd.tid[mask]
+        yi = ffd.y[mask]
+        temp = np.zeros((num_pcs, ffd.sid_cnt[i]), dtype=dtype)
+        for j in range(num_pcs):
+            temp[j, :] = fpca_phi[tid_i, j] * (yi - mu[tid_i])
+        print(f"(i, j): ({i}, {j}), temp: {temp}, t: {ffd.t[mask]}")
+        expected_xi[i, :] = trapz(temp, ffd.t[mask])
+        if if_shrinkage:
+            for j in range(num_pcs):
+                expected_xi[i, j] *= fpca_lambda[j] / (fpca_lambda[j] + t_range * sigma2 / ffd.sid_cnt[i])
+
+    xi, xi_var, yhat_mat, yhat = get_fpca_in_score(ffd, mu, 2, fpca_lambda, fpca_phi, sigma2, if_shrinkage)
+    assert xi.shape == (num_samples, 2)
+    assert_allclose(xi, expected_xi, rtol=1e-5, atol=1e-5)
+    assert len(xi_var) == num_samples
+    for i in range(num_samples):
+        assert xi_var[i].shape == (num_pcs, num_pcs)
+    assert yhat_mat.shape == (mu.size, num_samples)
+    yhat_mat_expected = mu + fpca_phi @ xi.T
+    assert_allclose(yhat_mat, yhat_mat_expected, rtol=1e-5, atol=1e-5)
+    assert len(yhat) == num_samples
+    assert all(yi_cnt == len(yhat_i) for yi_cnt, yhat_i in zip(ffd.sid_cnt, yhat))
+
+
+def test_get_fpca_in_score_too_many_num_pcs():
+    ffd, mu = _build_flatten_data(np.float64)
+    fpca_phi = np.array([[0.8, 0.1], [0.6, 0.2], [0.1, 0.3]])
+    with pytest.raises(ValueError, match="num_pcs must be less than or equal to the number of eigenvalues"):
+        get_fpca_in_score(ffd, mu, 3, np.array([2.0, 1.0]), fpca_phi, 0.5, False)
+
+
+def test_get_fpca_in_score_fpca_phi_shape_mismatch():
+    ffd, mu = _build_flatten_data(np.float64)
+    bad_phi = np.array([[0.8, 0.1], [0.6, 0.2]])
+    with pytest.raises(ValueError, match="fpca_phi must have shape"):
+        get_fpca_in_score(ffd, mu, 2, np.array([[2.0, 1.0]]), bad_phi, 0.5, False)
+
+
+@pytest.mark.parametrize("bad_value", [None, 0, 1.0, "string", np.nan])
+def test_get_fpca_in_score_fpca_bad_if_shrinkage(bad_value):
+    ffd, mu = _build_flatten_data(np.float64)
+    fpca_phi = np.array([[0.8, 0.1], [0.6, 0.2], [0.1, 0.3]])
+    with pytest.raises(ValueError, match="if_shrinkage must be a boolean"):
+        get_fpca_in_score(ffd, mu, 2, np.array([[2.0, 1.0]]), fpca_phi, 0.5, bad_value)
