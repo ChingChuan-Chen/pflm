@@ -2,6 +2,7 @@
 
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
+import copy
 import warnings
 from typing import List, Tuple
 
@@ -183,7 +184,7 @@ def get_fpca_ce_score(
         flatten_func_data.unique_sid,
         flatten_func_data.sid_cnt,
     )
-    fitted_y_mat = mu + fpca_phi[:, :num_pcs] @ xi.T  # (nt, n_samples)
+    fitted_y_mat = mu.reshape(-1, 1) + fpca_phi[:, :num_pcs] @ xi.T  # (nt, n_samples)
     fitted_y = [fitted_y_mat[flatten_func_data.tid[flatten_func_data.sid == i], i] for i in flatten_func_data.unique_sid]
     return xi, xi_var, fitted_y_mat, fitted_y
 
@@ -191,9 +192,12 @@ def get_fpca_ce_score(
 def estimate_rho(
     method_rho: str,
     flatten_func_data: FlattenFunctionalData,
-    mu: np.ndarray,
+    reg_grid: np.ndarray,
+    mu_obs: np.ndarray,
+    mu_reg: np.ndarray,
     fpca_lambda: np.ndarray,
-    fpca_phi: np.ndarray,
+    fpca_phi_obs: np.ndarray,
+    fpca_phi_reg: np.ndarray,
     fitted_cov: np.ndarray,
     sigma2: float,
 ) -> float:
@@ -206,14 +210,20 @@ def estimate_rho(
         The method for estimating rho, either 'ridge' or 'trunc'.
     flatten_func_data : FlattenFunctionalData
         The flattened functional data containing y, t, tid, unique_sid, and sid_cnt.
-    mu : np.ndarray
+    reg_grid : np.ndarray
+        The registration grid points with shape (n_reg_grid,).
+    mu_obs : np.ndarray
         The mean function values at the grid points with shape (nt,).
+    mu_reg : np.ndarray
+        The mean function values at the grid points for the registration data with shape (n_reg_grid,).
     fpca_lambda : np.ndarray
         The eigenvalues corresponding to the functional principal components.
-    fpca_phi : np.ndarray
-        The functional principal component basis functions of shape (nt, num_pcs).
+    fpca_phi_obs : np.ndarray
+        The functional principal component basis functions for the observed data of shape (nt, num_pcs).
+    fpca_phi_reg : np.ndarray
+        The functional principal component basis functions for the registration data of shape (n_reg_grid, num_pcs).
     fitted_cov : np.ndarray
-        The fitted covariance matrix of shape (nt, nt).
+        The fitted covariance matrix for the observed data of shape (nt, nt).
     sigma2 : float
         The noise variance.
 
@@ -223,32 +233,26 @@ def estimate_rho(
         The estimated optimal rho value.
     """
     num_pcs = fpca_lambda.size
-    # initial fit
-    _, _, fitted_y_mat, fitted_y = get_fpca_ce_score(flatten_func_data, mu, num_pcs, fpca_lambda, fpca_phi, fitted_cov, sigma2)
-
-    # calculate residual sum of squared errors (RSS)
-    idx = flatten_func_data.tid * flatten_func_data.unique_tid.size + flatten_func_data.sid
-    squared_residuals = (fitted_y_mat.ravel(order="C")[idx] - mu[flatten_func_data.tid]) ** 2
-    rss = np.mean(np.bincount(flatten_func_data.sid, weights=squared_residuals) / np.bincount(flatten_func_data.sid))
-
-    # decide the candidates
-    input_dtype = flatten_func_data.y.dtype
     obs_grid = flatten_func_data.unique_tid
     total_fpca_lambda = np.sum(fpca_lambda)
     if method_rho == "ridge":
-        r = np.sqrt((trapz(mu**2, obs_grid) + total_fpca_lambda) / (obs_grid[-1] - obs_grid[0]))
-        rho_candidates = np.exp(np.linspace(-13, -1.5, 50, dtype=input_dtype)) * r
+        r = np.sqrt((trapz(mu_obs**2, obs_grid) + total_fpca_lambda) / (obs_grid[-1] - obs_grid[0]))
+        rho_candidates = np.exp(np.linspace(-13, -1.5, 50)) * r
     else:
-        rho_candidates = np.linspace(1, 10, 50, dtype=input_dtype) * rss
+        for _ in range(2):
+            _, _, fitted_y_mat, _ = get_fpca_ce_score(flatten_func_data, mu_obs, num_pcs, fpca_lambda, fpca_phi_obs, fitted_cov, sigma2)
+            idx = flatten_func_data.tid * flatten_func_data.unique_tid.size + flatten_func_data.sid
+            squared_residuals = (fitted_y_mat.ravel(order="C")[idx] - flatten_func_data.y) ** 2
+            sigma2 = np.mean(np.bincount(flatten_func_data.sid, weights=squared_residuals) / flatten_func_data.sid_cnt)
+        rho_candidates = np.linspace(1, 10, 50) * sigma2
 
     # calculate rho scores
-    rho_scores = np.zeros(len(rho_candidates), dtype=input_dtype)
+    rho_scores = np.zeros(len(rho_candidates), dtype=np.float64)
     for idx, rho in enumerate(rho_candidates):
-        xi, _, _, _ = get_fpca_ce_score(flatten_func_data, mu, num_pcs, fpca_lambda, fpca_phi, fitted_cov, sigma2=rho)
-        # reconstruct curves
-        fitted_y = mu + fpca_phi @ xi.T  # (nt, n_samples)
-        var_y = np.var(fitted_y, axis=1)  # variance across samples per time point
-        rho_scores[idx] = (total_fpca_lambda - trapz(var_y, obs_grid)) ** 2
+        xi, _, _, _ = get_fpca_ce_score(flatten_func_data, mu_obs, num_pcs, fpca_lambda, fpca_phi_obs, fitted_cov, sigma2=rho)
+        fitted_y_mat_reg = mu_reg.reshape(-1, 1) + fpca_phi_reg[:, :num_pcs] @ xi.T
+        var_y = np.var(fitted_y_mat_reg, axis=1, ddof=1)  # variance across samples per time point
+        rho_scores[idx] = (total_fpca_lambda - trapz(var_y, reg_grid)) ** 2
     return rho_candidates[np.argmin(rho_scores)]
 
 
@@ -259,7 +263,7 @@ def get_fpca_in_score(
     fpca_lambda: np.ndarray,
     fpca_phi: np.ndarray,
     sigma2: float,
-    if_shrinkage: bool = False
+    if_shrinkage: bool = False,
 ) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray, List[np.ndarray]]:
     """
     Compute the functional principal component analysis (FPCA) scores and fitted values.
@@ -315,9 +319,9 @@ def get_fpca_in_score(
         flatten_func_data.sid_cnt,
         sigma2,
         t_range,
-        if_shrinkage
+        if_shrinkage,
     )
     xi_var = [np.zeros((num_pcs, num_pcs), dtype=input_dtype) for data_cnt in flatten_func_data.sid_cnt]
-    fitted_y_mat = mu + fpca_phi[:, :num_pcs] @ xi.T  # (nt, n_samples)
+    fitted_y_mat = mu.reshape(-1, 1) + fpca_phi[:, :num_pcs] @ xi.T  # (nt, n_samples)
     fitted_y = [fitted_y_mat[flatten_func_data.tid[flatten_func_data.sid == i], i] for i in flatten_func_data.unique_sid]
     return xi, xi_var, fitted_y_mat, fitted_y

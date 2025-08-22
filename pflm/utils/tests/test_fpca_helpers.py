@@ -170,7 +170,6 @@ def test_fpca_ce_score_happy_path(dtype):
     xi, xi_var, yhat_mat, yhat = get_fpca_ce_score(ffd, mu, num_pcs, fpca_lambda, fpca_phi, fitted_cov, sigma2)
     sigma_y = fitted_cov + np.eye(fitted_cov.shape[0], dtype=dtype) * sigma2
 
-    # manual expected
     xi_expected = np.zeros((ffd.unique_sid.size, num_pcs), dtype=dtype)
     xi_var_expected = []
     for i, sid_val in enumerate(ffd.unique_sid):
@@ -188,7 +187,7 @@ def test_fpca_ce_score_happy_path(dtype):
         assert xi_var[i].shape == (num_pcs, num_pcs)
         assert_allclose(xi_var[i], xi_var_expected[i], rtol=1e-5, atol=1e-5)
     assert yhat_mat.shape == (mu.size, num_samples)
-    yhat_mat_expected = mu + fpca_phi @ xi.T
+    yhat_mat_expected = mu.reshape(-1, 1) + fpca_phi @ xi_expected.T
     assert_allclose(yhat_mat, yhat_mat_expected, rtol=1e-5, atol=1e-5)
     assert len(yhat) == num_samples
     assert all(yi_cnt == len(yhat_i) for yi_cnt, yhat_i in zip(ffd.sid_cnt, yhat))
@@ -222,7 +221,7 @@ def test_get_fpca_ce_score_fpca_phi_shape_mismatch():
 def test_estimate_rho_happy_path(method_rho, dtype):
     ffd, mu = _build_flatten_data(dtype)
     raw_cov = get_raw_cov(ffd, mu)
-    obs_cov = get_covariance_matrix(raw_cov, ffd.unique_tid)
+    obs_cov = get_covariance_matrix(raw_cov, ffd.unique_tid) + np.eye(ffd.unique_tid.size, dtype=dtype) * 1e-6
     with pytest.warns(UserWarning, match="Eigenvalues contain NaN or negative values."):
         eig_lambda, eig_vector = get_eigen_analysis_results(obs_cov)
     assert np.sum(eig_lambda > 0) >= 2
@@ -230,13 +229,16 @@ def test_estimate_rho_happy_path(method_rho, dtype):
     fpca_lambda, fpca_phi = get_fpca_phi(num_pcs, ffd.unique_tid, mu, eig_lambda, eig_vector)
     lambda_mat = np.diag(fpca_lambda)
     fitted_cov = fpca_phi @ (fpca_phi @ lambda_mat).T
-    sigma2 = dtype(0.3)
+    sigma2 = dtype(2)
 
-    rho_estimate = estimate_rho(method_rho, ffd, mu, fpca_lambda, fpca_phi, fitted_cov, sigma2)
+    rho_estimate = estimate_rho(method_rho, ffd, ffd.unique_tid, mu, mu, fpca_lambda, fpca_phi, fpca_phi, fitted_cov, sigma2)
     assert np.issubdtype(rho_estimate.dtype, np.floating)
-    assert rho_estimate > 0
-    if method_rho == "truncated":
-        assert np.allclose(rho_estimate, 2.640398, rtol=1e-5, atol=1e-5)
+    assert rho_estimate > 0.0
+
+    expected_rho = {"truncated": 0.009893764, "ridge": 0.000007581265}.get(method_rho, None)
+    if not (method_rho == "ridge" and dtype == np.float32):
+        # not validate results in float32 which is less accurate when solving an inverse with small sigma2
+        assert_allclose(rho_estimate, expected_rho, rtol=1e-5, atol=1e-5)
 
 
 @pytest.mark.parametrize("dtype,if_shrinkage", [(np.float64, True), (np.float64, False), (np.float32, True), (np.float32, False)])
@@ -261,20 +263,20 @@ def test_get_fpca_in_score_happy_path(dtype, if_shrinkage):
         temp = np.zeros((num_pcs, ffd.sid_cnt[i]), dtype=dtype)
         for j in range(num_pcs):
             temp[j, :] = fpca_phi[tid_i, j] * (yi - mu[tid_i])
-        print(f"(i, j): ({i}, {j}), temp: {temp}, t: {ffd.t[mask]}")
         expected_xi[i, :] = trapz(temp, ffd.t[mask])
         if if_shrinkage:
             for j in range(num_pcs):
                 expected_xi[i, j] *= fpca_lambda[j] / (fpca_lambda[j] + t_range * sigma2 / ffd.sid_cnt[i])
 
     xi, xi_var, yhat_mat, yhat = get_fpca_in_score(ffd, mu, 2, fpca_lambda, fpca_phi, sigma2, if_shrinkage)
+
     assert xi.shape == (num_samples, 2)
     assert_allclose(xi, expected_xi, rtol=1e-5, atol=1e-5)
     assert len(xi_var) == num_samples
     for i in range(num_samples):
         assert xi_var[i].shape == (num_pcs, num_pcs)
     assert yhat_mat.shape == (mu.size, num_samples)
-    yhat_mat_expected = mu + fpca_phi @ xi.T
+    yhat_mat_expected = mu.reshape(-1, 1) + fpca_phi @ xi.T
     assert_allclose(yhat_mat, yhat_mat_expected, rtol=1e-5, atol=1e-5)
     assert len(yhat) == num_samples
     assert all(yi_cnt == len(yhat_i) for yi_cnt, yhat_i in zip(ffd.sid_cnt, yhat))

@@ -3,7 +3,7 @@
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 from dataclasses import dataclass
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Dict, Literal, Optional, Union
 
 import numpy as np
 

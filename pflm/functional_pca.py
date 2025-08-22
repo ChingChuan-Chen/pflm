@@ -3,6 +3,7 @@
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 
+import time
 import warnings
 from typing import List, Literal, Optional, Tuple, Union
 
@@ -327,8 +328,9 @@ class FunctionalPCA(BaseEstimator):
             A 2D array where each row corresponds to an observation at the time points in `t` which allow for missing values.
         w : a list of array-like, optional
             A 1D array of weights for each observation. If None, equal weights are assumed.
-        method_pcs : {'IN', 'CE'}, default='CE'
+        method_pcs : {'IN', 'CE', 'LS', 'WLS'}, default='CE'
             Method to compute principal component scores. 'IN' for Numerical Integration, 'CE' for Conditional Expectation.
+            'LS' for least square. 'WLS' for weighted least square.
         method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, optional
             Method to select the number of principal component scores. If empty, it will be determined based on the explained variance.
             If an integer is provided, it specifies the number of principal component scores to use.
@@ -356,6 +358,7 @@ class FunctionalPCA(BaseEstimator):
             The fitted model instance which will contain the estimated parameters such as mean function,
             covariance function, and principal component scores.
         """
+        init_start_time = time.time_ns()
         self.num_samples_ = len(y)
         self.__check_fit_params(
             self.num_samples_,
@@ -414,8 +417,10 @@ class FunctionalPCA(BaseEstimator):
         else:
             # Create uniform grid within the range of input X
             reg_grid = np.linspace(tt[0], tt[-1], self.num_points_reg_grid, dtype=self._input_dtype)
+        init_time = (time.time_ns() - init_start_time) / 1e9
 
         # calculate the mean function
+        start_time = time.time_ns()
         if self.user_params.t_mu is not None and self.user_params.mu is not None:
             t_mu = check_array(self.user_params.t_mu, ensure_2d=False, dtype=self._input_dtype)
             mu = check_array(self.user_params.mu, ensure_2d=False, dtype=self._input_dtype)
@@ -445,8 +450,10 @@ class FunctionalPCA(BaseEstimator):
                 self._input_dtype, copy=False
             )
             mu_reg = interp1d(obs_grid, mu_obs, reg_grid, method="spline")
+        mu_time = (time.time_ns() - start_time) / 1e9
 
         # calculate the covariance function
+        start_time = time.time_ns()
         cov_obs = None
         cov_reg = None
         use_user_cov = False
@@ -481,7 +488,9 @@ class FunctionalPCA(BaseEstimator):
         elif self.mu_cov_params.estimate_method == "cross-sectional":
             cov_obs = get_covariance_matrix(self.raw_cov_, obs_grid)
             cov_reg = interp2d(obs_grid, obs_grid, cov_obs, reg_grid, reg_grid, method="spline")
+        cov_time = (time.time_ns() - start_time) / 1e9
 
+        start_time = time.time_ns()
         sigma2 = 0.0
         if self.assume_measurement_error and self.user_params.sigma2 is not None:
             sigma2 = float(self.user_params.sigma2)
@@ -507,21 +516,31 @@ class FunctionalPCA(BaseEstimator):
             sigma2 = np.average(diff_2nd_order[diff_mask] ** 2) / 6.0
             if not use_user_cov:
                 np.fill_diagonal(cov_obs, cov_obs.diagonal() - sigma2)
+        sigma2_time = (time.time_ns() - start_time) / 1e9
 
         # Create / update smoothed result containers (phi / fitted_cov filled later in fit_score)
         self.smoothed_model_result_obs_ = SmoothedModelResult(grid=obs_grid, mu=mu_obs, cov=cov_obs, grid_type="obs")
         self.smoothed_model_result_reg_ = SmoothedModelResult(grid=reg_grid, mu=mu_reg, cov=cov_reg, grid_type="reg")
 
         # Create model parameters
+        start_time = time.time_ns()
         eig_lambda, eig_vector = get_eigen_analysis_results(self.smoothed_model_result_reg_.cov)
         self.fpca_model_params_ = FpcaModelParams(
-            measurement_error_variance=sigma2,
-            eigen_results={"eigenvalues": eig_lambda, "eigenvectors": eig_vector}
+            measurement_error_variance=sigma2, eigen_results={"eigenvalues": eig_lambda, "eigenvectors": eig_vector}
         )
+        eigen_time = (time.time_ns() - start_time) / 1e9
 
         self.xi_, self.xi_var_, self.fitted_y_mat_, self.fitted_y_ = self.fit_score(
             method_pcs, method_select_num_pcs, method_rho, max_num_pcs, if_impute_scores, if_shrinkage, if_fit_eigen_values, fve_threshold
         )
+        self.elapsed_time_ = {
+            "initialization": init_time,
+            "mu_estimation": mu_time,
+            "cov_estimation": cov_time,
+            "measurement_error_variance": sigma2_time,
+            "eigen_decomposition": eigen_time,
+            "fit_total_time": (time.time_ns() - init_start_time) / 1e9,
+        }
         return self
 
     def fitted_values(self) -> Tuple[np.ndarray, List[np.ndarray]]:
@@ -543,7 +562,7 @@ class FunctionalPCA(BaseEstimator):
         y: List[Union[np.ndarray, List[float]]],
         t: List[Union[np.ndarray, List[float]]],
         w: Optional[List[Union[np.ndarray, List[float]]]] = None,
-        num_pcs: Optional[int] = None
+        num_pcs: Optional[int] = None,
     ) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray, List[np.ndarray]]:
         """
         Predict the functional data values for new observations.
@@ -573,32 +592,39 @@ class FunctionalPCA(BaseEstimator):
         check_is_fitted(self, ["fpca_model_params_", "fitted_y_"])
         new_flatten_func_data = flatten_and_sort_data_matrices(y, t, self._input_dtype, w)
 
+        start_time = time.time()
         new_xi_ = None
         new_xi_var_ = None
         new_fitted_y_mat_ = None
         new_fitted_y_ = None
-        if self.method_pcs_ == "CE":
-            sigma2 = self.fpca_model_params_.rho if self.fpca_model_params_.rho is not None else self.fpca_model_params_.measurement_error_variance
+        if self.fpca_model_params_.method_pcs == "CE":
+            sigma2 = (
+                self.fpca_model_params_.rho if self.fpca_model_params_.rho is not None else self.fpca_model_params_.measurement_error_variance
+            )
             new_xi_, new_xi_var_, new_fitted_y_mat_, new_fitted_y_ = get_fpca_ce_score(
                 new_flatten_func_data,
                 self.smoothed_model_result_obs_.mu,
                 num_pcs,
                 self.fpca_model_params_.fpca_lambda,
-                self.fpca_model_params_.fpca_phi['obs'],
-                self.fpca_model_params_.fitted_covariance['obs'],
+                self.fpca_model_params_.fpca_phi["obs"],
+                self.fpca_model_params_.fitted_covariance["obs"],
                 sigma2,
             )
-        elif self.method_pcs_ == "IN":
+        elif self.fpca_model_params_.method_pcs == "IN":
             new_xi_, new_xi_var_, new_fitted_y_mat_, new_fitted_y_ = get_fpca_in_score(
                 new_flatten_func_data,
                 self.smoothed_model_result_obs_.mu,
                 num_pcs,
                 self.fpca_model_params_.fpca_lambda,
-                self.fpca_model_params_.fpca_phi['obs'],
-                self.fpca_model_params_.fitted_covariance['obs'],
+                self.fpca_model_params_.fpca_phi["obs"],
                 self.fpca_model_params_.measurement_error_variance,
-                self.fpca_model_params_.if_shrinkage
+                self.fpca_model_params_.if_shrinkage,
             )
+        elif self.fpca_model_params_.method_pcs == "LS":
+            NotImplementedError("Least squares method is not implemented.")
+        elif self.fpca_model_params_.method_pcs == "WLS":
+            NotImplementedError("Weighted least squares method is not implemented.")
+        self.elapsed_time_["prediction"] = time.time() - start_time
         return new_xi_, new_xi_var_, new_fitted_y_mat_, new_fitted_y_
 
     def fit_score(
@@ -668,15 +694,26 @@ class FunctionalPCA(BaseEstimator):
             fve_threshold=fve_threshold,
         )
 
-        param_name_list = ["method_pcs", "method_select_num_pcs", "method_rho", "max_num_pcs", "if_shrinkage", "if_fit_eigen_values", "fve_threshold"]
+        param_name_list = [
+            "method_pcs",
+            "method_select_num_pcs",
+            "method_rho",
+            "max_num_pcs",
+            "if_shrinkage",
+            "if_fit_eigen_values",
+            "fve_threshold",
+        ]
         for param_name in param_name_list:
             setattr(self.fpca_model_params_, param_name, locals()[param_name])
 
+        start_time = time.time_ns()
         num_pcs = None
         if isinstance(method_select_num_pcs, str):
             if method_select_num_pcs == "FVE":
                 self.fpca_model_params_.select_num_pcs_criterion, num_pcs = select_num_pcs_fve(
-                    self.fpca_model_params_.eigen_results["eig_lambda"], self.fpca_model_params_.fve_threshold, self.fpca_model_params_.max_num_pcs
+                    self.fpca_model_params_.eigen_results["eig_lambda"],
+                    self.fpca_model_params_.fve_threshold,
+                    self.fpca_model_params_.max_num_pcs,
                 )
             elif method_select_num_pcs in ["AIC", "BIC"]:
                 # implement AIC/BIC-based function to choose number of principal components
@@ -686,6 +723,7 @@ class FunctionalPCA(BaseEstimator):
             num_pcs = method_select_num_pcs
         else:
             raise ValueError("Invalid method_select_num_pcs. Must be one of ['FVE', 'AIC', 'BIC'] or an integer.")
+        self.elapsed_time_["num_pcs_selection"] = (time.time_ns() - start_time) / 1e9
 
         obs_grid = self.smoothed_model_result_obs_.grid
         reg_grid = self.smoothed_model_result_reg_.grid
@@ -701,41 +739,43 @@ class FunctionalPCA(BaseEstimator):
         for i in range(num_pcs):
             fpca_phi_obs[:, i] = interp1d(reg_grid, fpca_phi_reg[:, i], obs_grid, method="spline")
         self.fpca_model_params_.fpca_lambda = fpca_lambda
-        self.fpca_model_params_.fpca_phi = {'obs': fpca_phi_obs, 'reg': fpca_phi_reg}
+        self.fpca_model_params_.fpca_phi = {"obs": fpca_phi_obs, "reg": fpca_phi_reg}
 
         fitted_cov_reg = fpca_phi_reg @ np.diag(fpca_lambda) @ fpca_phi_reg.T
         fitted_cov_obs = interp2d(reg_grid, reg_grid, fitted_cov_reg, obs_grid, obs_grid, method="spline")
-        self.fpca_model_params_.fitted_covariance = {'obs': fitted_cov_obs, 'reg': fitted_cov_reg}
+        self.fpca_model_params_.fitted_covariance = {"obs": fitted_cov_obs, "reg": fitted_cov_reg}
 
         # select rho and calculate the functional principal component score
+        start_time = time.time_ns()
+        self.elapsed_time_["rho_estimate"] = 0.0
         rho = None
         self.xi = None
         self.xi_var = None
         if if_impute_scores:
             if method_pcs == "CE":
+                rho_start_time = time.time_ns()
                 if method_rho != "vanilla":
                     if self.user_params.rho is None:
                         rho = estimate_rho(
                             method_rho,
                             self.flatten_func_data_,
+                            reg_grid,
                             self.smoothed_model_result_obs_.mu,
-                            fitted_cov_obs,
+                            self.smoothed_model_result_reg_.mu,
                             fpca_lambda,
                             fpca_phi_obs,
+                            fpca_phi_reg,
+                            fitted_cov_obs,
                             self.fpca_model_params_.measurement_error_variance,
                         )
                         self.fpca_model_params_.rho = rho
                     else:
                         rho = self.user_params.rho
+                self.elapsed_time_["rho_estimate"] = (time.time_ns() - rho_start_time) / 1e9
+
                 sigma2 = rho if rho is not None else self.fpca_model_params_.measurement_error_variance
                 self.xi_, self.xi_var_, self.fitted_y_mat_, self.fitted_y_ = get_fpca_ce_score(
-                    self.flatten_func_data_,
-                    self.smoothed_model_result_obs_.mu,
-                    num_pcs,
-                    fpca_lambda,
-                    fpca_phi_obs,
-                    fitted_cov_obs,
-                    sigma2
+                    self.flatten_func_data_, self.smoothed_model_result_obs_.mu, num_pcs, fpca_lambda, fpca_phi_obs, fitted_cov_obs, sigma2
                 )
             elif method_pcs == "IN":
                 self.xi_, self.xi_var_, self.fitted_y_mat_, self.fitted_y_ = get_fpca_in_score(
@@ -745,11 +785,17 @@ class FunctionalPCA(BaseEstimator):
                     fpca_lambda,
                     fpca_phi_obs,
                     self.fpca_model_params_.measurement_error_variance,
-                    self.fpca_model_params_.if_shrinkage
+                    self.fpca_model_params_.if_shrinkage,
                 )
-        self.method_pcs_ = method_pcs
+            elif method_pcs == "LS":
+                NotImplementedError("Least squares method is not implemented.")
+            elif method_pcs == "WLS":
+                NotImplementedError("Weighted least squares method is not implemented.")
+        self.elapsed_time_["score_computation"] = (time.time_ns() - start_time) / 1e9 - self.elapsed_time_["rho_estimate"]
 
         if if_fit_eigen_values:
+            start_time = time.time_ns()
             self.fpca_model_params_.eigenvalue_fit = np.zeros(num_pcs, dtype=self._input_dtype)
+            self.elapsed_time_["eigenvalue_fit"] = (time.time_ns() - start_time) / 1e9
 
         return self.xi_, self.xi_var_, self.fitted_y_mat_, self.fitted_y_
