@@ -152,8 +152,8 @@ def _build_flatten_data(dtype):
     return ffd, mu
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_fpca_ce_score_happy_path(dtype):
+@pytest.mark.parametrize("dtype, order", [(np.float32, "F"), (np.float64, "F"), (np.float32, "C"), (np.float64, "C")])
+def test_fpca_ce_score_happy_path(dtype, order):
     ffd, mu = _build_flatten_data(dtype)
     num_samples = ffd.sid_cnt.size
     raw_cov = get_raw_cov(ffd, mu)
@@ -163,6 +163,7 @@ def test_fpca_ce_score_happy_path(dtype):
     assert np.sum(eig_lambda > 0) >= 2
     num_pcs = 2
     fpca_lambda, fpca_phi = get_fpca_phi(num_pcs, ffd.unique_tid, mu, eig_lambda, eig_vector)
+    fpca_phi = np.ascontiguousarray(fpca_phi) if order == "C" else np.asfortranarray(fpca_phi)
     lambda_mat = np.diag(fpca_lambda)
     fitted_cov = fpca_phi @ (fpca_phi @ lambda_mat).T
     sigma2 = dtype(0.3)
@@ -217,8 +218,20 @@ def test_get_fpca_ce_score_fpca_phi_shape_mismatch():
         get_fpca_ce_score(ffd, mu, 2, np.array([[2.0, 1.0]]), bad_phi, fitted_cov, 0.5)
 
 
-@pytest.mark.parametrize("method_rho,dtype", [("ridge", np.float64), ("ridge", np.float32), ("truncated", np.float64), ("truncated", np.float32)])
-def test_estimate_rho_happy_path(method_rho, dtype):
+@pytest.mark.parametrize(
+    "dtype, method_rho, order",
+    [
+        (np.float64, "ridge", "F"),
+        (np.float64, "ridge", "C"),
+        (np.float32, "ridge", "F"),
+        (np.float32, "ridge", "C"),
+        (np.float64, "truncated", "F"),
+        (np.float64, "truncated", "C"),
+        (np.float32, "truncated", "F"),
+        (np.float32, "truncated", "C"),
+    ],
+)
+def test_estimate_rho_happy_path(dtype, method_rho, order):
     ffd, mu = _build_flatten_data(dtype)
     raw_cov = get_raw_cov(ffd, mu)
     obs_cov = get_covariance_matrix(raw_cov, ffd.unique_tid) + np.eye(ffd.unique_tid.size, dtype=dtype) * 1e-6
@@ -227,6 +240,7 @@ def test_estimate_rho_happy_path(method_rho, dtype):
     assert np.sum(eig_lambda > 0) >= 2
     num_pcs = 2
     fpca_lambda, fpca_phi = get_fpca_phi(num_pcs, ffd.unique_tid, mu, eig_lambda, eig_vector)
+    fpca_phi = np.ascontiguousarray(fpca_phi) if order == "C" else np.asfortranarray(fpca_phi)
     lambda_mat = np.diag(fpca_lambda)
     fitted_cov = fpca_phi @ (fpca_phi @ lambda_mat).T
     sigma2 = dtype(2)
@@ -241,8 +255,20 @@ def test_estimate_rho_happy_path(method_rho, dtype):
         assert_allclose(rho_estimate, expected_rho, rtol=1e-5, atol=1e-5)
 
 
-@pytest.mark.parametrize("dtype,if_shrinkage", [(np.float64, True), (np.float64, False), (np.float32, True), (np.float32, False)])
-def test_get_fpca_in_score_happy_path(dtype, if_shrinkage):
+@pytest.mark.parametrize(
+    "dtype, if_shrinkage, order",
+    [
+        (np.float32, False, "F"),
+        (np.float64, False, "F"),
+        (np.float32, False, "C"),
+        (np.float64, False, "C"),
+        (np.float32, True, "F"),
+        (np.float64, True, "F"),
+        (np.float32, True, "C"),
+        (np.float64, True, "C"),
+    ],
+)
+def test_get_fpca_in_score_happy_path(dtype, if_shrinkage, order):
     ffd, mu = _build_flatten_data(dtype)
     num_samples = ffd.sid_cnt.size
     raw_cov = get_raw_cov(ffd, mu)
@@ -252,6 +278,7 @@ def test_get_fpca_in_score_happy_path(dtype, if_shrinkage):
     assert np.sum(eig_lambda > 0) >= 2
     num_pcs = 2
     fpca_lambda, fpca_phi = get_fpca_phi(num_pcs, ffd.unique_tid, mu, eig_lambda, eig_vector)
+    fpca_phi = np.ascontiguousarray(fpca_phi) if order == "C" else np.asfortranarray(fpca_phi)
     sigma2 = dtype(0.3)
 
     expected_xi = np.zeros((num_samples, num_pcs), dtype=dtype)

@@ -1,11 +1,11 @@
 from cython cimport floating
-from libc.stdint cimport uint64_t
-from sklearn.utils._cython_blas cimport BLAS_Order
+from libc.stdint cimport int64_t, uint64_t
+from sklearn.utils._cython_blas cimport BLAS_Order, BLAS_Trans
 
 cdef void trapz_mat_blas(
-    floating*, floating*, floating*, uint64_t, uint64_t, BLAS_Order
+    BLAS_Order, uint64_t, uint64_t, floating*, uint64_t, floating*, uint64_t, floating*, int64_t
 ) noexcept nogil
 
 cdef void trapz_memview(
-    floating[:, :], floating[:], floating[:], uint64_t, uint64_t, BLAS_Order
+    BLAS_Order, floating[:, :], floating[:], floating[:], int64_t
 ) noexcept nogil

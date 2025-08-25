@@ -2,7 +2,6 @@
 
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
-import copy
 import warnings
 from typing import List, Tuple
 
@@ -172,20 +171,17 @@ def get_fpca_ce_score(
     input_dtype = flatten_func_data.y.dtype
     sigma_y = (fitted_cov + np.eye(fitted_cov.shape[0]) * sigma2).astype(input_dtype, copy=False)
     fpca_ce_score_func = fpca_ce_score_f64 if input_dtype == np.float64 else fpca_ce_score_f32
-    lambda_phi = np.ascontiguousarray(fpca_phi @ np.diag(fpca_lambda)).astype(input_dtype, copy=False)
-    xi, xi_var = fpca_ce_score_func(
+    xi, xi_var, fitted_y_mat, fitted_y = fpca_ce_score_func(
         flatten_func_data.y,
         flatten_func_data.t,
         flatten_func_data.tid,
         mu,
         sigma_y,
         fpca_lambda,
-        lambda_phi,
+        fpca_phi,
         flatten_func_data.unique_sid,
         flatten_func_data.sid_cnt,
     )
-    fitted_y_mat = mu.reshape(-1, 1) + fpca_phi[:, :num_pcs] @ xi.T  # (nt, n_samples)
-    fitted_y = [fitted_y_mat[flatten_func_data.tid[flatten_func_data.sid == i], i] for i in flatten_func_data.unique_sid]
     return xi, xi_var, fitted_y_mat, fitted_y
 
 
@@ -306,22 +302,19 @@ def get_fpca_in_score(
 
     input_dtype = flatten_func_data.y.dtype
     fpca_in_score_func = fpca_in_score_f64 if input_dtype == np.float64 else fpca_in_score_f32
-    fpca_phi_ = np.ascontiguousarray(fpca_phi).astype(input_dtype, copy=False)
     t_range = flatten_func_data.unique_tid[-1] - flatten_func_data.unique_tid[0]
-    xi = fpca_in_score_func(
+    xi, fitted_y_mat, fitted_y = fpca_in_score_func(
         flatten_func_data.y,
         flatten_func_data.t,
         flatten_func_data.tid,
         mu,
         fpca_lambda,
-        fpca_phi_,
+        fpca_phi,
         flatten_func_data.unique_sid,
         flatten_func_data.sid_cnt,
         sigma2,
         t_range,
         if_shrinkage,
     )
-    xi_var = [np.zeros((num_pcs, num_pcs), dtype=input_dtype) for data_cnt in flatten_func_data.sid_cnt]
-    fitted_y_mat = mu.reshape(-1, 1) + fpca_phi[:, :num_pcs] @ xi.T  # (nt, n_samples)
-    fitted_y = [fitted_y_mat[flatten_func_data.tid[flatten_func_data.sid == i], i] for i in flatten_func_data.unique_sid]
+    xi_var = [np.zeros((num_pcs, num_pcs), dtype=input_dtype) for _ in flatten_func_data.sid_cnt]
     return xi, xi_var, fitted_y_mat, fitted_y

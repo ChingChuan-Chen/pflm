@@ -15,12 +15,26 @@ def test_trapz_1d(dtype):
 
 @pytest.mark.parametrize("dtype, order", [(np.float64, "F"), (np.float64, "C"), (np.float32, "F"), (np.float32, "C")])
 def test_trapz_2d(dtype, order):
+    x = np.linspace(0, 1, 5)
     if order == "F":
-        x = np.asfortranarray(np.linspace(0, 1, 5))
         y = np.asfortranarray(np.vstack([x**2, x**3]), dtype=dtype)
     elif order == "C":
-        x = np.ascontiguousarray(np.linspace(0, 1, 5), dtype=dtype)
         y = np.ascontiguousarray(np.vstack([x**2, x**3]), dtype=dtype)
+        print(y)
+    val = trapz(y, x)
+    print(val)
+    assert val.shape == (2,)
+    assert_allclose(val, np.array([0.34375, 0.265625], dtype=dtype))
+
+
+@pytest.mark.parametrize("dtype, order", [(np.float64, "F"), (np.float64, "C"), (np.float32, "F"), (np.float32, "C")])
+def test_trapz_2d_trans(dtype, order):
+    x = np.linspace(0, 1, 5)
+    if order == "F":
+        y = np.asfortranarray(np.vstack([x**2, x**3]).T, dtype=dtype)
+    elif order == "C":
+        y = np.ascontiguousarray(np.vstack([x**2, x**3]).T, dtype=dtype)
+    print(f"y: {y}, y flags: {y.flags}")
     val = trapz(y, x)
     assert val.shape == (2,)
     assert_allclose(val, np.array([0.34375, 0.265625], dtype=dtype))

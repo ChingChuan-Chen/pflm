@@ -18,19 +18,21 @@ def trapz(y: np.ndarray, x: np.ndarray) -> Union[np.ndarray, float]:
     Parameters
     ----------
     y : array_like
-        1D or 2D array of function values with respect to x. The expected shape is (n_samples, n_features).
+        1D or 2D array of function values with respect to x.
+        The expected shape could be (n_samples, n_features) or (n_features, n_samples).
+        If n_samples is equal to n_features, we will use (n_samples, n_features) as the shape.
     x : array_like
         1D array of x-coordinates corresponding to the function values. The expected shape is (n_features,).
 
     Returns
     -------
     trapz_value : np.ndarray
-        The integrated area value computed using the trapezoidal rule.
+        The integrated area value computed using the trapezoidal rule with shape (n_samples,).
     """
     if y.ndim == 1:
         y = y.reshape((1, -1))  # Ensure y is 2D for consistency
-    if y.shape[1] != x.shape[0]:
-        raise ValueError("The number of columns of y must match the size of x.")
+    if y.shape[1] != x.shape[0] and y.shape[0] != x.shape[0]:
+        raise ValueError("The number of columns or rows of y must match the size of x.")
     if y.dtype not in [np.float64, np.float32]:
         y = y.astype(np.float64, copy=False)  # Convert to float64 if not already
 
