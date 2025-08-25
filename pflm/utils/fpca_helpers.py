@@ -319,11 +319,34 @@ def get_fpca_in_score(
 
 
 def get_eigenvalue_fit(raw_cov: np.ndarray, obs_grid: np.ndarray, fpca_phi_obs: np.ndarray, num_pcs: int):
+    """
+    Get the fitted eigenvalues for the functional principal components.
+
+    Parameters
+    ----------
+    raw_cov : np.ndarray
+        The raw_cov matrix obtained from `get_raw_cov` function.
+    obs_grid : np.ndarray
+        The observation grid.
+    fpca_phi_obs : np.ndarray
+        The functional principal component basis functions.
+    num_pcs : int
+        The number of principal components.
+
+    Returns
+    -------
+    np.ndarray
+        The fitted eigenvalues.
+    """
+    nt = obs_grid.size
+    if fpca_phi_obs.shape != (nt, num_pcs):
+        raise ValueError("fpca_phi_obs must have shape (nt, num_pcs).")
+
     mask = raw_cov[:, 1] != raw_cov[:, 2]
     tid1 = np.searchsorted(obs_grid, raw_cov[mask, 1])
     tid2 = np.searchsorted(obs_grid, raw_cov[mask, 2])
     ev_fit_x = fpca_phi_obs[tid1, :num_pcs] * fpca_phi_obs[tid2, :num_pcs]  # shape (n_pairs, num_pcs)
-    ev_fit_y = raw_cov[mask, 4].copy()  # shape (n_pairs,)
+    ev_fit_y = raw_cov[mask, 4].copy()
     gles_func = _gels_memview_f64 if ev_fit_x.dtype == np.float64 else _gels_memview_f32
     gles_func(ev_fit_x.ravel(order='F'), ev_fit_y, ev_fit_x.shape[0], ev_fit_x.shape[1], 1, ev_fit_x.shape[0], ev_fit_y.shape[0])
     return ev_fit_y[:num_pcs]

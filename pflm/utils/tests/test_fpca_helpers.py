@@ -357,3 +357,27 @@ def test_get_eigenvalue_fit_happy_path(dtype):
     expected_ev_fit_vals = np.array([1.481559983044, 18.935989826198], dtype=dtype)
     assert ev_fit_vals.shape == (2,)
     assert_allclose(ev_fit_vals, expected_ev_fit_vals, rtol=1e-5, atol=1e-5)
+
+
+def test_get_eigenvalue_fit_mismatch_shape():
+    raw_cov = np.array(
+        [
+            [0.0, 0.1, 0.1, 1.0, 2.25],
+            [0.0, 0.1, 0.2, 1.0, 0.75],
+            [0.0, 0.1, 0.3, 1.0, 2.5],
+            [0.0, 0.2, 0.2, 1.0, 0.25],
+            [0.0, 0.2, 0.3, 1.0, 0.83333333],
+            [0.0, 0.3, 0.3, 1.0, 2.77777778],
+            [1.0, 0.2, 0.2, 2.0, 0.25],
+            [1.0, 0.2, 0.3, 2.0, 0.16666667],
+            [1.0, 0.3, 0.3, 2.0, 0.11111111],
+            [2.0, 0.1, 0.1, 2.0, 2.25],
+            [2.0, 0.1, 0.3, 2.0, 2.0],
+            [2.0, 0.3, 0.3, 2.0, 1.77777778],
+        ],
+        dtype=np.float64,
+    )
+    obs_grid = np.array([0.1, 0.2, 0.3], dtype=np.float64)
+    fpca_phi_obs = np.array([[0.8, 0.1], [0.6, 0.2], [0.1, 0.3]], dtype=np.float64)
+    with pytest.raises(ValueError, match="fpca_phi_obs must have shape"):
+        get_eigenvalue_fit(raw_cov, obs_grid, fpca_phi_obs.T, 2)
