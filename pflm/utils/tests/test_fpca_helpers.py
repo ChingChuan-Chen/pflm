@@ -8,6 +8,7 @@ from pflm.utils.covariance_utils import get_covariance_matrix, get_raw_cov
 from pflm.utils.fpca_helpers import (
     estimate_rho,
     get_eigen_analysis_results,
+    get_eigenvalue_fit,
     get_fpca_ce_score,
     get_fpca_in_score,
     get_fpca_phi,
@@ -16,9 +17,9 @@ from pflm.utils.fpca_helpers import (
 from pflm.utils.utility import flatten_and_sort_data_matrices, trapz
 
 
-@pytest.mark.parametrize("dtype", [np.float64, np.float32])
-def test_get_eigen_analysis_results_happy_path(dtype):
-    A = np.array([[1.1, 1, 1], [1, 1.1, 1], [1, 1, 1.1]], dtype=dtype)
+@pytest.mark.parametrize("dtype, order", [(np.float32, "C"), (np.float64, "C"), (np.float32, "F"), (np.float64, "F")])
+def test_get_eigen_analysis_results_happy_path(dtype, order):
+    A = np.array([[1.1, 1, 1], [1, 1.1, 1], [1, 1, 1.1]], dtype=dtype, order=order)
     eig_lambda, eig_vector = get_eigen_analysis_results(A)
     expected_eig_lambda = np.array([3.1, 0.1, 0.1], dtype=dtype)
     expected_first_eig_vector = np.array([1.0 / math.sqrt(3)] * 3, dtype=dtype)
@@ -329,3 +330,30 @@ def test_get_fpca_in_score_fpca_bad_if_shrinkage(bad_value):
     fpca_phi = np.array([[0.8, 0.1], [0.6, 0.2], [0.1, 0.3]])
     with pytest.raises(ValueError, match="if_shrinkage must be a boolean"):
         get_fpca_in_score(ffd, mu, 2, np.array([[2.0, 1.0]]), fpca_phi, 0.5, bad_value)
+
+
+@pytest.mark.parametrize("dtype", [np.float64, np.float32])
+def test_get_eigenvalue_fit_happy_path(dtype):
+    raw_cov = np.array(
+        [
+            [0.0, 0.1, 0.1, 1.0, 2.25],
+            [0.0, 0.1, 0.2, 1.0, 0.75],
+            [0.0, 0.1, 0.3, 1.0, 2.5],
+            [0.0, 0.2, 0.2, 1.0, 0.25],
+            [0.0, 0.2, 0.3, 1.0, 0.83333333],
+            [0.0, 0.3, 0.3, 1.0, 2.77777778],
+            [1.0, 0.2, 0.2, 2.0, 0.25],
+            [1.0, 0.2, 0.3, 2.0, 0.16666667],
+            [1.0, 0.3, 0.3, 2.0, 0.11111111],
+            [2.0, 0.1, 0.1, 2.0, 2.25],
+            [2.0, 0.1, 0.3, 2.0, 2.0],
+            [2.0, 0.3, 0.3, 2.0, 1.77777778],
+        ],
+        dtype=dtype,
+    )
+    obs_grid = np.array([0.1, 0.2, 0.3], dtype=dtype)
+    fpca_phi_obs = np.array([[0.8, 0.1], [0.6, 0.2], [0.1, 0.3]], dtype=dtype)
+    ev_fit_vals = get_eigenvalue_fit(raw_cov, obs_grid, fpca_phi_obs, 2)
+    expected_ev_fit_vals = np.array([1.481559983044, 18.935989826198], dtype=dtype)
+    assert ev_fit_vals.shape == (2,)
+    assert_allclose(ev_fit_vals, expected_ev_fit_vals, rtol=1e-5, atol=1e-5)

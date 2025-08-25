@@ -6,6 +6,7 @@ from pflm.utils.covariance_utils import get_covariance_matrix, get_measurement_e
 from pflm.utils.fpca_helpers import (
     estimate_rho,
     get_eigen_analysis_results,
+    get_eigenvalue_fit,
     get_fpca_ce_score,
     get_fpca_in_score,
     get_fpca_phi,
@@ -22,6 +23,7 @@ __all__ = [
     "flatten_and_sort_data_matrices",
     "get_covariance_matrix",
     "get_eigen_analysis_results",
+    "get_eigenvalue_fit",
     "get_fpca_ce_score",
     "get_fpca_in_score",
     "get_fpca_phi",

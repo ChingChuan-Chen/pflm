@@ -18,9 +18,6 @@ def _build_flatten_data(dtype):
 def test_get_raw_cov_happy_path(dtype):
     ffd, mu = _build_flatten_data(dtype)
     mu = (np.bincount(ffd.tid, ffd.y) / np.bincount(ffd.tid)).astype(dtype, copy=False)
-    print(mu)
-    print(ffd.tid)
-    print(ffd.sid)
     raw_cov = get_raw_cov(ffd, mu)
     expected_num_pairs = np.sum(ffd.sid_cnt * (ffd.sid_cnt + 1) // 2)
 

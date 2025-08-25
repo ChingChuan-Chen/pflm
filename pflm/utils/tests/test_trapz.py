@@ -20,9 +20,7 @@ def test_trapz_2d(dtype, order):
         y = np.asfortranarray(np.vstack([x**2, x**3]), dtype=dtype)
     elif order == "C":
         y = np.ascontiguousarray(np.vstack([x**2, x**3]), dtype=dtype)
-        print(y)
     val = trapz(y, x)
-    print(val)
     assert val.shape == (2,)
     assert_allclose(val, np.array([0.34375, 0.265625], dtype=dtype))
 
@@ -34,7 +32,6 @@ def test_trapz_2d_trans(dtype, order):
         y = np.asfortranarray(np.vstack([x**2, x**3]).T, dtype=dtype)
     elif order == "C":
         y = np.ascontiguousarray(np.vstack([x**2, x**3]).T, dtype=dtype)
-    print(f"y: {y}, y flags: {y.flags}")
     val = trapz(y, x)
     assert val.shape == (2,)
     assert_allclose(val, np.array([0.34375, 0.265625], dtype=dtype))

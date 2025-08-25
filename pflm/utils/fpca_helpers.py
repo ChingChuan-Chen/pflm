@@ -8,7 +8,7 @@ from typing import List, Tuple
 import numpy as np
 
 from pflm.utils._fpca_score import fpca_ce_score_f32, fpca_ce_score_f64, fpca_in_score_f32, fpca_in_score_f64
-from pflm.utils._lapack_helper import _syevd_memview_f32, _syevd_memview_f64
+from pflm.utils._lapack_helper import _gels_memview_f32, _gels_memview_f64, _syevd_memview_f32, _syevd_memview_f64
 from pflm.utils.utility import FlattenFunctionalData, trapz
 
 
@@ -33,7 +33,7 @@ def get_eigen_analysis_results(reg_cov: np.ndarray, is_upper_triangular: bool = 
     # initialize eigenvalues and eigenvectors
     nt = reg_cov.shape[0]
     eig_lambda = np.zeros(nt, dtype=reg_cov.dtype)
-    eig_vector = np.ascontiguousarray(reg_cov.ravel(order="F"))
+    eig_vector = reg_cov.copy().ravel()
 
     # compute eigenvalues and eigenvectors
     eig_func = _syevd_memview_f64 if reg_cov.dtype == np.float64 else _syevd_memview_f32
@@ -48,9 +48,7 @@ def get_eigen_analysis_results(reg_cov: np.ndarray, is_upper_triangular: bool = 
     # sort eigen values and corresponding eigen vectors
     mask = np.isfinite(eig_lambda) & (eig_lambda > 10.0 * np.finfo(eig_lambda.dtype).eps)  # only leave significant eigenvalues
     ord_idx = np.argsort(eig_lambda[mask])[::-1]
-    eig_lambda = eig_lambda[mask][ord_idx]
-    eig_vector = eig_vector.reshape(nt, -1).T[:, mask][:, ord_idx]
-    return eig_lambda, eig_vector
+    return eig_lambda[mask][ord_idx], eig_vector.reshape(-1, nt).T[:, mask][:, ord_idx]
 
 
 def select_num_pcs_fve(eig_lambda: np.ndarray, fve_threshold: float, max_components: int = 20):
@@ -318,3 +316,14 @@ def get_fpca_in_score(
     )
     xi_var = [np.zeros((num_pcs, num_pcs), dtype=input_dtype) for _ in flatten_func_data.sid_cnt]
     return xi, xi_var, fitted_y_mat, fitted_y
+
+
+def get_eigenvalue_fit(raw_cov: np.ndarray, obs_grid: np.ndarray, fpca_phi_obs: np.ndarray, num_pcs: int):
+    mask = raw_cov[:, 1] != raw_cov[:, 2]
+    tid1 = np.searchsorted(obs_grid, raw_cov[mask, 1])
+    tid2 = np.searchsorted(obs_grid, raw_cov[mask, 2])
+    ev_fit_x = fpca_phi_obs[tid1, :num_pcs] * fpca_phi_obs[tid2, :num_pcs]  # shape (n_pairs, num_pcs)
+    ev_fit_y = raw_cov[mask, 4].copy()  # shape (n_pairs,)
+    gles_func = _gels_memview_f64 if ev_fit_x.dtype == np.float64 else _gels_memview_f32
+    gles_func(ev_fit_x.ravel(order='F'), ev_fit_y, ev_fit_x.shape[0], ev_fit_x.shape[1], 1, ev_fit_x.shape[0], ev_fit_y.shape[0])
+    return ev_fit_y[:num_pcs]

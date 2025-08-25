@@ -21,6 +21,7 @@ from pflm.utils import (
     flatten_and_sort_data_matrices,
     get_covariance_matrix,
     get_eigen_analysis_results,
+    get_eigenvalue_fit,
     get_fpca_ce_score,
     get_fpca_in_score,
     get_fpca_phi,
@@ -203,6 +204,8 @@ class FunctionalPCA(BaseEstimator):
     flatten_func_data_ : FlattenFunctionalData
         Flattened and sorted functional data. It includes `yy`, `ww`, `tt`, `tid`, `unique_tid`, `inverse_tid_idx`, `sid`,
         `unique_sid`, and `sid_cnt`.
+    raw_cov_ : np.ndarray
+        The raw covariance matrix with columns (sid, t1, t2, w, cov).
     smoothed_model_result_obs_ : SmoothedModelResult
         The smoothed model result for the observation grid points containing `grid`, `mu` and `cov`.
     smoothed_model_result_reg_ : SmoothedModelResult
@@ -795,7 +798,7 @@ class FunctionalPCA(BaseEstimator):
 
         if if_fit_eigen_values:
             start_time = time.time_ns()
-            self.fpca_model_params_.eigenvalue_fit = np.zeros(num_pcs, dtype=self._input_dtype)
+            self.fpca_model_params_.eigenvalue_fit = get_eigenvalue_fit(self.raw_cov_, obs_grid, fpca_phi_obs, num_pcs)
             self.elapsed_time_["eigenvalue_fit"] = (time.time_ns() - start_time) / 1e9
 
         return self.xi_, self.xi_var_, self.fitted_y_mat_, self.fitted_y_
