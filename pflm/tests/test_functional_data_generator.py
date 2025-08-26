@@ -1,22 +1,70 @@
 import numpy as np
 import pytest
+from numpy.testing import assert_allclose
 
 from pflm.functional_data_generator import FunctionalDataGenerator
 
 
-def test_functional_data_generator():
+def test_functional_data_generator_happy_path():
     n = 20
-    t = np.linspace(0, 10, 5)
+    nt = 7
+    num_missing = 2
+    t = np.linspace(0, 10, nt)
     fdg = FunctionalDataGenerator(t, lambda x: np.sin(0.4 * x), lambda x: 2.0 * np.log(x + 5.5))
-    true_y = fdg.generate(n, 100)
-    y = FunctionalDataGenerator.make_missing(true_y, 2, 101)
+    y_origin, t_origin = fdg.generate(n, 100)
+    y, t = FunctionalDataGenerator.make_missing(y_origin, t_origin, num_missing, 101)
 
-    assert y.shape == (n, 5)
-    assert np.isnan(true_y).sum() == 0  # Ensure no NaNs in the original data
-    assert np.isnan(y).sum() == 40  # 2 missing values per sample
-    assert np.all(np.isfinite(true_y))  # Ensure no NaNs in the original data
-    assert fdg.get_num_fpc() == 5
-    assert fdg.get_fpca_phi().shape == (5, 5)
+    assert len(y) == n
+    assert len(t) == n
+    for i in range(n):
+        assert len(y_origin[i]) == nt
+        assert len(t_origin[i]) == nt
+        assert np.isnan(y_origin[i]).sum() == 0
+        assert np.isnan(t_origin[i]).sum() == 0
+        assert len(y[i]) == nt - num_missing
+        assert len(t[i]) == nt - num_missing
+        assert np.isnan(y[i]).sum() == 0
+        assert np.isnan(t[i]).sum() == 0
+    assert fdg.get_num_pcs() == nt
+    assert fdg.get_fpca_phi().shape == (nt, nt)
+
+
+@pytest.mark.parametrize("num_pcs", [1, 2, 3, 4, 5, 6, 7])
+def test_functional_data_generator_specific_num_pcs(num_pcs):
+    n = 20
+    nt = 7
+    num_missing = 2
+    fdg = FunctionalDataGenerator(np.linspace(0, 10, nt), lambda x: np.sin(0.4 * x), lambda x: 2.0 * np.log(x + 5.5), num_pcs=num_pcs)
+    y_origin, t_origin = fdg.generate(n, 100)
+    y, t = FunctionalDataGenerator.make_missing(y_origin, t_origin, num_missing, 101)
+
+    assert len(y) == n
+    assert len(t) == n
+    for i in range(n):
+        assert len(y_origin[i]) == nt
+        assert len(t_origin[i]) == nt
+        assert np.isnan(y_origin[i]).sum() == 0
+        assert np.isnan(t_origin[i]).sum() == 0
+        assert len(y[i]) == nt - num_missing
+        assert len(t[i]) == nt - num_missing
+        assert np.isnan(y[i]).sum() == 0
+        assert np.isnan(t[i]).sum() == 0
+    assert fdg.get_num_pcs() == num_pcs
+    assert fdg.get_fpca_phi().shape == (nt, num_pcs)
+
+
+@pytest.mark.parametrize("num_pcs", [0, -1, 8, 10])
+def test_fdg_num_pcs_invalid(num_pcs):
+    t = np.linspace(0, 1, 5)
+    with pytest.raises(ValueError, match="num_pcs must be a positive integer between 1 and length of t."):
+        FunctionalDataGenerator(t, np.sin, np.abs, num_pcs=num_pcs)
+
+
+@pytest.mark.parametrize("num_pcs", [float('nan'), "string", [2.5], {'a': 2.5}])
+def test_fdg_num_pcs_invalid_types(num_pcs):
+    t = np.linspace(0, 1, 5)
+    with pytest.raises(ValueError, match="num_pcs must be an integer."):
+        FunctionalDataGenerator(t, np.sin, np.abs, num_pcs=num_pcs)
 
 
 def test_fdg_variation_prop_thresh_invalid():
@@ -29,54 +77,59 @@ def test_fdg_variation_prop_thresh_invalid():
         FunctionalDataGenerator(t, np.sin, np.abs, variation_prop_thresh=-0.1)
 
 
+def __build_basic_data():
+    n = 20
+    nt = 7
+    y = []
+    t = []
+    for i in range(n):
+        y.append(np.random.normal(size=nt))
+        t.append(np.linspace(0, 1, nt))
+    return y, t
+
+
 def test_fdg_make_missing_invalid():
-    y = np.ones((3, 4))
+    y, t = __build_basic_data()
     # missing_number < 1
-    with pytest.raises(ValueError):
-        FunctionalDataGenerator.make_missing(y, 0)
-    # missing_number >= ncol
-    with pytest.raises(ValueError):
-        FunctionalDataGenerator.make_missing(y, 4)
-    # y 含 NaN
+    with pytest.raises(ValueError, match="missing_number must be between 1 and the length of"):
+        FunctionalDataGenerator.make_missing(y, t, 0)
+    # missing_number >= number of columns
+    with pytest.raises(ValueError, match="missing_number must be between 1 and the length of"):
+        FunctionalDataGenerator.make_missing(y, t, 8)
+    # y contains NaN
     y_nan = y.copy()
-    y_nan[0, 0] = np.nan
-    with pytest.raises(ValueError):
-        FunctionalDataGenerator.make_missing(y_nan, 1)
+    y_nan[0][0] = np.nan
+    with pytest.raises(ValueError, match="y contains NaN values"):
+        FunctionalDataGenerator.make_missing(y_nan, t, 1)
 
 
-def test_fdg_make_missing_seed_none():
-    y = np.ones((2, 3))
-    out1 = FunctionalDataGenerator.make_missing(y, 1)
-    out2 = FunctionalDataGenerator.make_missing(y, 1)
-    assert out1.shape == y.shape
-    assert out2.shape == y.shape
-    assert np.all(np.isnan(out1).sum(axis=1) == 1)
-    assert np.all(np.isnan(out2).sum(axis=1) == 1)
-
-
-def test_fdg_generate_seed_none_and_custom_corr():
-    t = np.linspace(0, 1, 4)
-    fdg = FunctionalDataGenerator(t, lambda x: np.zeros_like(x), lambda x: np.ones_like(x), corr_func=lambda x: np.exp(-x))
-    y = fdg.generate(3)
-    assert y.shape == (3, 4)
-    # lazy property
-    assert fdg.get_num_fpc() > 0
-    assert fdg.get_fpca_phi().shape[1] == fdg.get_num_fpc()
-
-
-def test_fdg_generate_and_lazy():
-    t = np.linspace(0, 1, 3)
-    fdg = FunctionalDataGenerator(t, lambda x: x, lambda x: np.ones_like(x))
+def test_fdg_generate_and_lazy_phi():
+    fdg = FunctionalDataGenerator(np.linspace(0, 1, 3), lambda x: x, lambda x: np.ones_like(x))
     # call get_fpca_phi before generate
     phi = fdg.get_fpca_phi()
-    y = fdg.generate(2)
-    assert y.shape == (2, 3)
+    y, t = fdg.generate(2)
+    assert len(y) == 2
+    assert len(t) == 2
+    assert y[0].shape == (3,)
+    assert t[0].shape == (3,)
 
 
-def test_fdg_generate_and_lazy_2():
-    t = np.linspace(0, 1, 3)
-    fdg = FunctionalDataGenerator(t, lambda x: x, lambda x: np.ones_like(x))
+def test_fdg_generate_and_lazy_num_pcs():
+    fdg = FunctionalDataGenerator(np.linspace(0, 1, 3), lambda x: x, lambda x: np.ones_like(x))
     # call get_num_fpc before generate
-    n_fpc = fdg.get_num_fpc()
-    y2 = fdg.generate(2)
-    assert y2.shape == (2, 3)
+    num_pcs = fdg.get_num_pcs()
+    y, t = fdg.generate(2)
+    assert len(y) == 2
+    assert len(t) == 2
+    assert y[0].shape == (3,)
+    assert t[0].shape == (3,)
+
+
+def test_fdg_generate_same_seed():
+    y, t = __build_basic_data()
+    fdg = FunctionalDataGenerator(t[0], lambda x: np.sin(0.4 * x), lambda x: 2.0 * np.log(x + 5.5))
+    y1, t1 = fdg.generate(2, seed=123)
+    y2, t2 = fdg.generate(2, seed=123)
+    for i in range(2):
+        assert_allclose(y1[i], y2[i])
+        assert_allclose(t1[i], t2[i])
