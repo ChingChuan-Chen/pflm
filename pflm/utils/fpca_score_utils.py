@@ -21,35 +21,45 @@ def get_fpca_ce_score(
     sigma2: float,
 ) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
     """
-    Compute the functional principal component analysis (FPCA) scores and fitted values.
+    Compute conditional-expectation (CE) FPCA scores and fitted curves.
 
     Parameters
     ----------
     flatten_func_data : FlattenFunctionalData
-        The flattened functional data containing y, t, tid, unique_sid, and sid_cnt.
-    mu : np.ndarray
-        The mean function values at the grid points with shape (nt,).
+        Flattened data containing fields y, t, tid, unique_sid, sid_cnt.
+    mu : np.ndarray of shape (nt,)
+        Mean on the observation grid.
     num_pcs : int
-        The number of principal components to compute.
-    fpca_lambda : np.ndarray
-        The eigenvalues corresponding to the functional principal components.
-    fpca_phi : np.ndarray
-        The functional principal component basis functions of shape (nt, num_pcs).
-    fitted_cov : np.ndarray
-        The fitted covariance matrix of shape (nt, nt).
+        Number of principal components to use (<= len(fpca_lambda)).
+    fpca_lambda : np.ndarray of shape (k,)
+        Eigenvalues for FPCA components.
+    fpca_phi : np.ndarray of shape (nt, k)
+        Basis functions on the observation grid (columns are components).
+    fitted_cov : np.ndarray of shape (nt, nt)
+        Fitted covariance on the observation grid.
     sigma2 : float
-        The noise variance.
+        Measurement noise variance.
 
     Returns
     -------
-    xi : np.ndarray
-        The FPCA scores of shape (num_samples, num_pcs).
-    xi_var : np.ndarray
-        The variances of the FPCA scores of shape (num_samples, num_pcs).
-    fitted_y_mat : np.ndarray
-        The fitted functional data values of shape (nt, num_samples).
+    xi : np.ndarray of shape (n_samples, num_pcs)
+        CE scores by subject.
+    xi_var : List[np.ndarray]
+        Per-subject score covariance matrices or variance summaries.
+    fitted_y_mat : np.ndarray of shape (nt, n_samples)
+        Fitted values on the observation grid.
     fitted_y : List[np.ndarray]
-        The fitted functional data values for each unique subject ID.
+        Fitted values at the observed time points per subject.
+
+    Raises
+    ------
+    ValueError
+        If `fitted_cov` has wrong shape, `num_pcs` exceeds available eigenvalues,
+        or `fpca_phi` has incompatible shape.
+
+    See Also
+    --------
+    get_fpca_in_score : In-sample (projection-based) score computation.
     """
     nt = flatten_func_data.unique_tid.size
     if fitted_cov.shape != (nt, nt):
@@ -89,35 +99,39 @@ def estimate_rho(
     sigma2: float,
 ) -> float:
     """
-    Estimate the optimal rho parameter for the FPCA model.
+    Estimate the optimal rho parameter for CE scoring.
 
     Parameters
     ----------
-    method_rho : str
-        The method for estimating rho, either 'ridge' or 'trunc'.
+    method_rho : {"ridge", "trunc"}
+        Estimation strategy for rho.
     flatten_func_data : FlattenFunctionalData
-        The flattened functional data containing y, t, tid, unique_sid, and sid_cnt.
-    reg_grid : np.ndarray
-        The registration grid points with shape (n_reg_grid,).
-    mu_obs : np.ndarray
-        The mean function values at the grid points with shape (nt,).
-    mu_reg : np.ndarray
-        The mean function values at the grid points for the registration data with shape (n_reg_grid,).
-    fpca_lambda : np.ndarray
-        The eigenvalues corresponding to the functional principal components.
-    fpca_phi_obs : np.ndarray
-        The functional principal component basis functions for the observed data of shape (nt, num_pcs).
-    fpca_phi_reg : np.ndarray
-        The functional principal component basis functions for the registration data of shape (n_reg_grid, num_pcs).
-    fitted_cov : np.ndarray
-        The fitted covariance matrix for the observed data of shape (nt, nt).
+        Flattened data (y, t, tid, unique_sid, sid_cnt).
+    reg_grid : np.ndarray of shape (n_reg_grid,)
+        Regular grid used to compute variance of reconstructed curves.
+    mu_obs : np.ndarray of shape (nt,)
+        Mean on the observation grid.
+    mu_reg : np.ndarray of shape (n_reg_grid,)
+        Mean on the regular grid.
+    fpca_lambda : np.ndarray of shape (k,)
+        FPCA eigenvalues.
+    fpca_phi_obs : np.ndarray of shape (nt, k)
+        Basis on observation grid.
+    fpca_phi_reg : np.ndarray of shape (n_reg_grid, k)
+        Basis on regular grid.
+    fitted_cov : np.ndarray of shape (nt, nt)
+        Fitted covariance on observation grid.
     sigma2 : float
-        The noise variance.
+        Noise variance or starting value (for "trunc" path).
 
     Returns
     -------
     float
-        The estimated optimal rho value.
+        Estimated rho value that best matches target variance.
+
+    Notes
+    -----
+    Values of `method_rho` other than "ridge" are treated as "trunc".
     """
     num_pcs = fpca_lambda.size
     obs_grid = flatten_func_data.unique_tid
@@ -153,35 +167,45 @@ def get_fpca_in_score(
     if_shrinkage: bool = False,
 ) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray, List[np.ndarray]]:
     """
-    Compute the functional principal component analysis (FPCA) scores and fitted values.
+    Compute in-sample (projection-based) FPCA scores and fitted curves.
 
     Parameters
     ----------
     flatten_func_data : FlattenFunctionalData
-        The flattened functional data containing y, t, tid, unique_sid, and sid_cnt.
-    mu : np.ndarray
-        The mean function values at the grid points with shape (nt,).
+        Flattened data containing fields y, t, tid, unique_sid, sid_cnt.
+    mu : np.ndarray of shape (nt,)
+        Mean on the observation grid.
     num_pcs : int
-        The number of principal components to compute.
-    fpca_lambda : np.ndarray
-        The eigenvalues corresponding to the functional principal components.
-    fpca_phi : np.ndarray
-        The functional principal component basis functions of shape (nt, num_pcs).
+        Number of principal components to use (<= len(fpca_lambda)).
+    fpca_lambda : np.ndarray of shape (k,)
+        FPCA eigenvalues.
+    fpca_phi : np.ndarray of shape (nt, k)
+        Basis on the observation grid (columns are components).
     sigma2 : float
-        The noise variance.
-    if_shrinkage : bool
-        Whether to apply shrinkage to the FPCA scores.
+        Measurement noise variance used in shrinkage (if enabled).
+    if_shrinkage : bool, default=False
+        Whether to apply shrinkage to the IN scores.
 
     Returns
     -------
-    xi : np.ndarray
-        The FPCA scores of shape (num_samples, num_pcs).
-    xi_var : np.ndarray
-        The variances of the FPCA scores of shape (num_samples, num_pcs).
-    fitted_y_mat : np.ndarray
-        The fitted functional data values of shape (nt, num_samples).
+    xi : np.ndarray of shape (n_samples, num_pcs)
+        IN scores by subject.
+    xi_var : List[np.ndarray]
+        Per-subject score covariance matrices or variance summaries.
+    fitted_y_mat : np.ndarray of shape (nt, n_samples)
+        Fitted values on the observation grid.
     fitted_y : List[np.ndarray]
-        The fitted functional data values for each unique subject ID.
+        Fitted values at observed time points per subject.
+
+    Raises
+    ------
+    ValueError
+        If `num_pcs` exceeds available eigenvalues, `fpca_phi` has incompatible
+        shape, or `if_shrinkage` is not a boolean.
+
+    See Also
+    --------
+    get_fpca_ce_score : Conditional-expectation score computation.
     """
     nt = flatten_func_data.unique_tid.size
     if num_pcs > fpca_lambda.size:
@@ -213,23 +237,32 @@ def get_fpca_in_score(
 
 def get_eigenvalue_fit(raw_cov: np.ndarray, obs_grid: np.ndarray, fpca_phi_obs: np.ndarray, num_pcs: int):
     """
-    Get the fitted eigenvalues for the functional principal components.
+    Fit eigenvalues by projecting raw covariance onto the FPCA subspace.
 
     Parameters
     ----------
-    raw_cov : np.ndarray
-        The raw_cov matrix obtained from `get_raw_cov` function.
-    obs_grid : np.ndarray
-        The observation grid.
-    fpca_phi_obs : np.ndarray
-        The functional principal component basis functions.
+    raw_cov : np.ndarray of shape (M, 5)
+        Raw covariance entries (sid, t1, t2, w, cov).
+    obs_grid : np.ndarray of shape (nt,)
+        Sorted observation grid.
+    fpca_phi_obs : np.ndarray of shape (nt, num_pcs)
+        Basis on the observation grid (only the first `num_pcs` columns used).
     num_pcs : int
-        The number of principal components.
+        Number of principal components to fit.
 
     Returns
     -------
-    np.ndarray
-        The fitted eigenvalues.
+    np.ndarray of shape (num_pcs,)
+        Fitted eigenvalues in the FPCA subspace.
+
+    Raises
+    ------
+    ValueError
+        If `fpca_phi_obs` has incompatible shape.
+
+    Notes
+    -----
+    The least-squares solve is performed with a low-level LAPACK GELS routine.
     """
     nt = obs_grid.size
     if fpca_phi_obs.shape != (nt, num_pcs):

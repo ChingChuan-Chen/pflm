@@ -13,25 +13,38 @@ from pflm.utils.utility import FlattenFunctionalData, trapz
 
 
 def get_raw_cov(flatten_func_data: FlattenFunctionalData, mu: np.ndarray) -> np.ndarray:
-    """Compute raw covariance entries per sample and time-pair.
+    """Compute per-subject raw covariance entries on the observation grid.
+
+    For each subject, this function forms all within-subject pairs and computes
+    raw covariance entries (y_i(t1) - mu(t1)) * (y_i(t2) - mu(t2)) with the
+    associated subject id and per-subject weight, returning a compact table
+    suitable for later binning/aggregation.
 
     Parameters
     ----------
     flatten_func_data : FlattenFunctionalData
-        Flattened dataset with fields y, t, w, tid, unique_sid, sid_cnt.
+        Flattened dataset with fields `y`, `t`, `w`, `tid`, `unique_sid`, and `sid_cnt`.
+        The `unique_tid` field defines the observation grid ordering.
     mu : np.ndarray of shape (nt,)
-        Mean on the observation grid (`unique_tid`).
+        Mean evaluated on the observation grid `flatten_func_data.unique_tid`.
 
     Returns
     -------
     raw_cov : np.ndarray of shape (M, 5)
-        Columns are (sid, t1, t2, w, cov). M equals sum over samples of
-        the number of within-sample pairs.
+        Columns ordered as (sid, t1, t2, w, cov), where M is the total number
+        of within-subject pairs across all subjects.
 
     Raises
     ------
     ValueError
-        If `mu` length does not match the number of unique time points.
+        If the length of `mu` does not match the number of unique time points.
+
+    Notes
+    -----
+    - The output is not yet symmetrized nor aggregated; use
+      `get_covariance_matrix` to map these entries to a dense symmetric matrix.
+    - The weight column `w` typically reflects subject-level weights expanded
+      to pairwise entries.
     """
     nt = flatten_func_data.unique_tid.size
     if mu.size != nt:
@@ -52,25 +65,33 @@ def get_raw_cov(flatten_func_data: FlattenFunctionalData, mu: np.ndarray) -> np.
 
 
 def get_covariance_matrix(raw_cov: np.ndarray, obs_grid: np.ndarray) -> np.ndarray:
-    """Convert the raw covariance matrix to a dense covariance matrix.
+    """Aggregate raw covariance entries onto a dense symmetric matrix.
 
-    This function takes the raw covariance matrix obtained from `get_raw_cov` and maps it to a dense covariance matrix
-    using the observation grid. The resulting matrix is symmetric and contains the covariance values for each pair of time points.
-    This function would not check the validity of the input data, so it is assumed that the input is valid.
+    This maps the compact raw covariance table returned by `get_raw_cov`
+    to a dense covariance matrix on the observation grid by summing weighted
+    covariances per unique (t1, t2) pair and normalizing by (sum_w - 1).
 
     Parameters
     ----------
-    raw_cov : np.ndarray
-        The raw covariance matrix with columns representing (sid, t1, t2, w, cov).
-        This input should use `get_raw_cov` to obtain the raw covariance data.
-        The shape is (num_pairs, 5), where num_pairs is the number of unique pairs of samples.
-    obs_grid : np.ndarray
-        The observation grid, which is a 1D array of sorted unique time points.
+    raw_cov : np.ndarray of shape (M, 5)
+        Columns are (sid, t1, t2, w, cov), typically from `get_raw_cov`.
+    obs_grid : np.ndarray of shape (nt,)
+        Sorted unique observation grid values.
 
     Returns
     -------
-    np.ndarray
-        The dense covariance matrix.
+    cov_matrix : np.ndarray of shape (nt, nt)
+        Symmetric covariance matrix aligned to `obs_grid`.
+
+    Raises
+    ------
+    ValueError
+        If `raw_cov` does not have at least 5 columns, or `obs_grid` is empty.
+
+    Notes
+    -----
+    - Pairs with total weight <= 1 are set to zero to avoid division by zero.
+    - The diagonal is adjusted to ensure symmetry after filling the upper-triangular part.
     """
     # calculate the sum of weights and covariance for each unique pair of (t1, t2)
     t_pairs, idx = np.unique(raw_cov[:, [1, 2]], axis=0, return_inverse=True)
@@ -100,31 +121,46 @@ def rotate_polyfit2d(
     bandwidth: float,
     kernel_type: KernelType = KernelType.GAUSSIAN,
 ) -> np.ndarray:
-    """Rotate the 2D polynomial fit to a new grid.
+    """Evaluate a 2D local polynomial fit on a rotated/new grid.
 
-    This function performs a 2D polynomial fit on the input data and rotates it to a new grid.
-    It supports different kernel types for the fit.
+    Performs weighted local polynomial regression on the input grid and
+    evaluates the smoothed surface at `new_grid`. The underlying computation
+    is delegated to optimized low-level routines.
 
     Parameters
     ----------
-    x_grid : np.ndarray
-        The input grid of shape (2, n), where n is the number of points.
-    y : np.ndarray
-        The response values corresponding to `x_grid`.
-    w : np.ndarray
-        The weights for each point in `x_grid`.
-    new_grid : np.ndarray
-        The new grid to which the polynomial fit will be rotated.
+    x_grid : np.ndarray of shape (2, n)
+        Original 2D coordinates where responses are observed: stacked as
+        [x; y] with two rows and n columns.
+    y : np.ndarray of shape (n,)
+        Observed responses aligned with columns of `x_grid`.
+    w : np.ndarray of shape (n,)
+        Non-negative sample weights.
+    new_grid : np.ndarray of shape (2, m)
+        New 2D coordinates (stacked rows) at which to evaluate the fitted surface.
     bandwidth : float
-        The bandwidth for the kernel.
-    kernel_type : int, optional
-        The type of kernel to use for the fit. Defaults to 0 (Gaussian kernel).
-        Other values can be used for different kernels, such as Epanechnikov.
+        Positive bandwidth parameter for the kernel.
+    kernel_type : KernelType, default=KernelType.GAUSSIAN
+        Kernel used by the local polynomial smoother.
 
     Returns
     -------
-    np.ndarray
-        The rotated polynomial fit values at the new grid points.
+    y_new : np.ndarray of shape (m,)
+        Fitted values evaluated at `new_grid`.
+
+    Raises
+    ------
+    TypeError
+        If `bandwidth` is not a real number.
+    ValueError
+        If `bandwidth` is non-positive or NaN; if `kernel_type` is not a valid
+        `KernelType`; or if input array dimensions are inconsistent.
+
+    Notes
+    -----
+    - Inputs are validated and coerced to a consistent dtype before calling
+      the low-level routine.
+    - This function does not select bandwidth; it assumes `bandwidth` is given.
     """
     if not isinstance(bandwidth, (int, float)):
         raise ValueError("bandwidth must be a numeric value.")
@@ -177,29 +213,37 @@ def get_measurement_error_variance(
     bandwidth: float,
     kernel_type: KernelType,
 ) -> float:
-    """Estimate the measurement error variance from the raw covariance matrix.
+    """Estimate measurement error variance from raw covariance near the diagonal.
 
-    This function estimates the measurement error variance by fitting a polynomial to the raw covariance data
-    and evaluating it at the regular grid points. It uses a kernel-based approach to smooth the covariance data.
+    Smooths the raw covariance surface along the diagonal and leverages that
+    the theoretical covariance at zero-lag equals the process variance, while
+    the observed raw covariance includes measurement error. The difference
+    (or an extrapolation to zero lag) yields an estimate of the noise variance.
 
     Parameters
     ----------
-    raw_cov : np.ndarray
-        The raw covariance matrix with columns representing (sid, t1, t2, w, cov).
-        This input should use `get_raw_cov` to obtain the raw covariance data.
-    obs_grid : np.ndarray
-        The observation grid, which is a 1D array of sorted unique time points.
-    reg_grid : np.ndarray
-        The regular grid where the measurement error variance will be estimated.
+    raw_cov : np.ndarray of shape (M, 5)
+        Raw covariance entries (sid, t1, t2, w, cov).
+    reg_grid : np.ndarray of shape (nt,)
+        Regular grid used to evaluate the smoothed covariance.
     bandwidth : float
-        The bandwidth for the kernel.
+        Positive bandwidth for the smoothing kernel.
     kernel_type : KernelType
-        The type of kernel to use for smoothing.
+        Kernel used during smoothing.
 
     Returns
     -------
-    float
-        The estimated measurement error variance.
+    sigma2 : float
+        Estimated measurement error variance.
+
+    Raises
+    ------
+    ValueError
+        If inputs are inconsistent or `bandwidth` is invalid.
+
+    See Also
+    --------
+    rotate_polyfit2d : 2D local polynomial smoothing on rotated grids.
     """
 
     input_dtype = raw_cov.dtype

@@ -13,21 +13,35 @@ from pflm.utils.utility import trapz
 
 def get_eigen_analysis_results(reg_cov: np.ndarray, is_upper_triangular: bool = False) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Get eigenvalues and eigenvectors from the covariance of functional data.
+    Compute eigenvalues and eigenvectors of a covariance matrix.
 
     Parameters
     ----------
-    reg_cov : np.ndarray
-        The regularized covariance matrix of shape (nt, nt).
-    is_upper_triangular : bool, optional
-        Whether the covariance matrix is upper triangular. Defaults to False.
+    reg_cov : np.ndarray of shape (nt, nt)
+        Regularized covariance matrix. Dtype determines the LAPACK routine
+        (float64 -> f64 backend; otherwise f32).
+    is_upper_triangular : bool, default=False
+        Whether `reg_cov` contains only the upper triangular part (packed in a
+        full matrix). If True, the routine will treat the lower part as
+        unspecified.
 
     Returns
     -------
-    eig_lambda : np.ndarray
-        The eigenvalues corresponding to the functional principal components with shape (nt,)
-    eig_vector : np.ndarray
-        The functional principal component basis functions (eigenvectors) of shape (p, nt).
+    eig_lambda : np.ndarray of shape (k,)
+        Sorted eigenvalues (descending) filtered to positive and finite values.
+    eig_vector : np.ndarray of shape (nt, k)
+        Corresponding eigenvectors (columns) aligned with `eig_lambda`.
+
+    Warns
+    -----
+    UserWarning
+        If the LAPACK routine fails (`info != 0`) or eigenvalues contain NaN or
+        negative values.
+
+    Notes
+    -----
+    - Very small eigenvalues (<= 10 * eps) are discarded.
+    - On failure, the function returns (None, None).
     """
     # initialize eigenvalues and eigenvectors
     nt = reg_cov.shape[0]
@@ -52,23 +66,27 @@ def get_eigen_analysis_results(reg_cov: np.ndarray, is_upper_triangular: bool = 
 
 def select_num_pcs_fve(eig_lambda: np.ndarray, fve_threshold: float, max_components: int = 20):
     """
-    Select the number of principal components based on the explained variance.
+    Select the number of principal components based on cumulative explained variance.
 
     Parameters
     ----------
-    eig_lambda : np.ndarray
-        The eigenvalues corresponding to the functional principal components.
+    eig_lambda : np.ndarray of shape (k,)
+        Non-negative eigenvalues.
     fve_threshold : float
-        The threshold for the proportion of variance explained by the functional principal components.
-    max_components : int
-        The maximum number of principal components to consider.
+        Target fraction of variance explained (typically in (0, 1]).
+    max_components : int, default=20
+        Upper bound on the number of components considered.
 
     Returns
     -------
-    cumulative_fve : np.ndarray
-        The cumulative explained variance for each principal component.
+    cumulative_fve : np.ndarray of shape (k,)
+        Cumulative explained variance curve.
     num_pcs : int
-        The number of principal components selected based on the explained variance.
+        Number of components needed to reach the threshold, clipped by `max_components`.
+
+    Notes
+    -----
+    Assumes `eig_lambda` sums to a positive value; otherwise the result is undefined.
     """
     cumulative_fve = np.cumsum(eig_lambda) / np.sum(eig_lambda)
     num_pcs = min(np.searchsorted(cumulative_fve, fve_threshold) + 1, max_components)
@@ -77,23 +95,33 @@ def select_num_pcs_fve(eig_lambda: np.ndarray, fve_threshold: float, max_compone
 
 def get_fpca_phi(num_pcs: int, reg_grid: np.ndarray, reg_mu: np.ndarray, eig_lambda: np.ndarray, eig_vector: np.ndarray):
     """
-    Get the functional principal component basis functions (FPCA phi).
+    Build FPCA eigenvalues/eigenfunctions normalized on the grid.
 
     Parameters
     ----------
-    reg_grid : np.ndarray
-        The grid points corresponding to the functional data with shape (nt,).
-    reg_mu : np.ndarray
-        The mean function values at the grid points with shape (nt,).
-    eig_lambda : np.ndarray
-        The eigenvalues corresponding to the functional principal components.
+    num_pcs : int
+        Number of components to return (first `num_pcs`).
+    reg_grid : np.ndarray of shape (nt,)
+        Grid points where eigenfunctions are sampled (monotonic).
+    reg_mu : np.ndarray of shape (nt,)
+        Mean values on `reg_grid`, used for sign alignment.
+    eig_lambda : np.ndarray of shape (k,)
+        Raw eigenvalues from the covariance decomposition.
+    eig_vector : np.ndarray of shape (nt, k)
+        Raw eigenvectors (columns) from the covariance decomposition.
 
     Returns
     -------
-    fpca_lambda : np.ndarray
-        The functional principal component eigenvalues.
-    fpca_phi : np.ndarray
-        The functional principal component basis functions of shape (nt, num_pcs).
+    fpca_lambda : np.ndarray of shape (num_pcs,)
+        Grid-scaled eigenvalues (Riemann approximation).
+    fpca_phi : np.ndarray of shape (nt, num_pcs)
+        Grid-normalized eigenfunctions with sign aligned to `reg_mu`.
+
+    Notes
+    -----
+    - Eigenvalues are scaled by the grid spacing; eigenvectors are normalized
+      to unit L2 norm on `reg_grid`.
+    - Signs are chosen so that <phi_j, reg_mu> >= 0 for each component.
     """
     grid_size = reg_grid[1] - reg_grid[0]
 

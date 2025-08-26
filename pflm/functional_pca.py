@@ -72,6 +72,36 @@ class FunctionalPCAMuCovParams:
         cv_folds_cov: int = 10,
         random_seed: Optional[int] = None,
     ):
+        """Validate and store smoothing-related parameters.
+
+        Parameters
+        ----------
+        bw_mu : float, optional
+            Positive bandwidth for the mean smoother, or None to auto-select.
+        bw_cov : float, optional
+            Positive bandwidth for the covariance smoother, or None to auto-select.
+        estimate_method : {'smooth', 'cross-sectional'}, default='smooth'
+            Mean/covariance estimation approach.
+        kernel_type : KernelType, default=KernelType.EPANECHNIKOV
+            Kernel for local regression.
+        method_select_mu_bw : {'cv', 'gcv'}, default='gcv'
+            Bandwidth selection for mean.
+        method_select_cov_bw : {'cv', 'gcv'}, default='gcv'
+            Bandwidth selection for covariance.
+        apply_geo_avg_cov_bw : bool, default=False
+            Whether to geometric-average candidate bandwidths for covariance.
+        cv_folds_mu : int, default=10
+            K-folds for CV when selecting mean bandwidth.
+        cv_folds_cov : int, default=10
+            K-folds for CV when selecting covariance bandwidth.
+        random_seed : int, optional
+            Random seed used in CV (if applicable).
+
+        Raises
+        ------
+        ValueError
+            If any parameter violates its expected type or range.
+        """
         if bw_mu is not None and bw_mu <= 0:
             raise ValueError("Bandwidth for mean function bw_mu must be a positive scalar.")
         if bw_cov is not None and bw_cov <= 0:
@@ -105,6 +135,7 @@ class FunctionalPCAMuCovParams:
         self.random_seed = random_seed
 
     def __repr__(self):
+        """Return a concise representation of parameters for logging/debugging."""
         return (
             f"FPCASmoothingParams(bw_mu={self.bw_mu}, bw_cov={self.bw_cov}, estimate_method='{self.estimate_method}', "
             f"kernel_type={self.kernel_type}, method_select_mu_bw='{self.method_select_mu_bw}', "
@@ -143,6 +174,27 @@ class FunctionalPCAUserDefinedParams:
         sigma2: Optional[float] = None,
         rho: Optional[float] = None,
     ):
+        """Validate shapes/types for optional user-specified artifacts.
+
+        Parameters
+        ----------
+        t_mu, mu : array-like, optional
+            1D arrays with equal length if provided; both must be given together.
+        t_cov : array-like, optional
+            1D array of grid points for covariance; must match `cov` dimensions.
+        cov : array-like, optional
+            2D array of covariance values with square shape compatible with `t_cov`.
+        sigma2 : float, optional
+            Non-negative measurement error variance.
+        rho : float, optional
+            Non-negative rho used for CE scoring if provided.
+
+        Raises
+        ------
+        ValueError
+            If only one of (t_mu, mu) is provided, or only one of (t_cov, cov) is
+            provided, or if shapes/types are inconsistent, or if sigma2/rho are invalid.
+        """
         if t_mu is not None and mu is not None:
             if len(t_mu) != len(mu):
                 raise ValueError("t_mu and mu must have the same length.")
@@ -171,6 +223,7 @@ class FunctionalPCAUserDefinedParams:
         self.rho = float(rho) if rho is not None else None
 
     def __repr__(self):
+        """Return a compact string representation of user-defined parameters."""
         cov_repr = " ".join(list(map(lambda x: x.strip(), repr(self.cov).split("\n")))) if self.cov is not None else "None"
         return (
             f"FunctionalPCAUserDefinedParams(t_mu={self.t_mu!r}, mu={self.mu!r}, "
@@ -185,51 +238,47 @@ class FunctionalPCA(BaseEstimator):
     Parameters
     ----------
     assume_measurement_error : bool, default=True
-        Whether to assume measurement error in the dataset.
-    num_n_points_reg_grid : int, default=51
-        Number of points in the regular grid for regression.
+        Whether to estimate and account for measurement error.
+    num_points_reg_grid : int, default=51
+        Number of points in the internal regular grid used for regression/interpolation.
+    mu_cov_params : FunctionalPCAMuCovParams, default=FunctionalPCAMuCovParams()
+        Smoothing and bandwidth selection settings.
     user_params : FunctionalPCAUserDefinedParams, default=FunctionalPCAUserDefinedParams()
-        User-defined parameters for mean and covariance functions.
+        Optional user-specified mean/covariance/sigma2/rho to override parts of the pipeline.
     verbose : bool, default=False
-        Whether to print diagnostic messages during fitting.
+        If True, record and expose timing diagnostics in `elapsed_time_`.
 
     Attributes
     ----------
     y_ : List[np.ndarray]
-        List of functional data observations.
+        Functional observations (per-sample vectors).
     t_ : List[np.ndarray]
-        List of time points corresponding to the observations in `y_`.
-    w_ : List[np.ndarray]
-        List of weights for each observation. If None, equal weights are assumed.
+        Time grids corresponding to `y_` (per-sample vectors).
     flatten_func_data_ : FlattenFunctionalData
-        Flattened and sorted functional data. It includes `yy`, `ww`, `tt`, `tid`, `unique_tid`, `inverse_tid_idx`, `sid`,
-        `unique_sid`, and `sid_cnt`.
-    raw_cov_ : np.ndarray
-        The raw covariance matrix with columns (sid, t1, t2, w, cov).
+        Flattened/validated dataset with fields: y, t, w, tid, unique_tid, inverse_tid_idx, sid, unique_sid, sid_cnt.
+    raw_cov_ : np.ndarray of shape (M, 5)
+        Raw covariance entries: (sid, t1, t2, w, cov).
     smoothed_model_result_obs_ : SmoothedModelResult
-        The smoothed model result for the observation grid points containing `grid`, `mu` and `cov`.
+        Smoothed mean/covariance on the observation grid.
     smoothed_model_result_reg_ : SmoothedModelResult
-        The smoothed model result for the regular grid points containing `grid`, `mu` and `cov`.
+        Smoothed mean/covariance on the regular grid.
     fpca_model_params_ : FpcaModelParams
-        The parameters estimated from the FPCA model containing `measurement_error_variance`, `eigen_results`, `select_num_pcs_result`,
-        `method_rho`, `fpca_lambda`, `fpca_phi`, `num_pcs`, `fitted_covariance`, `rho` and `eigenvalue_fit`.
-    method_pcs_ : str
-        The method used for calculating principal components scores.
-    xi_ : np.ndarray
-        Estimated functional principal component scores.
-    xi_var_ : np.ndarray
-        Estimated variances of the functional principal component scores.
-    fitted_y_mat_ : np.ndarray
-        The fitted functional data values of shape (nt, num_samples).
+        FPCA artifacts: eigen decomposition, selected phi/lambda, fitted covariances, rho, eigenvalue fit, etc.
+    xi_ : np.ndarray of shape (n_samples, k)
+        Estimated principal component scores.
+    xi_var_ : np.ndarray or List[np.ndarray]
+        Estimated per-sample score variances or covariance summaries (method-dependent).
+    fitted_y_mat_ : np.ndarray of shape (nt_obs, n_samples)
+        Fitted values on the observation grid (columns are samples).
     fitted_y_ : List[np.ndarray]
-        The fitted functional data values for each unique subject ID.
+        Fitted values at observed time points per subject.
     elapsed_time_ : Dict[str, float]
-        The elapsed time for each stage of the FPCA fitting process.
+        Timings (seconds) per pipeline stage.
 
     See Also
     --------
-    FPCASmoothingParams : Class for smoothing parameters in FPCA.
-    FunctionalPCAUserDefinedParams : Class for user-defined parameters in FPCA.
+    FunctionalPCAMuCovParams
+    FunctionalPCAUserDefinedParams
     """
 
     def __init__(
@@ -240,17 +289,26 @@ class FunctionalPCA(BaseEstimator):
         user_params: FunctionalPCAUserDefinedParams = FunctionalPCAUserDefinedParams(),
         verbose: bool = False,
     ) -> None:
-        if not isinstance(assume_measurement_error, bool):
-            raise ValueError("assume_measurement_error must be a boolean value.")
-        if not isinstance(num_points_reg_grid, int) or num_points_reg_grid <= 0:
-            raise ValueError("num_n_points_reg_grid must be a positive integer.")
-        if not isinstance(mu_cov_params, FunctionalPCAMuCovParams):
-            raise ValueError("mu_cov_params must be an instance of FunctionalPCAMuCovParams.")
-        if not isinstance(user_params, FunctionalPCAUserDefinedParams):
-            raise ValueError("user_params must be an instance of FunctionalPCAUserDefinedParams.")
-        if not isinstance(verbose, bool):
-            raise ValueError("verbose must be a boolean value.")
+        """Initialize estimator and validate top-level configuration.
 
+        Parameters
+        ----------
+        assume_measurement_error : bool, default=True
+            If True, estimate sigma2 (unless user provides).
+        num_points_reg_grid : int, default=51
+            Size of the internal regular grid used for smoothing/interpolation.
+        mu_cov_params : FunctionalPCAMuCovParams
+            Smoothing hyperparameters and selection policies.
+        user_params : FunctionalPCAUserDefinedParams
+            Optional user-specified mean/cov/sigma2/rho inputs.
+        verbose : bool, default=False
+            If True, enable timing diagnostics.
+
+        Raises
+        ------
+        ValueError
+            If any parameter violates expected type/range consistency.
+        """
         # Initialize parameters
         self.assume_measurement_error = assume_measurement_error
         self.num_points_reg_grid = num_points_reg_grid
@@ -282,6 +340,34 @@ class FunctionalPCA(BaseEstimator):
         if_fit_eigen_values: bool = False,
         fve_threshold: float = 0.99,
     ):
+        """Validate scoring and selection hyperparameters before computation.
+
+        Parameters
+        ----------
+        num_samples : int
+            Number of samples in the dataset (used for bounds).
+        method_pcs : {"IN", "CE"}, default="CE"
+            Score computation method (In-sample or Conditional Expectation).
+        method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, default="FVE"
+            Strategy to select the number of components or a fixed integer.
+        method_rho : {"trunc", "ridge", "vanilla"}, default="vanilla"
+            Rho strategy for CE scoring ("trunc" = truncate sigma2, "ridge" = ridge parameter).
+        max_num_pcs : int, optional
+            Upper bound for PCs; inferred if None.
+        if_impute_scores : bool, default=True
+            Whether to compute and impute scores during fit.
+        if_shrinkage : bool, default=False
+            Whether to apply shrinkage for IN scores.
+        if_fit_eigen_values : bool, default=False
+            Whether to compute a regression fit for eigenvalues.
+        fve_threshold : float, default=0.99
+            FVE threshold in (0, 1].
+
+        Raises
+        ------
+        ValueError
+            If any parameter violates expected type/range or allowed choices.
+        """
         if method_pcs not in ["IN", "CE"]:
             raise ValueError("method_pcs must be either 'IN' (Numerical Integration) or 'CE' (Conditional Expectation).")
         if not isinstance(method_select_num_pcs, (int, str)):
@@ -320,46 +406,45 @@ class FunctionalPCA(BaseEstimator):
         fve_threshold: float = 0.99,
         reg_grid: Union[np.ndarray, List[float]] = None,
     ) -> "FunctionalPCA":
-        """
-        Fit the functional PCA model to the data.
+        """Fit the FPCA model: mean, covariance, eigenstructure, and scores.
 
         Parameters
         ----------
-        t : a list of array-like
-            A 1D array of time points corresponding to the observations in `y`.
-        y : a list of array-like
-            A 2D array where each row corresponds to an observation at the time points in `t` which allow for missing values.
-        w : a list of array-like, optional
-            A 1D array of weights for each observation. If None, equal weights are assumed.
-        method_pcs : {'IN', 'CE', 'LS', 'WLS'}, default='CE'
-            Method to compute principal component scores. 'IN' for Numerical Integration, 'CE' for Conditional Expectation.
-            'LS' for least square. 'WLS' for weighted least square.
-        method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, optional
-            Method to select the number of principal component scores. If empty, it will be determined based on the explained variance.
-            If an integer is provided, it specifies the number of principal component scores to use.
-        method_rho : {'trunc', 'ridge', 'vanilla'}, default='vanilla'
-            Method to estimate the regularization factor which is added to diagonal of covariance surface in estimating principal component
-            scores. 'trunc' is using truncation of sigma2, 'ridge' is using rho as a ridge parameter, 'vanilla' is vanilla approach.
+        t : list of array-like
+            Time vectors per sample; each is 1D with shape (n_i,).
+        y : list of array-like
+            Observations per sample; each is 1D with shape (n_i,).
+        w : list of array-like, optional
+            Per-sample weights; each is 1D with shape (n_i,) or sample-level weights
+            compatible with the flattening utility.
+        method_pcs : {"IN", "CE"}, default="CE"
+            Score computation method (In-sample or Conditional Expectation).
+        method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, default="FVE"
+            Number of PCs selection strategy or fixed integer.
+        method_rho : {"trunc", "ridge", "vanilla"}, default="vanilla"
+            Rho strategy for CE (ignored for IN).
         max_num_pcs : int, optional
-            Maximum number of principal component scores to consider. If None, it will be set to the minimum of
-            (number of samples - 2, number of points in reg_grid - 2).
+            Upper bound for PCs; inferred if None.
         if_impute_scores : bool, default=True
-            Whether to impute missing scores in the functional data.
+            Whether to compute scores during fit.
         if_shrinkage : bool, default=False
-            Whether to apply shrinkage method on the estimate of the functional principal component scores.
-            This only works when `method_pcs` is set to `IN`.
-        if_fit_eigen_values: bool, default=False
-            Whether to obtain a regression fit of the eigenvalues.
+            Apply shrinkage for IN scores.
+        if_fit_eigen_values : bool, default=False
+            Fit eigenvalues by projection regression.
         fve_threshold : float, default=0.99
-            Threshold for the explained variance when using 'FVE' method to select the number of principal component scores.
+            FVE threshold used when method_select_num_pcs="FVE".
         reg_grid : array-like, optional
-            Regular grid points for regression. If None, a default grid will be created.
+            Regular grid for smoothing; if None, created uniformly over observed range.
 
         Returns
         -------
         FunctionalPCA
-            The fitted model instance which will contain the estimated parameters such as mean function,
-            covariance function, and principal component scores.
+            The fitted estimator with smoothed artifacts and scores.
+
+        Notes
+        -----
+        - Requires at least two observations per sample to form covariance pairs.
+        - Timing diagnostics are recorded in `elapsed_time_` when `verbose=True`.
         """
         init_start_time = time.time_ns()
         self.num_samples_ = len(y)
@@ -547,15 +632,19 @@ class FunctionalPCA(BaseEstimator):
         return self
 
     def fitted_values(self) -> Tuple[np.ndarray, List[np.ndarray]]:
-        """
-        Get the fitted functional data values.
+        """Return fitted functional values on grids.
 
         Returns
         -------
-        fitted_y_mat : np.ndarray
-            The fitted functional data values of shape (nt, n_samples).
+        fitted_y_mat : np.ndarray of shape (nt_obs, n_samples)
+            Fitted values on the observation grid.
         fitted_y : List[np.ndarray]
-            The fitted functional data values for each unique subject ID.
+            Fitted values at actually observed time points per subject.
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            If called before fitting.
         """
         check_is_fitted(self, ["fpca_model_params_", "fitted_y_"])
         return self.fitted_y_mat_, self.fitted_y_
@@ -567,30 +656,34 @@ class FunctionalPCA(BaseEstimator):
         w: Optional[List[Union[np.ndarray, List[float]]]] = None,
         num_pcs: Optional[int] = None,
     ) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray, List[np.ndarray]]:
-        """
-        Predict the functional data values for new observations.
+        """Predict scores and fitted curves for new observations.
 
         Parameters
         ----------
-        y : List[Union[np.ndarray, List[float]]]
-            The functional data values to predict.
-        t : List[Union[np.ndarray, List[float]]]
-            The corresponding time points for the functional data.
-        w : Optional[List[Union[np.ndarray, List[float]]]], default=None
-            The weights for the functional data.
-        num_pcs : Optional[int], default=None
-            The number of principal components to use for prediction.
+        y : list of array-like
+            New observations per sample; each is 1D with shape (n_i,).
+        t : list of array-like
+            Matching time vectors per sample; each is 1D with shape (n_i,).
+        w : list of array-like, optional
+            Optional weights compatible with the flattening utility.
+        num_pcs : int, optional
+            Number of PCs to use; if None, uses the number selected during `fit`.
 
         Returns
         -------
-        new_xi_ : np.ndarray
-            The predicted functional principal component scores.
-        new_xi_var_ : np.ndarray
-            The variances of the predicted functional principal component scores.
-        new_fitted_y_mat_ : np.ndarray
-            The predicted functional data values of shape (nt, n_samples).
-        new_fitted_y_ : List[np.ndarray]
-            The predicted functional data values for each unique subject ID.
+        new_xi : np.ndarray of shape (n_samples, k)
+            Predicted FPCA scores.
+        new_xi_var : np.ndarray or List[np.ndarray]
+            Predicted score variance summaries (method-dependent).
+        new_fitted_y_mat : np.ndarray of shape (nt_obs, n_samples)
+            Predicted values on the observation grid.
+        new_fitted_y : List[np.ndarray]
+            Predicted values at actually observed time points per subject.
+
+        Notes
+        -----
+        - The method of scoring follows the fitted configuration (`method_pcs`).
+        - LS/WLS pathways are not implemented and will raise if selected.
         """
         check_is_fitted(self, ["fpca_model_params_", "fitted_y_"])
         new_flatten_func_data = flatten_and_sort_data_matrices(y, t, self._input_dtype, w)
@@ -641,48 +734,53 @@ class FunctionalPCA(BaseEstimator):
         if_fit_eigen_values: bool = False,
         fve_threshold: float = 0.99,
     ) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray, List[np.ndarray]]:
-        """
-        Fit the principal component scores for the functional data.
+        """Compute principal component scores given smoothed artifacts.
 
-        The method computes the principal component scores based on the covariance function
-        and selects the number of components based on the specified method.
-        This method needs to be called after fitting the model with `fit()` which will ensure FunctionalPCA is ready for score computation.
-        This method provides you an alternative way to compute the principal component scores in case you don't want to re-calculate
-        the mean, covariance, and other parameters again.
+        This method assumes `fit` has been called to produce smoothed mean/covariance
+        and eigenstructure. It then selects the number of components and computes
+        scores using the chosen method.
 
         Parameters
         ----------
-        method_pcs : {'IN', 'CE'}, default='CE'
-            Method to compute principal components. 'IN' for Numerical Integration, 'CE' for Conditional Expectation.
-        method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, optional
-            Method to select the number of principal components. If empty, it will be determined based on the explained variance.
-            If an integer is provided, it specifies the number of principal components to use.
-        method_rho : {'truncated', 'ridge', 'vanilla'}, default='vanilla'
-            Method to estimate the regularization factor which is added to diagonal of covariance surface in estimating principal component
-            scores. 'truncated' is using truncation of sigma2, 'ridge' is using rho as a ridge parameter, 'vanilla' is using vanilla approach.
+        method_pcs : {"IN", "CE"}, default="CE"
+            Score computation method (In-sample or Conditional Expectation).
+        method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, default="FVE"
+            Selection strategy for number of components or fixed integer.
+        method_rho : {"trunc", "ridge", "vanilla"}, default="vanilla"
+            Rho strategy for CE (ignored for IN).
         max_num_pcs : int, optional
-            Maximum number of principal components to consider. If None, it will be set to the minimum of
-            (number of samples - 2, number of points in reg_grid - 2).
+            Upper bound for PCs; inferred if None.
         if_impute_scores : bool, default=True
-            Whether to impute missing scores in the functional data.
+            Whether to compute scores.
         if_shrinkage : bool, default=False
-            Whether to apply shrinkage method on the estimate of the functional principal component scores.
-            This only works when `method_pcs` is set to `IN`.
+            Apply shrinkage for IN scores.
         if_fit_eigen_values : bool, default=False
-            Whether to obtain a regression fit of the eigenvalues.
+            Fit eigenvalues by projection regression.
         fve_threshold : float, default=0.99
-            Threshold for the explained variance when using 'FVE' method to select the number of principal components.
+            FVE threshold used when method_select_num_pcs="FVE".
 
         Returns
         -------
-        xi : np.ndarray
-            The FPCA scores of shape (num_samples, num_pcs).
-        xi_var : np.ndarray
-            The variances of the FPCA scores of shape (num_samples, num_pcs).
-        fitted_y_mat : np.ndarray
-            The fitted functional data values of shape (nt, num_samples).
+        xi : np.ndarray of shape (n_samples, k)
+            Principal component scores.
+        xi_var : np.ndarray or List[np.ndarray]
+            Score variance summaries (method-dependent).
+        fitted_y_mat : np.ndarray of shape (nt_obs, n_samples)
+            Fitted values on the observation grid.
         fitted_y : List[np.ndarray]
-            The fitted functional data values for each unique subject ID.
+            Fitted values at observed time points per subject.
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            If called before `fit`.
+        ValueError
+            If selection/scoring arguments are invalid.
+
+        Notes
+        -----
+        - CE scoring may estimate `rho` depending on `method_rho`.
+        - When `if_fit_eigen_values=True`, `eigenvalue_fit` is stored in `fpca_model_params_`.
         """
         check_is_fitted(self, ["smoothed_model_result_obs_", "smoothed_model_result_reg_"])
         self.__check_fit_params(

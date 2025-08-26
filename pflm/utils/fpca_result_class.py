@@ -10,15 +10,23 @@ import numpy as np
 
 @dataclass
 class SmoothedModelResult:
-    """Smoothing outputs on a grid.
+    """Smoothed mean/covariance on a specific grid.
 
     Attributes
     ----------
     grid : np.ndarray of shape (nt,)
+        The grid on which the smoothing results are defined.
     mu : np.ndarray of shape (nt,)
+        Smoothed mean values on `grid`.
     cov : np.ndarray of shape (nt, nt)
+        Smoothed covariance matrix on `grid`.
     grid_type : {"obs", "reg"}
-        Grid kind: observation or regular grid.
+        Grid kind: observation grid ("obs") or regular grid ("reg").
+
+    Notes
+    -----
+    This dataclass is a container with no validation logic; shapes and
+    consistency are assumed to be checked upstream.
     """
 
     grid: np.ndarray
@@ -29,28 +37,47 @@ class SmoothedModelResult:
 
 @dataclass
 class FpcaModelParams:
-    """FPCA parameters and artifacts.
+    """FPCA parameters, artifacts, and tuning metadata.
 
     Attributes
     ----------
     measurement_error_variance : float
+        Estimated noise variance (sigma^2).
     eigen_results : dict
-        Keys like {"lambda": np.ndarray, "vector": np.ndarray}.
-    select_num_pcs_criterion : np.ndarray or None
-    fpca_lambda : np.ndarray or None
-    fpca_phi : dict or None
-        Keys like {"obs": np.ndarray, "reg": np.ndarray}.
-    num_pcs : int or None
-    fitted_covariance : dict or None
-        Keys like {"obs": np.ndarray, "reg": np.ndarray}.
-    rho : float or None
-    eigenvalue_fit : np.ndarray or None
-    method_select_num_pcs : int or {"FVE","AIC","BIC"} or None
-    max_num_pcs : int or None
-    method_pcs : {"IN","CE"} or None
-    method_rho : {"trunc","ridge","vanilla"} or None
-    if_shrinkage : bool or None
-    fve_threshold : float or None
+        Eigen decomposition results with keys like
+        {"lambda": np.ndarray, "vector": np.ndarray}.
+    select_num_pcs_criterion : np.ndarray, optional
+        Criterion values used in selecting the number of PCs (e.g., FVE curve or
+        information criteria).
+    fpca_lambda : np.ndarray, optional
+        Selected/processed eigenvalues for FPCA.
+    fpca_phi : dict, optional
+        Basis functions on different grids, e.g., {"obs": ..., "reg": ...}.
+    num_pcs : int, optional
+        Number of retained PCs.
+    fitted_covariance : dict, optional
+        Fitted covariance matrices by grid kind, e.g., {"obs": ..., "reg": ...}.
+    rho : float, optional
+        Truncation/ridge/vanilla parameter used in CE scoring if applicable.
+    eigenvalue_fit : np.ndarray, optional
+        Alternative eigenvalue estimates from projection-based fitting.
+    method_select_num_pcs : int or {"FVE","AIC","BIC"}, optional
+        Selection method or a fixed number of PCs.
+    max_num_pcs : int, optional
+        Upper bound used when searching the number of PCs.
+    method_pcs : {"IN","CE"}, optional
+        Score estimation method (In-sample or Conditional Expectation).
+    method_rho : {"trunc","ridge","vanilla"}, optional
+        Strategy for rho selection in CE.
+    if_shrinkage : bool, optional
+        Whether shrinkage was applied to IN scores.
+    fve_threshold : float, optional
+        Target FVE used when selecting the number of PCs.
+
+    Notes
+    -----
+    This dataclass is a passive container; validation and consistency checks
+    should be handled by the FPCA fitting pipeline.
     """
 
     measurement_error_variance: float

@@ -13,21 +13,40 @@ from pflm.utils._trapz import trapz_f32, trapz_f64
 
 def trapz(y: np.ndarray, x: np.ndarray) -> Union[np.ndarray, float]:
     """
-    Compute the integrated area value with trapezoidal rule.
+    Compute the integrated area using the trapezoidal rule.
 
     Parameters
     ----------
     y : array_like
-        1D or 2D array of function values with respect to x.
-        The expected shape could be (n_samples, n_features) or (n_features, n_samples).
-        If n_samples is equal to n_features, we will use (n_samples, n_features) as the shape.
-    x : array_like
-        1D array of x-coordinates corresponding to the function values. The expected shape is (n_features,).
+        1D or 2D array of function values with respect to `x`.
+        Accepted shapes:
+        - (n_features,) for a single curve.
+        - (n_samples, n_features) for multiple curves.
+        If `y` is 1D, it is treated as a single row (1, n_features).
+    x : array_like of shape (n_features,)
+        1D array of x-coordinates corresponding to the function values.
 
     Returns
     -------
-    trapz_value : np.ndarray
-        The integrated area value computed using the trapezoidal rule with shape (n_samples,).
+    np.ndarray or float
+        If `y` was 1D, returns a scalar float.
+        If `y` was 2D, returns a 1D array of shape (n_samples,) with the integral
+        per row of `y`.
+
+    Raises
+    ------
+    ValueError
+        If the number of points in `x` does not match either the number of rows
+        or the number of columns of `y`.
+
+    Notes
+    -----
+    - The implementation dispatches to a float32/float64 optimized backend.
+    - `x` is coerced to the dtype of `y` to avoid unintended up/down-casts.
+
+    See Also
+    --------
+    numpy.trapz : Reference implementation for simple cases.
     """
     if y.ndim == 1:
         y = y.reshape((1, -1))  # Ensure y is 2D for consistency
@@ -59,7 +78,7 @@ class FlattenFunctionalData:
     w : np.ndarray of shape (M,)
         Per-observation weights expanded from sample-level weights.
     tid : np.ndarray of shape (M,)
-        Integer indices mapping each t to its position in `unique_tid`.
+        Integer indices mapping each `t` to its position in `unique_tid`.
     unique_tid : np.ndarray of shape (nt,)
         Sorted unique time points (observation grid).
     inverse_tid_idx : np.ndarray of shape (M,)
@@ -89,34 +108,40 @@ def flatten_and_sort_data_matrices(
     input_dtype: Union[str, np.dtype] = np.float64,
     w: Optional[np.ndarray] = None,
 ) -> FlattenFunctionalData:
-    """Flatten and sort the data matrices.
+    """Flatten per-sample 1D arrays into contiguous vectors and build indices.
 
-    This function takes a list of response matrices `y` and corresponding time points `t`,
-    and optionally weights `w`, and flattens them into 1D arrays. The function handles NaN values by excluding them
-    from the output. If all values in `y` are NaN, it raises a ValueError.
+    This function concatenates lists of responses `y` and times `t`, expands
+    per-sample weights `w` to observation level, drops NaNs, and constructs
+    indexing helpers for the observation grid and subject ids.
 
     Parameters
     ----------
-    y : list of array_like
-        The response list, where each element is a 1D array of shape (nt_i,), i= 0, 1, ..., n-1.
-    t : list of array_like
-        The time points, where each element is a 1D array of shape (nt_i,), i= 0, 1, ..., n-1.
-        It should be a 1D array where each element corresponds to a time point.
-    input_dtype : str or np.dtype, optional
-        The data type of the input arrays. Defaults to np.float64.
-    w : array_like, optional
-        The weights for each sample. If provided, it should have the same length as `y` and `t`.
+    y : list of np.ndarray
+        Each element is a 1D array of shape (nt_i,) with responses for sample i.
+    t : list of np.ndarray
+        Each element is a 1D array of shape (nt_i,) with time points for sample i.
+    input_dtype : str or np.dtype, default=np.float64
+        Target dtype for numeric arrays.
+    w : np.ndarray, optional
+        1D array of length len(y) with per-sample weights. If None, uses ones.
 
     Returns
     -------
-    tt : np.ndarray
-        A 1D array of the corresponding time points, sorted to match `yy`.
-    yy : np.ndarray
-        A 1D array of the flattened response values, sorted by sample index and time points.
-    ww : np.ndarray
-        A 1D array of the weights corresponding to `yy`, sorted to match `yy`.
-    sid : np.ndarray
-        A 1D array of sample indices, where each index corresponds to the sample in `y`.
+    FlattenFunctionalData
+        Dataclass holding flattened arrays (y, t, w), grid/subject indices
+        (tid, unique_tid, inverse_tid_idx, sid, unique_sid, sid_cnt).
+
+    Raises
+    ------
+    ValueError
+        If `y`/`t` are not lists of 1D arrays with matching lengths,
+        if `w` is provided but invalid, or if all `y` values are NaN.
+
+    Notes
+    -----
+    - NaN entries in `y` (and matching positions in `t`) are removed.
+    - `unique_tid` is constructed from the de-duplicated sorted values of `t`.
+    - The `tid` indices are built via `np.digitize` against `unique_tid`.
     """
     if not isinstance(y, list):
         raise ValueError("y must be a list of arrays.")

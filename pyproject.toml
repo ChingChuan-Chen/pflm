@@ -52,7 +52,7 @@ docs = [
     "Sphinx>=7.2",
     "numpydoc>=1.7",
     "sphinx-autodoc-typehints>=1.25",
-    "furo>=2023.9.10",
+    "sphinx_rtd_theme",
 ]
 
 [build-system]
