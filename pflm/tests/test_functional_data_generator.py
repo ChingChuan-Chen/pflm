@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from pflm import FunctionalDataGenerator
+from pflm.functional_data_generator import FunctionalDataGenerator
 
 
 def test_functional_data_generator():

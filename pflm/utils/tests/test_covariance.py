@@ -2,21 +2,16 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from pflm.utils import flatten_and_sort_data_matrices, get_covariance_matrix, get_raw_cov
+from pflm.utils import get_covariance_matrix, get_raw_cov
 
 
-def _build_flatten_data(dtype):
-    y = [np.array([1.0, 2.0, 2.0], dtype=dtype), np.array([3.0, 4.0], dtype=dtype), np.array([4.0, 5.0], dtype=dtype)]
-    t = [np.array([0.1, 0.2, 0.3], dtype=dtype), np.array([0.2, 0.3], dtype=dtype), np.array([0.1, 0.3], dtype=dtype)]
-    w = np.array([1.0, 2.0, 2.0], dtype=dtype)
-    ffd = flatten_and_sort_data_matrices(y, t, dtype, w)
-    mu = (np.bincount(ffd.tid, ffd.y) / np.bincount(ffd.tid)).astype(dtype, copy=False)
-    return ffd, mu
-
-
-@pytest.mark.parametrize("dtype", [np.float64, np.float32])
-def test_get_raw_cov_happy_path(dtype):
-    ffd, mu = _build_flatten_data(dtype)
+@pytest.mark.parametrize(
+    "raw_cov,flatten_data,dtype",
+    [(np.float64, np.float64, np.float64), (np.float32, np.float32, np.float32)],
+    indirect=["raw_cov", "flatten_data"],
+)
+def test_get_raw_cov_happy_path(raw_cov, flatten_data, dtype):
+    ffd, mu = flatten_data
     mu = (np.bincount(ffd.tid, ffd.y) / np.bincount(ffd.tid)).astype(dtype, copy=False)
     raw_cov = get_raw_cov(ffd, mu)
     expected_num_pairs = np.sum(ffd.sid_cnt * (ffd.sid_cnt + 1) // 2)
@@ -29,52 +24,20 @@ def test_get_raw_cov_happy_path(dtype):
     assert raw_cov.dtype == dtype
 
     # check result
-    expected_raw_cov = np.array(
-        [
-            [0.0, 0.1, 0.1, 1.0, 2.25],
-            [0.0, 0.1, 0.2, 1.0, 0.75],
-            [0.0, 0.1, 0.3, 1.0, 2.5],
-            [0.0, 0.2, 0.2, 1.0, 0.25],
-            [0.0, 0.2, 0.3, 1.0, 0.83333333],
-            [0.0, 0.3, 0.3, 1.0, 2.77777778],
-            [1.0, 0.2, 0.2, 2.0, 0.25],
-            [1.0, 0.2, 0.3, 2.0, 0.16666667],
-            [1.0, 0.3, 0.3, 2.0, 0.11111111],
-            [2.0, 0.1, 0.1, 2.0, 2.25],
-            [2.0, 0.1, 0.3, 2.0, 2.0],
-            [2.0, 0.3, 0.3, 2.0, 1.77777778],
-        ],
-        dtype=dtype,
-    )
+    expected_raw_cov = raw_cov.astype(dtype)
     assert_allclose(raw_cov, expected_raw_cov, rtol=1e-5, atol=0.0)
 
 
-def test_get_raw_cov_wrong_shape():
-    ffd, mu = _build_flatten_data(np.float64)
+@pytest.mark.parametrize("flatten_data", [np.float64], indirect=True)
+def test_get_raw_cov_wrong_shape(flatten_data):
+    ffd, mu = flatten_data
     mu = (np.bincount(ffd.tid, ffd.y) / np.bincount(ffd.tid)).astype(np.float64, copy=False)
     with pytest.raises(ValueError, match="The length of mu must match the number of unique time indices"):
         get_raw_cov(ffd, mu[:-1])
 
 
-@pytest.mark.parametrize("dtype", [np.float64, np.float32])
-def test_get_covariance_matrix_happy_path(dtype):
-    raw_cov = np.array(
-        [
-            [0.0, 0.1, 0.1, 1.0, 2.25],
-            [0.0, 0.1, 0.2, 1.0, 0.75],
-            [0.0, 0.1, 0.3, 1.0, 2.5],
-            [0.0, 0.2, 0.2, 1.0, 0.25],
-            [0.0, 0.2, 0.3, 1.0, 0.83333333],
-            [0.0, 0.3, 0.3, 1.0, 2.77777778],
-            [1.0, 0.2, 0.2, 2.0, 0.25],
-            [1.0, 0.2, 0.3, 2.0, 0.16666667],
-            [1.0, 0.3, 0.3, 2.0, 0.11111111],
-            [2.0, 0.1, 0.1, 2.0, 2.25],
-            [2.0, 0.1, 0.3, 2.0, 2.0],
-            [2.0, 0.3, 0.3, 2.0, 1.77777778],
-        ],
-        dtype=dtype,
-    )
+@pytest.mark.parametrize("raw_cov,dtype", [(np.float64, np.float64), (np.float32, np.float32)], indirect=["raw_cov"])
+def test_get_covariance_matrix_happy_path(raw_cov, dtype):
     obs_grid = np.array([0.1, 0.2, 0.3], dtype=dtype)
     cov_matrix = get_covariance_matrix(raw_cov, obs_grid)
     # check shape

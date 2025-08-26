@@ -6,24 +6,8 @@ from pflm.smooth.kernel import KernelType
 from pflm.utils import get_measurement_error_variance
 
 
-def test_get_measurement_error_variance_happy_path():
-    raw_cov = np.array(
-        [
-            [0.0, 0.1, 0.1, 1.0, 2.25],
-            [0.0, 0.1, 0.2, 1.0, 0.75],
-            [0.0, 0.1, 0.3, 1.0, 2.5],
-            [0.0, 0.2, 0.2, 1.0, 0.25],
-            [0.0, 0.2, 0.3, 1.0, 0.83333333],
-            [0.0, 0.3, 0.3, 1.0, 2.77777778],
-            [1.0, 0.2, 0.2, 2.0, 0.25],
-            [1.0, 0.2, 0.3, 2.0, 0.16666667],
-            [1.0, 0.3, 0.3, 2.0, 0.11111111],
-            [2.0, 0.1, 0.1, 2.0, 2.25],
-            [2.0, 0.1, 0.3, 2.0, 2.0],
-            [2.0, 0.3, 0.3, 2.0, 1.77777778],
-        ],
-        dtype=np.float64,
-    )
+@pytest.mark.parametrize("raw_cov", [np.float64], indirect=["raw_cov"])
+def test_get_measurement_error_variance_happy_path(raw_cov):
     reg_grid = np.array([0.1, 0.15, 0.2, 0.25, 0.3], dtype=np.float64)
 
     expected_results = {
@@ -91,20 +75,6 @@ def test_get_measurement_error_variance_happy_path():
         assert_almost_equal(sigma2, expected_sigma2, decimal=5, err_msg=f"Sigma2 mismatch for {kernel_type}")
 
 
-def _minimal_valid_raw_cov(dtype=np.float64):
-    return np.array(
-        [
-            [0.0, 0.1, 0.1, 1.0, 2.25],
-            [0.0, 0.1, 0.2, 1.0, 0.75],
-            [0.0, 0.2, 0.2, 1.0, 0.25],
-            [1.0, 0.1, 0.1, 2.0, 2.25],
-            [1.0, 0.1, 0.2, 2.0, 2.0],
-            [1.0, 0.2, 0.2, 2.0, 1.77777778],
-        ],
-        dtype=dtype,
-    )
-
-
 def test_get_measurement_error_variance_raw_cov_wrong_num_cols():
     raw_cov_bad = np.array([[0.0, 0.1, 0.1, 1.0]], dtype=np.float64)  # should have 5 columns
     reg_grid = np.array([0.1, 0.2, 0.3], dtype=np.float64)
@@ -112,45 +82,45 @@ def test_get_measurement_error_variance_raw_cov_wrong_num_cols():
         get_measurement_error_variance(raw_cov_bad, reg_grid, 0.15, KernelType.GAUSSIAN)
 
 
-def test_get_measurement_error_variance_reg_grid_not_1d():
-    raw_cov = _minimal_valid_raw_cov()
+@pytest.mark.parametrize("raw_cov", [np.float64], indirect=["raw_cov"])
+def test_get_measurement_error_variance_reg_grid_not_1d(raw_cov):
     reg_grid_bad = np.array([[0.1, 0.2, 0.3]], dtype=np.float64)  # 2D
     with pytest.raises(ValueError, match="reg_grid must be a 1D array"):
         get_measurement_error_variance(raw_cov, reg_grid_bad, 0.15, KernelType.GAUSSIAN)
 
 
-def test_get_measurement_error_variance_reg_grid_not_increasing():
-    raw_cov = _minimal_valid_raw_cov()
+@pytest.mark.parametrize("raw_cov", [np.float64], indirect=["raw_cov"])
+def test_get_measurement_error_variance_reg_grid_not_increasing(raw_cov):
     reg_grid_bad = np.array([0.1, 0.1, 0.2], dtype=np.float64)  # non-increasing
     with pytest.raises(ValueError, match="reg_grid must be a 1D array with increasing values"):
         get_measurement_error_variance(raw_cov, reg_grid_bad, 0.15, KernelType.GAUSSIAN)
 
 
-@pytest.mark.parametrize("bad_bw", ["0.15", [0.15], (0.15,), {"bw": 0.15}])
-def test_get_measurement_error_variance_invalid_bandwidth_type(bad_bw):
-    raw_cov = _minimal_valid_raw_cov()
+@pytest.mark.parametrize(
+    "raw_cov,bad_bw", [(np.float64, "0.15"), (np.float64, [0.15]), (np.float64, (0.15,)), (np.float64, {"bw": 0.15})], indirect=["raw_cov"]
+)
+def test_get_measurement_error_variance_invalid_bandwidth_type(raw_cov, bad_bw):
     reg_grid = np.array([0.1, 0.2, 0.3], dtype=np.float64)
     with pytest.raises(ValueError, match="bandwidth must be a numeric value"):
         get_measurement_error_variance(raw_cov, reg_grid, bad_bw, KernelType.GAUSSIAN)
 
 
-def test_get_measurement_error_variance_non_positive_bandwidth():
-    raw_cov = _minimal_valid_raw_cov()
+@pytest.mark.parametrize("raw_cov", [np.float64], indirect=["raw_cov"])
+def test_get_measurement_error_variance_non_positive_bandwidth(raw_cov):
     reg_grid = np.array([0.1, 0.2, 0.3], dtype=np.float64)
     with pytest.raises(ValueError, match="bandwidth must be a positive number"):
         get_measurement_error_variance(raw_cov, reg_grid, 0.0, KernelType.GAUSSIAN)
 
 
-@pytest.mark.parametrize("nan_val", [float("nan"), np.nan])
-def test_get_measurement_error_variance_bandwidth_nan(nan_val):
-    raw_cov = _minimal_valid_raw_cov()
+@pytest.mark.parametrize("raw_cov,nan_val", [(np.float64, float("nan")), (np.float64, np.nan)], indirect=["raw_cov"])
+def test_get_measurement_error_variance_bandwidth_nan(raw_cov, nan_val):
     reg_grid = np.array([0.1, 0.2, 0.3], dtype=np.float64)
     with pytest.raises(ValueError, match="bandwidth must not be NaN"):
         get_measurement_error_variance(raw_cov, reg_grid, nan_val, KernelType.GAUSSIAN)
 
 
-def test_get_measurement_error_variance_invalid_kernel_type():
-    raw_cov = _minimal_valid_raw_cov()
+@pytest.mark.parametrize("raw_cov", [np.float64], indirect=["raw_cov"])
+def test_get_measurement_error_variance_invalid_kernel_type(raw_cov):
     reg_grid = np.array([0.1, 0.2, 0.3], dtype=np.float64)
     with pytest.raises(ValueError, match="kernel must be one of"):
         get_measurement_error_variance(raw_cov, reg_grid, 0.15, kernel_type=999)

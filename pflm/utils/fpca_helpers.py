@@ -345,8 +345,8 @@ def get_eigenvalue_fit(raw_cov: np.ndarray, obs_grid: np.ndarray, fpca_phi_obs: 
     mask = raw_cov[:, 1] != raw_cov[:, 2]
     tid1 = np.searchsorted(obs_grid, raw_cov[mask, 1])
     tid2 = np.searchsorted(obs_grid, raw_cov[mask, 2])
-    ev_fit_x = fpca_phi_obs[tid1, :num_pcs] * fpca_phi_obs[tid2, :num_pcs]  # shape (n_pairs, num_pcs)
-    ev_fit_y = raw_cov[mask, 4].copy()
+    ev_fit_x = np.sqrt(raw_cov[mask, 3]).reshape(-1, 1) * fpca_phi_obs[tid1, :num_pcs] * fpca_phi_obs[tid2, :num_pcs]  # shape (n_pairs, num_pcs)
+    ev_fit_y = np.sqrt(raw_cov[mask, 3]) * raw_cov[mask, 4]
     gles_func = _gels_memview_f64 if ev_fit_x.dtype == np.float64 else _gels_memview_f32
-    gles_func(ev_fit_x.ravel(order='F'), ev_fit_y, ev_fit_x.shape[0], ev_fit_x.shape[1], 1, ev_fit_x.shape[0], ev_fit_y.shape[0])
+    gles_func(ev_fit_x.ravel(order="F"), ev_fit_y, ev_fit_x.shape[0], ev_fit_x.shape[1], 1, ev_fit_x.shape[0], ev_fit_y.shape[0])
     return ev_fit_y[:num_pcs]
