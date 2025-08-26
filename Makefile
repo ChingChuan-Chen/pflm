@@ -9,6 +9,8 @@ all:
 	@echo "  clean                clean scikit-learn Meson build. Very rarely needed,"
 	@echo "  format               run code formatting tools"
 	@echo "                       since meson-python recompiles on import."
+	@echo "  docs                 generate HTML documentation"
+	@echo "  docs-clean           clean generated documentation"
 
 .PHONY: all
 
@@ -25,9 +27,20 @@ format:
 clean: clean-meson
 
 clean-meson:
-	pip uninstall -y scikit-learn
-	# It seems in some cases removing the folder avoids weird compilation
-	# errors (e.g. when switching from numpy>=2 to numpy<2). For some
-	# reason ninja clean -C $(DEFAULT_MESON_BUILD_DIR) is not
-	# enough.
+	pip uninstall -y pflm
+	# It seems in some cases removing the folder avoids weird compilation errors.
+	# For some reason ninja clean -C $(DEFAULT_MESON_BUILD_DIR) is not enough.
 	rm -rf $(DEFAULT_MESON_BUILD_DIR)
+
+.PHONY: docs docs-clean
+
+docs:
+	@echo "Generating API stubs..."
+	sphinx-apidoc -o docs/api pflm -f
+	@echo "Building HTML documentation..."
+	sphinx-build -b html docs docs/_build/html
+	@echo "Docs built at docs/_build/html/index.html"
+
+docs-clean:
+	@echo "Cleaning documentation build artifacts..."
+	@rm -rf docs/_build docs/api

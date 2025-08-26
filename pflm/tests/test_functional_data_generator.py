@@ -60,7 +60,7 @@ def test_fdg_num_pcs_invalid(num_pcs):
         FunctionalDataGenerator(t, np.sin, np.abs, num_pcs=num_pcs)
 
 
-@pytest.mark.parametrize("num_pcs", [float('nan'), "string", [2.5], {'a': 2.5}])
+@pytest.mark.parametrize("num_pcs", [float("nan"), "string", [2.5], {"a": 2.5}])
 def test_fdg_num_pcs_invalid_types(num_pcs):
     t = np.linspace(0, 1, 5)
     with pytest.raises(ValueError, match="num_pcs must be an integer."):

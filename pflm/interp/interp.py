@@ -1,4 +1,7 @@
-"""Interpolation on 1D and 2D data."""
+"""Interpolation on 1D and 2D data.
+
+This module provides fast linear and spline interpolation for 1D/2D arrays.
+"""
 
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
@@ -7,48 +10,42 @@ import numpy as np
 
 from pflm.interp._interp import interp1d_f32, interp1d_f64, interp2d_f32, interp2d_f64
 
-"""
-pflm.interp.interp
-==================
-
-This module provides functions for 1D and 2D interpolation of data using linear and spline methods.
-
-Functions
----------
-- `interp1d`: Interpolate 1D data using linear or spline interpolation.
-- `interp2d`: Interpolate 2D data using linear or spline interpolation.
-"""
-
 
 def interp1d(x: np.ndarray, y: np.ndarray, x_new: np.ndarray, method: str = "linear") -> np.ndarray:
     """Interpolate 1D data using linear or spline interpolation.
 
-    This function is aligned with MATLAB's `interp1` function and Python's `scipy.interpolate.interp1d`.
-    It returns a 1D array of interpolated values at the new x-coordinates `x_new`.
-    The input arrays `x` and `y` must be 1D arrays of the same length, where `x` contains the x-coordinates
-    and `y` contains the corresponding y-coordinates. The interpolation method can be either 'linear' or 'spline'.
-
     Parameters
     ----------
-    x : np.ndarray
-        1D array of x-coordinates of the data points.
-    y : np.ndarray
-        1D array of y-coordinates of the data points.
-    x_new : np.ndarray
-        1D array of x-coordinates where the interpolation is evaluated.
-    method : str, optional
-        The interpolation method. Default is 'linear'.
-        The interpolation method:
-        'linear' for linear interpolation,
-        'spline' for spline interpolation.
+    x : np.ndarray of shape (n,)
+        Strictly 1D input coordinates. Duplicates are allowed but will be
+        reduced to the first occurrence internally.
+    y : np.ndarray of shape (n,)
+        Values at `x`. Must match `x` in length.
+    x_new : np.ndarray of shape (m,)
+        Query points.
+    method : {"linear", "spline"}, default="linear"
+        Interpolation method.
+
     Returns
     -------
-    y_new : np.ndarray
-        1D array of interpolated values at the new x-coordinates.
+    y_new : np.ndarray of shape (m,)
+        Interpolated values at `x_new`. The dtype follows `x`:
+        float32 uses the f32 backend; otherwise f64.
+
+    Raises
+    ------
+    ValueError
+        If any input is not 1D, is empty, sizes mismatch, contains NaN, or
+        `method` is invalid.
+
+    Notes
+    -----
+    - Input duplicates in `x` are deduplicated using the first occurrence.
+    - Backend is selected by dtype of `x` (float32 -> f32; otherwise f64).
 
     See Also
     --------
-    interp2d: Interpolate 2D data using linear or spline interpolation.
+    interp2d : Interpolate 2D gridded data.
     """
     if x.ndim != 1 or y.ndim != 1 or x_new.ndim != 1:
         raise ValueError("x, y, and x_new must be 1-dimensional arrays.")
@@ -72,41 +69,53 @@ def interp1d(x: np.ndarray, y: np.ndarray, x_new: np.ndarray, method: str = "lin
     return interp_func(x_unique, y_unique, x_new.astype(x.dtype, copy=False), method_mapping[method])
 
 
-def interp2d(x: np.ndarray, y: np.ndarray, v: np.ndarray, x_new: np.ndarray, y_new: np.ndarray, method: str = "linear") -> np.ndarray:
-    """Interpolate 2D data using linear or spline interpolation.
-
-    MATLAB's `interp2` function returns a 2D array of interpolated values at the grid points defined by `x_new` and `y_new`.
-    The output array `v_new` has the shape (n_new_x, n_new_y), where n_new_x is the length of `x_new` and n_new_y is the length of `y_new`.
-    This function is aligned with the Python `scipy.interpolate.interp2d` function.
-    The shape of `v` should be (n_x, n_y), where n_x is the length of `x` and n_y is the length of `y`.
-    The shape of output `v_new` will be (n_new_x, n_new_y).
+def interp2d(
+    x: np.ndarray,
+    y: np.ndarray,
+    v: np.ndarray,
+    x_new: np.ndarray,
+    y_new: np.ndarray,
+    method: str = "linear",
+) -> np.ndarray:
+    """Interpolate 2D gridded data using linear or spline interpolation.
 
     Parameters
     ----------
-    x : array_like
-        1D array of x-coordinates of the data points with shape (n_x,).
-    y : array_like
-        1D array of y-coordinates of the data points with shape (n_y,).
-    v : array_like
-        2D array of values at the grid points defined by x and y with shape (n_x, n_y).
-    x_new : array_like
-        1D array of x-coordinates where the interpolation is evaluated with shape (n_new_x,).
-    y_new : array_like
-        1D array of y-coordinates where the interpolation is evaluated with shape (n_new_y,).
-    method : str, optional
-        The interpolation method. Default is 'linear'.
-        The interpolation method:
-        'linear' for linear interpolation,
-        'spline' for spline interpolation.
+    x : np.ndarray of shape (n_x,)
+        X-coordinates of the grid (first axis of `v`).
+    y : np.ndarray of shape (n_y,)
+        Y-coordinates of the grid (second axis of `v`).
+    v : np.ndarray of shape (n_x, n_y)
+        Values on the grid defined by (`x`, `y`).
+    x_new : np.ndarray of shape (m_x,)
+        Query x-coordinates.
+    y_new : np.ndarray of shape (m_y,)
+        Query y-coordinates.
+    method : {"linear", "spline"}, default="linear"
+        Interpolation method.
 
     Returns
     -------
-    v_new: array_like
-        The shape (n_new_x, n_new_y) 2D array of interpolated values at the grid points defined by x_new and y_new.
+    v_new : np.ndarray of shape (m_x, m_y)
+        Interpolated values evaluated on the mesh defined by (`x_new`, `y_new`).
+        The dtype follows `x` (float32 -> f32 backend; otherwise f64).
+
+    Raises
+    ------
+    ValueError
+        If input dimensionality is invalid, arrays are empty, shape of `v` does
+        not match (`x`, `y`), any input contains NaN, or `method` is invalid.
+
+    Notes
+    -----
+    - Duplicates in `x` and `y` are deduplicated using the first occurrence.
+    - The underlying C++ implementation expects `v` in Fortran-like layout
+      with axes swapped; this wrapper transposes/contiguates as needed.
+    - Backend is selected by dtype of `x` (float32 -> f32; otherwise f64).
 
     See Also
     --------
-    interp1d: Interpolate 1D data using linear or spline interpolation.
+    interp1d : Interpolate 1D data using linear or spline interpolation.
     """
     if x.ndim != 1 or y.ndim != 1 or v.ndim != 2 or x_new.ndim != 1 or y_new.ndim != 1:
         raise ValueError("x, y, and v must be 1D and 2D arrays respectively.")

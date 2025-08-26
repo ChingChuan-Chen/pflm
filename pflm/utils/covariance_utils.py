@@ -1,4 +1,4 @@
-"""Utility functions for covariance estimation"""
+"""Utility functions for covariance estimation on functional data."""
 
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
@@ -13,27 +13,25 @@ from pflm.utils.utility import FlattenFunctionalData, trapz
 
 
 def get_raw_cov(flatten_func_data: FlattenFunctionalData, mu: np.ndarray) -> np.ndarray:
-    """
-    Get the dense covariance matrix from the flattened data matrices.
-
-    This function computes the covariance between pairs of samples at different time points,
-    using the flattened response values `yy`, corresponding time points `tt`, and weights `ww`.
-    It returns a raw covariance matrix with columns representing (sid, t1, t2, w, cov),
-    where `sid` is the sample index, `t1` and `t2` are the time points, `w` is the weight,
-    and `cov` is the computed covariance value.
+    """Compute raw covariance entries per sample and time-pair.
 
     Parameters
     ----------
     flatten_func_data : FlattenFunctionalData
-        Flattened functional data containing response values, time points, and weights.
-    mu : np.ndarray
-        Mean function values at the observation grid.
+        Flattened dataset with fields y, t, w, tid, unique_sid, sid_cnt.
+    mu : np.ndarray of shape (nt,)
+        Mean on the observation grid (`unique_tid`).
 
     Returns
     -------
-    raw_cov : np.ndarray
-        The raw covariance matrix with columns representing (sid, t1, t2, w, cov).
-        The shape is (num_pairs, 5), where num_pairs is the number of unique pairs of samples.
+    raw_cov : np.ndarray of shape (M, 5)
+        Columns are (sid, t1, t2, w, cov). M equals sum over samples of
+        the number of within-sample pairs.
+
+    Raises
+    ------
+    ValueError
+        If `mu` length does not match the number of unique time points.
     """
     nt = flatten_func_data.unique_tid.size
     if mu.size != nt:

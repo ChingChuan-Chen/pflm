@@ -25,46 +25,50 @@ from pflm.smooth._polyfit import (
 
 class Polyfit1DModel(BaseEstimator, RegressorMixin):
     """
-    1D polynomial fitting model with kernel smoothing.
+    1D polynomial fitting with kernel smoothing and fast interpolation.
 
-    This model fits a local polynomial regression using kernel smoothing and
-    uses interpolation for efficient prediction.
+    This estimator performs local polynomial regression using a selectable kernel.
+    It can choose bandwidth by CV/GCV and predicts efficiently via interpolation.
 
     Parameters
     ----------
     kernel_type : KernelType, default=KernelType.GAUSSIAN
-        The type of kernel to use for smoothing.
+        Kernel used for smoothing.
     degree : int, default=1
-        The degree of the polynomial. Must be >= 1.
+        Polynomial degree (>= 1).
     deriv : int, default=0
-        The derivative order to compute. Must be >= 0 and <= degree.
+        Derivative order (0 <= deriv <= degree).
     num_points_reg_grid : int, default=100
-        Number of points to use for interpolation grid (only used if reg_grid is None).
-    interp_kind : str, default='linear'
-        Type of interpolation ('linear', 'spline').
-    random_seed : int, default=None
-        Random seed for reproducibility.
+        Number of points for the internal interpolation grid (used if `reg_grid` is None).
+    interp_kind : {"linear", "spline"}, default="linear"
+        Interpolation method used for fast prediction.
+    random_seed : int, optional
+        Random seed for reproducibility (e.g., CV shuffles).
 
     Attributes
     ----------
-    X_ : ndarray of shape (n_samples,)
-        The input data from the last fit.
-    y_ : ndarray of shape (n_samples,)
-        The target values from the last fit.
-    sample_weight_ : ndarray of shape (n_samples,)
-        The sample weights from the last fit.
+    X_ : np.ndarray of shape (n_samples,)
+        Training inputs (sorted copy stored as `sorted_X_`).
+    y_ : np.ndarray of shape (n_samples,)
+        Training targets (sorted copy stored as `sorted_y_`).
+    sample_weight_ : np.ndarray of shape (n_samples,)
+        Sample weights (sorted copy stored as `sorted_sample_weight_`).
     n_features_in_ : int
-        Number of features seen during fit (always 1 for 1D).
-    reg_grid_ : ndarray
-        The interpolation grid points.
-    reg_fitted_values_ : ndarray
-        The fitted values at interpolation grid points.
-    obs_grid_ : ndarray
-        The unique observed grid points from the input data.
+        Number of features during fit (always 1 for 1D).
+    reg_grid_ : np.ndarray of shape (m,)
+        Interpolation grid used for fast predictions.
+    reg_fitted_values_ : np.ndarray of shape (m,)
+        Fitted values evaluated on `reg_grid_`.
+    obs_grid_ : np.ndarray of shape (n_obs_grid,)
+        Unique observed grid from `X_`.
     bandwidth_ : float
-        The bandwidth used for kernel smoothing. It might be selected automatically or provided by the user.
-    bandwidth_selection_results_ : dict, optional
-        Results of bandwidth selection, including candidates, scores, and the best bandwidth.
+        Selected/used bandwidth.
+    bandwidth_selection_results_ : dict
+        Selection details: candidates, method, scores, and chosen bandwidth.
+
+    See Also
+    --------
+    Polyfit2DModel : Local polynomial regression in 2D.
     """
 
     def __init__(
@@ -76,6 +80,17 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         interp_kind: Literal["linear", "spline"] = "linear",
         random_seed: Optional[int] = None,
     ) -> None:
+        """Initialize the 1D polynomial model.
+
+        Parameters
+        ----------
+        kernel_type : KernelType, default=KernelType.GAUSSIAN
+        degree : int, default=1
+        deriv : int, default=0
+        num_points_reg_grid : int, default=100
+        interp_kind : {"linear", "spline"}, default="linear"
+        random_seed : int, optional
+        """
         if kernel_type not in KernelType:
             raise ValueError(f"kernel must be one of {list(KernelType)}.")
         if degree is None or not isinstance(degree, int):
@@ -99,18 +114,17 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         self.rng = np.random.default_rng(random_seed)
 
     def _generate_bandwidth_candidates(self, num_bw_candidates: int) -> np.ndarray:
-        """
-        Generate bandwidth candidates for selection.
+        """Generate sorted bandwidth candidates on a log scale.
 
         Parameters
         ----------
         num_bw_candidates : int
-            Number of bandwidth candidates to generate.
+            Number of candidates to generate (prefer odd to include a center).
 
         Returns
         -------
-        np.ndarray
-            Array of bandwidth candidates.
+        np.ndarray of shape (num_bw_candidates,)
+            Monotonically increasing bandwidth candidates.
         """
         if self.obs_grid_.size <= self.degree + 1:
             raise ValueError(f"Not enough unique support points ({self.obs_grid_.size}) to fit a polynomial of degree {self.degree}.")
@@ -123,20 +137,19 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         return h0 * (q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates, dtype=self._input_dtype))
 
     def _compute_cv_score(self, bandwidth: np.floating, cv_folds: int = 5) -> np.floating:
-        """
-        Compute cross-validation score for a given bandwidth.
+        """Compute K-fold cross-validation score for a given bandwidth.
 
         Parameters
         ----------
         bandwidth : float
-            Bandwidth parameter.
+            Bandwidth to evaluate.
         cv_folds : int, default=5
-            Number of cross-validation folds.
+            Number of folds.
 
         Returns
         -------
         float
-            Cross-validation score.
+            Average CV loss (lower is better).
         """
 
         cv_index = np.arange(len(self.X_)) % cv_folds
@@ -168,22 +181,21 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         return np.mean(cv_scores) / self._sum_sample_weight
 
     def _compute_gcv_score(self, bandwidth: np.floating, k0: float, r: np.floating) -> np.floating:
-        """
-        Compute Generalized Cross-Validation score for a given bandwidth.
+        """Compute GCV score given a bandwidth and smoothing constants.
 
         Parameters
         ----------
         bandwidth : float
-            Bandwidth parameter.
+            Bandwidth to evaluate.
         k0 : float
             Kernel value at zero.
         r : float
-            Range of the sorted unique X values.
+            Range of the observed unique grid.
 
         Returns
         -------
         float
-            GCV score.
+            GCV score (lower is better).
         """
 
         y_pred = self._polyfit1d_func(
@@ -218,25 +230,23 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         custom_bw_candidates: Optional[np.ndarray] = None,
         cv_folds: int = 5,
     ) -> np.floating:
-        """
-        Select bandwidth using cross-validation.
+        """Select bandwidth via CV or GCV.
 
         Parameters
         ----------
         num_bw_candidates : int, default=21
-            Number of bandwidth candidates to generate. Only used if custom_bw_candidates is None.
-        method : str, default='gcv'
-            Method for bandwidth selection. Options: 'cv', 'gcv'.
-            If 'cv', uses cross-validation; if 'gcv', uses Generalized Cross-Validation.
-        custom_bw_candidates: Optional[np.ndarray], default=None
-            Custom bandwidth candidates to use instead of generating them.
+            Used only if `custom_bw_candidates` is None.
+        method : {"cv", "gcv"}, default="gcv"
+            Selection method.
+        custom_bw_candidates : np.ndarray, optional
+            External candidate list.
         cv_folds : int, default=5
-            Number of cross-validation folds.
+            Number of folds if using CV.
 
         Returns
         -------
         float
-            The bandwidth with the best score.
+            Best bandwidth according to the chosen criterion.
         """
         if custom_bw_candidates is not None:
             bandwidth_candidates_ = check_array(custom_bw_candidates, ensure_2d=False, dtype=self._input_dtype)
@@ -284,35 +294,34 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         custom_bw_candidates: Optional[np.ndarray] = None,
         cv_folds: int = 5,
     ) -> "Polyfit1DModel":
-        """
-        Fit the 1D polynomial model.
+        """Fit the 1D local polynomial model with kernel smoothing.
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, 1) or (n_samples,)
-            Training data.
+        X : array-like of shape (n_samples,) or (n_samples, 1)
+            Training inputs.
         y : array-like of shape (n_samples,)
-            Target values.
-        sample_weight : array-like of shape (n_samples,), default=None
+            Training targets.
+        sample_weight : array-like of shape (n_samples,), optional
             Sample weights.
-        bandwidth : float, default=None
-            The bandwidth parameter for kernel smoothing. If None, will be selected
-            using the method specified in bandwidth_selection_method.
-        reg_grid: Optional[Union[np.ndarray, List[float]]], default=None
-            The regular grid points for interpolation. If None, will create a uniform grid.
+        bandwidth : float, optional
+            If not provided, selected by `bandwidth_selection_method`.
+        reg_grid : array-like of shape (m,), optional
+            Interpolation grid. If None, a uniform grid is created.
         num_bw_candidates : int, default=21
-            Number of bandwidth candidates to generate.
-        bandwidth_selection_method : str, default='gcv'
-            Method for bandwidth selection. Options: 'cv', 'gcv'.
-        custom_bw_candidates: Optional[np.ndarray], default=None
-            Custom bandwidth candidates to use instead of generating them.
+        bandwidth_selection_method : {"cv", "gcv"}, default="gcv"
+        custom_bw_candidates : np.ndarray, optional
         cv_folds : int, default=5
-            Number of cross-validation folds (only used if bandwidth_selection_method='cv').
 
         Returns
         -------
         Polyfit1DModel
-            Returns self.
+            Fitted estimator (self).
+
+        Raises
+        ------
+        ValueError
+            If inputs are invalid or selection arguments are inconsistent.
         """
         # Validate bandwidth_selection_method
         if bandwidth_selection_method not in ["cv", "gcv"]:
@@ -430,21 +439,24 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         return self
 
     def predict(self, X: Union[np.ndarray, List[float]], use_model_interp: bool = True) -> np.ndarray:
-        """
-        Predict using the 1D polynomial model via interpolation.
+        """Predict responses at new inputs.
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, 1) or (n_samples,)
-            Samples to predict.
+        X : array-like of shape (m,) or (m, 1)
+            Query points.
         use_model_interp : bool, default=True
-            If True, use the model's interpolation grid for prediction.
-            If False, use direct polyfit1d call for prediction.
+            If True, interpolate from `reg_grid_`; if False, evaluate directly.
 
         Returns
         -------
-        np.ndarray
-            Predicted values of shape (n_samples,).
+        np.ndarray of shape (m,)
+            Predicted values.
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            If the model is not fitted.
         """
         check_is_fitted(self, ["reg_fitted_values_", "reg_grid_", "bandwidth_"])
 
@@ -482,77 +494,85 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         return y_pred[inverse_sort_idx]
 
     def fitted_values(self) -> np.ndarray:
-        """
-        Get the fitted values at the interpolation grid points.
+        """Return fitted values on the interpolation grid.
 
         Returns
         -------
-        np.ndarray
-            The fitted values at the interpolation grid points.
+        np.ndarray of shape (len(reg_grid_),)
+            Fitted values evaluated on `reg_grid_`.
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            If the model is not fitted.
         """
         check_is_fitted(self, ["reg_fitted_values_", "reg_grid_", "bandwidth_"])
         return self.reg_fitted_values_.copy()
 
     def get_fitted_grids(self) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Get the fitted values at the interpolation grid points.
+        """Return observation and interpolation grids.
 
         Returns
         -------
-        Tuple[np.ndarray, np.ndarray]
-            A tuple containing:
-            - reg_grid: The interpolation grid points.
-            - reg_fitted_values: The fitted values at interpolation grid points.
+        obs_grid : np.ndarray of shape (n_obs_grid,)
+            Unique observed grid used during fit.
+        reg_grid : np.ndarray of shape (m,)
+            Interpolation grid used for fast predictions.
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            If the model is not fitted.
         """
         check_is_fitted(self, ["reg_fitted_values_", "reg_grid_", "bandwidth_"])
         return self.reg_grid_.copy(), self.reg_fitted_values_.copy()
 
 
 class Polyfit2DModel(BaseEstimator, RegressorMixin):
-    """
-    2D polynomial fitting model with kernel smoothing.
+    """Local polynomial (2D) regression with kernel smoothing and interpolation.
 
     Parameters
     ----------
     kernel_type : KernelType, default=KernelType.GAUSSIAN
-        The type of kernel to use for smoothing.
+        Kernel used for smoothing.
     degree : int, default=1
-        The degree of the polynomial.
+        Polynomial degree (>= 1).
     deriv1 : int, default=0
-        The derivative order for the first dimension.
+        Derivative order along the first dimension (>= 0).
     deriv2 : int, default=0
-        The derivative order for the second dimension.
+        Derivative order along the second dimension (>= 0).
     num_points_reg_grid : int, default=100
-        Number of points for interpolation grid in each dimension (only used if reg_grid is None).
-    interp_kind : str, default='linear'
-        Interpolation method ('linear', 'cubic', 'quintic').
-    random_seed : int, default=None
-        Random seed for reproducibility.
+        Number of points for each axis of the internal interpolation grid
+        (used if `reg_grid1`/`reg_grid2` are None).
+    interp_kind : {"linear", "spline"}, default="linear"
+        Interpolation method used for fast prediction.
+    random_seed : int, optional
+        Random seed for reproducibility (e.g., CV shuffles).
 
     Attributes
     ----------
-    X_ : ndarray of shape (n_samples, 2)
-        The input data from the last fit.
-    y_ : ndarray of shape (n_samples,)
-        The target values from the last fit.
-    sample_weight_ : ndarray of shape (n_samples,)
-        The sample weights from the last fit.
-    n_features_in_ : int
-        Number of features seen during fit (always 2 for 2D).
-    reg_grid1_ : ndarray
-        The regular grid points in the first dimension.
-    reg_grid2_ : ndarray
-        The regular grid points in the second dimension.
-    reg_fitted_values_ : ndarray
-        A 2D array of fitted values at the interpolation grid points.
+    X_ : np.ndarray of shape (n_samples, 2)
+        Training inputs.
+    y_ : np.ndarray of shape (n_samples,)
+        Training targets.
+    sample_weight_ : np.ndarray of shape (n_samples,)
+        Sample weights.
+    reg_grid1_ : np.ndarray of shape (m1,)
+        Interpolation grid along the first dimension.
+    reg_grid2_ : np.ndarray of shape (m2,)
+        Interpolation grid along the second dimension.
+    reg_fitted_values_ : np.ndarray of shape (m1, m2)
+        Fitted values evaluated on the interpolation grid mesh.
+    obs_grid1_ : np.ndarray of shape (n_obs_grid1,)
+        Unique observed grid from X[:, 0].
+    obs_grid2_ : np.ndarray of shape (n_obs_grid2,)
+        Unique observed grid from X[:, 1].
     bandwidth1_ : float
-        The selected bandwidth for the first dimension after fitting.
+        Selected/used bandwidth for the first dimension.
     bandwidth2_ : float
-        The selected bandwidth for the second dimension after fitting.
-    cv_scores_ : ndarray, optional
-        CV scores for each bandwidth candidate pair.
-    bandwidth_candidates_ : ndarray, optional
-        Bandwidth candidate pairs evaluated during selection.
+        Selected/used bandwidth for the second dimension.
+    bandwidth_selection_results_ : dict
+        Selection details including candidates, method, and chosen pair.
     """
 
     def __init__(
@@ -565,6 +585,18 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         interp_kind: Literal["linear", "spline"] = "linear",
         random_seed: Optional[int] = None,
     ) -> None:
+        """Initialize the 2D polynomial model.
+
+        Parameters
+        ----------
+        kernel_type : KernelType, default=KernelType.GAUSSIAN
+        degree : int, default=1
+        deriv1 : int, default=0
+        deriv2 : int, default=0
+        num_points_reg_grid : int, default=100
+        interp_kind : {"linear", "spline"}, default="linear"
+        random_seed : int, optional
+        """
         if kernel_type not in KernelType:
             raise ValueError(f"kernel_type must be one of {list(KernelType)}.")
         if degree is None or not isinstance(degree, int):
@@ -591,6 +623,22 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         self.rng = np.random.default_rng(random_seed)
 
     def _get_bandwidth_candidates(self, sorted_unique_support: np.ndarray, num_bw_candidates: int, lag: int) -> np.ndarray:
+        """Compute a 1D set of bandwidth candidates from a sorted support.
+
+        Parameters
+        ----------
+        sorted_unique_support : np.ndarray of shape (n_unique,)
+            Sorted unique coordinates.
+        num_bw_candidates : int
+            Number of candidates.
+        lag : int
+            Spacing used to estimate a representative distance.
+
+        Returns
+        -------
+        np.ndarray of shape (num_bw_candidates,)
+            Monotonically increasing bandwidth candidates.
+        """
         d_star = np.max(sorted_unique_support[lag:] - sorted_unique_support[:-lag])
         r = sorted_unique_support[-1] - sorted_unique_support[0]
         h0 = min(2.0 * d_star, r)
@@ -598,22 +646,21 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         return h0 * (q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates, dtype=self._input_dtype))
 
     def _generate_bandwidth_candidates(self, num_bw_candidates: int, same_bandwidth_for_2dim: bool = False) -> np.ndarray:
-        """
-        Generate bandwidth candidates for 2D selection.
+        """Generate 2D bandwidth candidates for selection.
 
         Parameters
         ----------
         num_bw_candidates : int
-            Number of bandwidth candidates to generate.
-        same_bandwidth_for_2dim: bool, default=False
-            If True, use the same bandwidth for both dimensions.
-            If False, use separate bandwidths for each dimension.
+            Number of candidates per axis.
+        same_bandwidth_for_2dim : bool, default=False
+            If True, enforce identical bandwidths on both axes.
 
         Returns
         -------
         np.ndarray
-            2D array of shape (2, num_bw_candidates) containing bandwidth candidates.
-            Each column is a pair (bandwidth1, bandwidth2).
+            If `same_bandwidth_for_2dim` is True, shape (1, num_bw_candidates)
+            containing shared bandwidths; otherwise shape (2, num_bw_candidates)
+            with per-axis candidates.
         """
         if self.obs_grid1_.shape[0] <= self.degree + 1:
             raise ValueError(f"Not enough unique support points ({self.obs_grid1_.shape[0]}) to fit a polynomial of degree {self.degree}.")
@@ -637,22 +684,21 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         bandwidth2: np.floating,
         cv_folds: int = 5,
     ) -> np.floating:
-        """
-        Compute cross-validation score for given bandwidths.
+        """Compute K-fold CV score for a bandwidth pair.
 
         Parameters
         ----------
         bandwidth1 : float
-            Bandwidth for first dimension.
+            Bandwidth for the first dimension.
         bandwidth2 : float
-            Bandwidth for second dimension.
+            Bandwidth for the second dimension.
         cv_folds : int, default=5
-            Number of cross-validation folds.
+            Number of folds.
 
         Returns
         -------
         float
-            Cross-validation score.
+            Average CV loss (lower is better).
         """
         cv_index = np.arange(len(self.X_)) % cv_folds
         self.rng.shuffle(cv_index)
@@ -694,26 +740,23 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         r1: np.floating,
         r2: np.floating,
     ) -> np.floating:
-        """
-        Compute Generalized Cross-Validation score for given bandwidths.
+        """Compute GCV score for a bandwidth pair with smoothing constants.
 
         Parameters
         ----------
         bandwidth1 : float
-            Bandwidth for first dimension.
         bandwidth2 : float
-            Bandwidth for second dimension.
         k0 : float
             Kernel value at zero.
         r1 : float
-            Range of the sorted unique grid pairs in the first dimension.
+            Range of the observed unique grid along axis-1.
         r2 : float
-            Range of the sorted unique grid pairs in the second dimension.
+            Range of the observed unique grid along axis-2.
 
         Returns
         -------
         float
-            GCV score.
+            GCV score (lower is better).
         """
         y_pred = self._polyfit2d_func(
             np.ascontiguousarray(self.sorted_X_.T),
@@ -753,28 +796,20 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         custom_bw_candidates: Optional[np.ndarray] = None,
         cv_folds: int = 5,
     ) -> Tuple[float, float]:
-        """
-        Select bandwidths using cross-validation.
+        """Select 2D bandwidths via CV or GCV.
 
         Parameters
         ----------
         num_bw_candidates : int, default=21
-            Number of bandwidth candidates to generate. Only used if custom_bw_candidates is None.
-        method : str, default='gcv'
-            Method for bandwidth selection. Options: 'cv', 'gcv'.
-            If 'cv', uses cross-validation; if 'gcv', uses Generalized Cross-Validation.
-        same_bandwidth_for_2dim: bool, default=False
-            If True, use the same bandwidth for both dimensions.
-            If False, use separate bandwidths for each dimension.
-        custom_bw_candidates: Optional[np.ndarray], default=None
-            Custom bandwidth candidates to use instead of generating them.
+        method : {"cv", "gcv"}, default="gcv"
+        same_bandwidth_for_2dim : bool, default=False
+        custom_bw_candidates : np.ndarray, optional
         cv_folds : int, default=5
-            Number of cross-validation folds.
 
         Returns
         -------
         Tuple[float, float]
-            The bandwidth pair with the best score.
+            Best (bandwidth1, bandwidth2) pair.
         """
         if custom_bw_candidates is not None:
             bandwidth_candidates_ = check_array(custom_bw_candidates, ensure_2d=True, dtype=self._input_dtype)
@@ -838,44 +873,39 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         custom_bw_candidates: Optional[np.ndarray] = None,
         cv_folds: int = 5,
     ):
-        """
-        Fit the 2D polynomial model.
+        """Fit the 2D local polynomial model with kernel smoothing.
 
         Parameters
         ----------
         X : array-like of shape (n_samples, 2)
-            Training data.
+            Training inputs.
         y : array-like of shape (n_samples,)
-            Target values.
-        sample_weight : array-like of shape (n_samples,), default=None
+            Training targets.
+        sample_weight : array-like of shape (n_samples,), optional
             Sample weights.
-        bandwidth1 : float, default=None
-            The bandwidth parameter for the first dimension.
-        bandwidth2 : float, default=None
-            The bandwidth parameter for the second dimension.
-        reg_grid1: Optional[Union[np.ndarray, List[float]]], default=None
-            The regular grid points for interpolation in the first dimension.
-            If None, will create a uniform grid.
-        reg_grid2: Optional[Union[np.ndarray, List[float]]], default=None
-            The regular grid points for interpolation in the second dimension.
-            If None, will create a uniform grid.
+        bandwidth1 : float, optional
+            Bandwidth for the first axis.
+        bandwidth2 : float, optional
+            Bandwidth for the second axis.
+        reg_grid1 : array-like of shape (m1,), optional
+            Interpolation grid on axis-1. If None, a uniform grid is created.
+        reg_grid2 : array-like of shape (m2,), optional
+            Interpolation grid on axis-2. If None, a uniform grid is created.
         num_bw_candidates : int, default=21
-            Number of bandwidth candidates to generate.
-            Only used if custom_bw_candidates is None.
-        bandwidth_selection_method : str, default='gcv'
-            Method for bandwidth selection. Options: 'cv', 'gcv'.
-        same_bandwidth_for_2dim: bool, default=False
-            If True, use the same bandwidth for both dimensions.
-            If False, use separate bandwidths for each dimension.
-        custom_bw_candidates: Optional[np.ndarray], default=None
-            Custom bandwidth candidates to use instead of generating them.
+        bandwidth_selection_method : {"cv", "gcv"}, default="gcv"
+        same_bandwidth_for_2dim : bool, default=False
+        custom_bw_candidates : np.ndarray, optional
         cv_folds : int, default=5
-            Number of cross-validation folds (only used if bandwidth_selection='cv').
 
         Returns
         -------
         Polyfit2DModel
-            Returns self.
+            Fitted estimator (self).
+
+        Raises
+        ------
+        ValueError
+            If inputs are invalid or selection arguments are inconsistent.
         """
         # Validate bandwidth_selection_method
         if bandwidth_selection_method not in ["cv", "gcv"]:
@@ -1011,23 +1041,26 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         return self
 
     def predict(self, X1: np.ndarray, X2: np.ndarray, use_model_interp: bool = True) -> np.ndarray:
-        """
-        Predict using the 2D polynomial model via interpolation.
+        """Predict responses on a 2D grid.
 
         Parameters
         ----------
-        X1: np.ndarray
-            Samples for the first dimension of shape (n_samples_X1,).
-        X2: np.ndarray
-            Samples for the second dimension of shape (n_samples_X2,).
+        X1 : np.ndarray of shape (n_x1,)
+            Query points along axis-1.
+        X2 : np.ndarray of shape (n_x2,)
+            Query points along axis-2.
         use_model_interp : bool, default=True
-            If True, use the model's interpolation grid for prediction.
-            If False, use direct polyfit2d call for prediction.
+            If True, interpolate from the fitted grid; if False, evaluate directly.
 
         Returns
         -------
-        np.ndarray
-            Predicted values of shape (n_samples_X2, n_samples_X1).
+        np.ndarray of shape (n_x2, n_x1)
+            Predicted values (note the row-major order).
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            If the model is not fitted.
         """
         check_is_fitted(self, ["reg_fitted_values_", "reg_grid1_", "reg_grid2_", "bandwidth1_", "bandwidth2_"])
 
@@ -1067,28 +1100,37 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         return y_pred[inverse_X1_sort_idx, :][:, inverse_X2_sort_idx]
 
     def fitted_values(self) -> np.ndarray:
-        """
-        Get the fitted values at the interpolation grid points.
+        """Return fitted values on the model's 2D interpolation grid.
 
         Returns
         -------
-        np.ndarray
-            A 2D array of fitted values at the interpolation grid points.
+        np.ndarray of shape (len(reg_grid2_), len(reg_grid1_))
+            Fitted values evaluated on the 2D interpolation mesh.
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            If the model is not fitted.
         """
         check_is_fitted(self, ["reg_fitted_values_", "reg_grid1_", "reg_grid2_", "bandwidth1_", "bandwidth2_"])
         return self.reg_fitted_values_.copy()
 
     def get_fitted_grids(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Get the fitted values at the interpolation grid points.
+        """Return observation and interpolation grids for 2D model.
 
         Returns
         -------
-        Tuple[np.ndarray, np.ndarray, np.ndarray]
-            A tuple containing:
-            - reg_grid1: The interpolation grid points for the first dimension.
-            - reg_grid2: The interpolation grid points for the second dimension.
-            - reg_fitted_values: The fitted values at interpolation grid points.
+        obs_grid1 : np.ndarray of shape (n_obs_grid1,)
+            Unique observed grid for axis-1.
+        obs_grid2 : np.ndarray of shape (n_obs_grid2,)
+            Unique observed grid for axis-2.
+        reg_grid : np.ndarray of shape (len(reg_grid1_) * len(reg_grid2_), 2) or Tuple[np.ndarray, np.ndarray]
+            Interpolation grid (format depends on implementation).
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            If the model is not fitted.
         """
         check_is_fitted(self, ["reg_fitted_values_", "reg_grid1_", "reg_grid2_", "bandwidth1_", "bandwidth2_"])
         return self.reg_grid1_.copy(), self.reg_grid2_.copy(), self.reg_fitted_values_.copy()

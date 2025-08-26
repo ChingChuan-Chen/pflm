@@ -48,6 +48,30 @@ def trapz(y: np.ndarray, x: np.ndarray) -> Union[np.ndarray, float]:
 
 @dataclass
 class FlattenFunctionalData:
+    """Flattened functional dataset in 1D arrays with indexing helpers.
+
+    Attributes
+    ----------
+    y : np.ndarray of shape (M,)
+        Flattened responses after removing NaN.
+    t : np.ndarray of shape (M,)
+        Flattened time points aligned to `y`.
+    w : np.ndarray of shape (M,)
+        Per-observation weights expanded from sample-level weights.
+    tid : np.ndarray of shape (M,)
+        Integer indices mapping each t to its position in `unique_tid`.
+    unique_tid : np.ndarray of shape (nt,)
+        Sorted unique time points (observation grid).
+    inverse_tid_idx : np.ndarray of shape (M,)
+        Inverse mapping indices from `t` back to `unique_tid`.
+    sid : np.ndarray of shape (M,)
+        Sample id for each observation (0-based).
+    unique_sid : np.ndarray of shape (n_samples,)
+        Unique sample ids present in the data.
+    sid_cnt : np.ndarray of shape (n_samples,)
+        Number of observations for each sample id.
+    """
+
     y: np.ndarray
     t: np.ndarray
     w: np.ndarray

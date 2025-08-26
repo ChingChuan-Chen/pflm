@@ -10,6 +10,17 @@ import numpy as np
 
 @dataclass
 class SmoothedModelResult:
+    """Smoothing outputs on a grid.
+
+    Attributes
+    ----------
+    grid : np.ndarray of shape (nt,)
+    mu : np.ndarray of shape (nt,)
+    cov : np.ndarray of shape (nt, nt)
+    grid_type : {"obs", "reg"}
+        Grid kind: observation or regular grid.
+    """
+
     grid: np.ndarray
     mu: np.ndarray
     cov: np.ndarray
@@ -18,6 +29,30 @@ class SmoothedModelResult:
 
 @dataclass
 class FpcaModelParams:
+    """FPCA parameters and artifacts.
+
+    Attributes
+    ----------
+    measurement_error_variance : float
+    eigen_results : dict
+        Keys like {"lambda": np.ndarray, "vector": np.ndarray}.
+    select_num_pcs_criterion : np.ndarray or None
+    fpca_lambda : np.ndarray or None
+    fpca_phi : dict or None
+        Keys like {"obs": np.ndarray, "reg": np.ndarray}.
+    num_pcs : int or None
+    fitted_covariance : dict or None
+        Keys like {"obs": np.ndarray, "reg": np.ndarray}.
+    rho : float or None
+    eigenvalue_fit : np.ndarray or None
+    method_select_num_pcs : int or {"FVE","AIC","BIC"} or None
+    max_num_pcs : int or None
+    method_pcs : {"IN","CE"} or None
+    method_rho : {"trunc","ridge","vanilla"} or None
+    if_shrinkage : bool or None
+    fve_threshold : float or None
+    """
+
     measurement_error_variance: float
     eigen_results: Dict[str, np.ndarray]
     select_num_pcs_criterion: Optional[np.ndarray] = None
