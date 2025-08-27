@@ -14,11 +14,11 @@ from sklearn.utils.validation import check_array, check_is_fitted
 
 from pflm.interp import interp1d, interp2d
 from pflm.smooth import KernelType, Polyfit1DModel, Polyfit2DModel
-from pflm.utils import (
+from pflm.utils import FlattenFunctionalData, flatten_and_sort_data_matrices, trapz
+from pflm.fpca import (
     FpcaModelParams,
     SmoothedModelResult,
     estimate_rho,
-    flatten_and_sort_data_matrices,
     get_covariance_matrix,
     get_eigen_analysis_results,
     get_eigenvalue_fit,

@@ -66,10 +66,12 @@ requires = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = "pflm"
+testpaths = ["pflm"]
 addopts = [
+    "--cov=pflm",
+    "--cov-report=term-missing",
     "--color=yes",
-    "--import-mode=importlib",
+    "--import-mode=importlib"
 ]
 
 [tool.ruff]

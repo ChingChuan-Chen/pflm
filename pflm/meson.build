@@ -141,6 +141,7 @@ pflm_root_cython_tree = [fs.copyfile('__init__.py')]
 
 pflm_dir = py.get_install_dir() / 'pflm'
 
+subdir('fpca')
 subdir('utils')
 subdir('interp')
 subdir('smooth')

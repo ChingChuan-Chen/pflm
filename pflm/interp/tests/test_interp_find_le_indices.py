@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
-
 from pflm.interp._interp import find_le_indices_memview_f32, find_le_indices_memview_f64
 
 

@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose, assert_almost_equal
 
-from pflm.smooth.kernel import KernelType
-from pflm.utils import get_measurement_error_variance
+from pflm.smooth import KernelType
+from pflm.fpca import get_measurement_error_variance
 
 
 @pytest.mark.parametrize("raw_cov", [np.float64], indirect=["raw_cov"])

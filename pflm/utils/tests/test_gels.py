@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
-
 from pflm.utils._lapack_helper import _gels_memview_f32, _gels_memview_f64
 
 

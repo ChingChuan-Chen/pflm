@@ -5,10 +5,11 @@ DEFAULT_MESON_BUILD_DIR = build/cp$(shell python -c 'import sys; print(f"{sys.ve
 
 all:
 	@echo "Please use 'make <target>' where <target> is one of"
-	@echo "  dev                  build scikit-learn with Meson"
-	@echo "  clean                clean scikit-learn Meson build. Very rarely needed,"
+	@echo "  dev                  build pflm with Meson"
+	@echo "  clean                clean pflm Meson build. Very rarely needed,"
 	@echo "  format               run code formatting tools"
 	@echo "                       since meson-python recompiles on import."
+	@echo "  test                 run tests"
 
 .PHONY: all
 
@@ -29,3 +30,6 @@ clean-meson:
 	# It seems in some cases removing the folder avoids weird compilation errors.
 	# For some reason ninja clean -C $(DEFAULT_MESON_BUILD_DIR) is not enough.
 	rm -rf $(DEFAULT_MESON_BUILD_DIR)
+
+test:
+	pytest .

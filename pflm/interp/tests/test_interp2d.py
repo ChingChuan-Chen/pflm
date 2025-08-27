@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
+from pflm.interp._interp import interp2d_f32, interp2d_f64
 
 from pflm.interp import interp2d
-from pflm.interp._interp import interp2d_f32, interp2d_f64
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])

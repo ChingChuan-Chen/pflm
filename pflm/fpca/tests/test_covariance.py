@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from pflm.utils import get_covariance_matrix, get_raw_cov
+from pflm.fpca import get_covariance_matrix, get_raw_cov
 
 
 @pytest.mark.parametrize(

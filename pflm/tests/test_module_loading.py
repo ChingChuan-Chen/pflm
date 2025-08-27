@@ -5,14 +5,11 @@ def test_pflm():
     pflm_items = set(dir(pflm))
     expected_items = set(
         [
+            "fpca",
             "interp",
             "smooth",
             "utils",
             "__version__",
-            "FunctionalPCAMuCovParams",
-            "FunctionalPCAUserDefinedParams",
-            "FunctionalPCA",
-            "FunctionalDataGenerator",
         ]
     )
     # validate that pflm has the expected items

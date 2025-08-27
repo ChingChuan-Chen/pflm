@@ -14,7 +14,7 @@ from typing import Callable, List, Optional, Tuple
 import numpy as np
 from scipy.special import j0
 
-from pflm.utils import get_eigen_analysis_results, get_fpca_phi, select_num_pcs_fve
+from pflm.fpca import get_eigen_analysis_results, get_fpca_phi, select_num_pcs_fve
 
 
 class FunctionalDataGenerator:
@@ -152,7 +152,7 @@ class FunctionalDataGenerator:
         corr = self.corr_func(np.abs(self.t))
         corr_mat = np.zeros((nt, nt))
         for i in range(nt):
-            corr_mat[i, i:nt] = corr[0 : nt - i]
+            corr_mat[i, i:nt] = corr[0: nt - i]
         mean_func = self.mean_func(self.t)
         eig_lambda, eig_vector = get_eigen_analysis_results(corr_mat, is_upper_triangular=True)
         if self._num_pcs is None:

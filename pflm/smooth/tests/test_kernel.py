@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
-
 from pflm.smooth._polyfit import calculate_kernel_value_f32, calculate_kernel_value_f64
+
 from pflm.smooth.kernel import KernelType
 
 

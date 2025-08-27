@@ -1,8 +1,7 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
-
-from pflm.functional_data_generator import FunctionalDataGenerator
+from pflm.fpca import FunctionalDataGenerator
 
 
 def test_functional_data_generator_happy_path():

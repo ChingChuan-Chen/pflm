@@ -5,9 +5,16 @@ from numpy.testing import assert_allclose
 from pflm.utils import flatten_and_sort_data_matrices
 
 
-@pytest.mark.parametrize("basic_func_data,dtype", [(np.float64, np.float64), (np.float32, np.float32)], indirect=["basic_func_data"])
-def test_flatten_and_sort_data_matrices_happy_path(basic_func_data, dtype):
-    y, t, w = basic_func_data
+def _make_func_data(dtype):
+    y = [np.array([1.0, 2.0, 2.0], dtype=dtype), np.array([3.0, 4.0], dtype=dtype), np.array([4.0, 5.0], dtype=dtype)]
+    t = [np.array([0.1, 0.2, 0.3], dtype=dtype), np.array([0.2, 0.3], dtype=dtype), np.array([0.1, 0.3], dtype=dtype)]
+    w = np.array([1.0, 2.0, 2.0], dtype=dtype)
+    return y, t, w
+
+
+@pytest.mark.parametrize("dtype", [np.float64, np.float32])
+def test_flatten_and_sort_data_matrices_happy_path(dtype):
+    y, t, w = _make_func_data(dtype)
     ffd = flatten_and_sort_data_matrices(y, t, dtype, w)
 
     # check shapes
