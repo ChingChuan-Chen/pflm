@@ -41,7 +41,7 @@ download = "https://github.com/ChingChuan-Chen/pflm/#files"
 tracker = "https://github.com/ChingChuan-Chen/pflm/issues"
 
 [project.optional-dependencies]
-build = ["numpy>=1.22.0", "scipy>=1.14.0", "cython>=3.0.10", "meson-python>=0.17.1"]
+build = ["numpy>=1.22.0", "scipy>=1.14.0", "cython>=3.0.10", "meson-python>=0.17.1", "scikit-learn>=1.5.0"]
 install = ["numpy>=1.22.0", "scipy>=1.14.0"]
 tests = [
     "pytest>=7.1.2",
@@ -52,7 +52,8 @@ docs = [
     "Sphinx>=7.2",
     "numpydoc>=1.7",
     "sphinx-autodoc-typehints>=1.25",
-    "sphinx_rtd_theme",
+    "pydata-sphinx-theme>=0.15",
+    "sphinx-copybutton",
 ]
 
 [build-system]
