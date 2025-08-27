@@ -3,8 +3,8 @@ import math
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
-from pflm.fpca import get_eigen_analysis_results, get_fpca_phi, select_num_pcs_fve
 
+from pflm.fpca.utils import get_eigen_analysis_results, get_fpca_phi, select_num_pcs_fve
 from pflm.utils import trapz
 
 
@@ -68,7 +68,7 @@ def test_get_eigen_analysis_results_rank1_matrix():
 
 
 def test_get_eigen_analysis_results_lapack_fail(monkeypatch):
-    import pflm.fpca.fpca_base_func_utils as fh
+    import pflm.fpca.utils.fpca_base_func_utils as fh
 
     def fake_syevd(eig_vector, eig_lambda, uplo, n, lwork):
         # mimic LAPACK failure by returning non‑zero info

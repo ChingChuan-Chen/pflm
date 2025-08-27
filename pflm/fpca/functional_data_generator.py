@@ -14,7 +14,7 @@ from typing import Callable, List, Optional, Tuple
 import numpy as np
 from scipy.special import j0
 
-from pflm.fpca import get_eigen_analysis_results, get_fpca_phi, select_num_pcs_fve
+from pflm.fpca.utils import get_eigen_analysis_results, get_fpca_phi, select_num_pcs_fve
 
 
 class FunctionalDataGenerator:
@@ -63,7 +63,7 @@ class FunctionalDataGenerator:
     Notes
     -----
     - The covariance is constructed as
-      sqrt(var_func(t_i)) * corr(|t_i - t_j|) * sqrt(var_func(t_j)).
+      :math:`sqrt(var_func(t_i)) * corr(|t_i - t_j|) * sqrt(var_func(t_j))`.
     - FPCA components (eigenstructure) are computed lazily on first use.
     - Private caches:
       - `_num_pcs`: Optional[int]
@@ -91,11 +91,11 @@ class FunctionalDataGenerator:
         var_func : Callable[[np.ndarray], np.ndarray]
             Marginal variance function evaluated on `t`.
         corr_func : Callable[[np.ndarray], np.ndarray], default=scipy.special.j0
-            Correlation kernel k(h) with h = |t_i - t_j|.
+            Correlation kernel k(h) with :math:`h = |t_i - t_j|`.
         variation_prop_thresh : float, default=0.999999
-            FVE threshold in (0, 1) used when `num_pcs` is None.
+            FVE threshold in :math:`(0, 1)` used when `num_pcs` is None.
         num_pcs : int or None, default=None
-            Fixed number of components; if provided, must be an integer in [1, nt].
+            Fixed number of components; if provided, must be an integer in :math:`[1, nt]`.
         error_var : float, default=1.0
             Gaussian noise variance for generation.
 
@@ -152,7 +152,7 @@ class FunctionalDataGenerator:
         corr = self.corr_func(np.abs(self.t))
         corr_mat = np.zeros((nt, nt))
         for i in range(nt):
-            corr_mat[i, i:nt] = corr[0: nt - i]
+            corr_mat[i, i:nt] = corr[0 : nt - i]
         mean_func = self.mean_func(self.t)
         eig_lambda, eig_vector = get_eigen_analysis_results(corr_mat, is_upper_triangular=True)
         if self._num_pcs is None:

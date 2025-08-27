@@ -23,7 +23,7 @@ cdef void rotate_polyfit2d_helper(
     floating[:] y,
     floating[:] w,
     int kernel_type
-):
+) noexcept nogil:
     cdef uint64_t n = x_grid.shape[1]
     cdef int64_t left = 0, right = <int64_t> n, i
     cdef floating *left_it
@@ -135,7 +135,7 @@ def rotate_polyfit2d_f64(
     cdef np.float64_t[:] mu_view = mu
 
     cdef int64_t i
-    for i in range(<int64_t> n_new):
+    for i in prange(<int64_t> n_new, nogil=True):
         rotate_polyfit2d_helper(bandwidth, new_grid_view[0, i], new_grid_view[1, i], &mu_view[i], x_grid_view, y_view, w_view, kernel_type)
     return mu
 
@@ -157,6 +157,6 @@ def rotate_polyfit2d_f32(
     cdef np.float32_t[:] mu_view = mu
 
     cdef int64_t i
-    for i in range(<int64_t> n_new):
+    for i in prange(<int64_t> n_new, nogil=True):
         rotate_polyfit2d_helper(bandwidth, new_grid_view[0, i], new_grid_view[1, i], &mu_view[i], x_grid_view, y_view, w_view, kernel_type)
     return mu

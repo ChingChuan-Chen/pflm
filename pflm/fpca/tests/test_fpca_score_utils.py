@@ -4,9 +4,16 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from pflm.fpca import get_covariance_matrix, get_raw_cov
-from pflm.fpca import get_eigen_analysis_results, get_fpca_phi
-from pflm.fpca import estimate_rho, get_eigenvalue_fit, get_fpca_ce_score, get_fpca_in_score
+from pflm.fpca.utils import (
+    estimate_rho,
+    get_covariance_matrix,
+    get_eigen_analysis_results,
+    get_eigenvalue_fit,
+    get_fpca_ce_score,
+    get_fpca_in_score,
+    get_fpca_phi,
+    get_raw_cov,
+)
 from pflm.utils import trapz
 
 

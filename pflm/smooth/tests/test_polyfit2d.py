@@ -12,7 +12,7 @@ import pytest
 from numpy.testing import assert_allclose
 
 from pflm.smooth import Polyfit2DModel
-from pflm.smooth.kernel import KernelType
+from pflm.smooth import KernelType
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -558,8 +558,8 @@ def test_polyfit2d_model_get_fitted_grids() -> None:
     assert np.all(np.isfinite(fitted_values)), "Fitted values contain NaN or Inf"
 
 
-def test_polyfit2d_model_x_new1_out_of_range() -> None:
-    """Test that Polyfit2DModel raises error for x_new1 outside input range."""
+def test_polyfit2d_model_reg_grid1_out_of_range() -> None:
+    """Test that Polyfit2DModel raises error for reg_grid1 outside input range."""
     X, y, w, _, x_new2 = make_test_inputs_2d()
 
     # Test with observation grid outside input range for first dimension
@@ -569,8 +569,8 @@ def test_polyfit2d_model_x_new1_out_of_range() -> None:
         model.fit(X, y, sample_weight=w, bandwidth1=0.1, bandwidth2=0.1, reg_grid1=x_new1_bad, reg_grid2=x_new2)
 
 
-def test_polyfit2d_model_x_new2_out_of_range() -> None:
-    """Test that Polyfit2DModel raises error for x_new2 outside input range."""
+def test_polyfit2d_model_reg_grid2_out_of_range() -> None:
+    """Test that Polyfit2DModel raises error for reg_grid2 outside input range."""
     X, y, w, x_new1, _ = make_test_inputs_2d()
 
     # Test with observation grid outside input range for second dimension
@@ -580,8 +580,8 @@ def test_polyfit2d_model_x_new2_out_of_range() -> None:
         model.fit(X, y, sample_weight=w, bandwidth1=0.1, bandwidth2=0.1, reg_grid1=x_new1, reg_grid2=x_new2_bad)
 
 
-def test_polyfit2d_model_x_new1_wrong_shape() -> None:
-    """Test that Polyfit2DModel raises error for incorrect x_new1 shape."""
+def test_polyfit2d_model_reg_grid1_wrong_shape() -> None:
+    """Test that Polyfit2DModel raises error for incorrect reg_grid1 shape."""
     X, y, w, _, x_new2 = make_test_inputs_2d()
 
     # Test with 2D observation grid for first dimension
@@ -591,8 +591,8 @@ def test_polyfit2d_model_x_new1_wrong_shape() -> None:
         model.fit(X, y, sample_weight=w, bandwidth1=0.1, bandwidth2=0.1, reg_grid1=x_new1_2d, reg_grid2=x_new2)
 
 
-def test_polyfit2d_model_x_new2_wrong_shape() -> None:
-    """Test that Polyfit2DModel raises error for incorrect x_new2 shape."""
+def test_polyfit2d_model_reg_grid2_wrong_shape() -> None:
+    """Test that Polyfit2DModel raises error for incorrect reg_grid2 shape."""
     X, y, w, x_new1, _ = make_test_inputs_2d()
 
     # Test with 2D observation grid for second dimension
@@ -602,8 +602,8 @@ def test_polyfit2d_model_x_new2_wrong_shape() -> None:
         model.fit(X, y, sample_weight=w, bandwidth1=0.1, bandwidth2=0.1, reg_grid1=x_new1, reg_grid2=x_new2_2d)
 
 
-def test_polyfit2d_model_x_new1_too_few_points() -> None:
-    """Test that Polyfit2DModel raises error for x_new1 with too few points."""
+def test_polyfit2d_model_reg_grid1_too_few_points() -> None:
+    """Test that Polyfit2DModel raises error for reg_grid1 with too few points."""
     X, y, w, _, x_new2 = make_test_inputs_2d()
 
     # Test with observation grid with too few points for first dimension
@@ -613,8 +613,8 @@ def test_polyfit2d_model_x_new1_too_few_points() -> None:
         model.fit(X, y, sample_weight=w, bandwidth1=0.1, bandwidth2=0.1, reg_grid1=x_new1_short, reg_grid2=x_new2)
 
 
-def test_polyfit2d_model_x_new2_too_few_points() -> None:
-    """Test that Polyfit2DModel raises error for x_new2 with too few points."""
+def test_polyfit2d_model_reg_grid2_too_few_points() -> None:
+    """Test that Polyfit2DModel raises error for reg_grid2 with too few points."""
     X, y, w, x_new1, _ = make_test_inputs_2d()
 
     # Test with observation grid with too few points for second dimension
@@ -624,8 +624,8 @@ def test_polyfit2d_model_x_new2_too_few_points() -> None:
         model.fit(X, y, sample_weight=w, bandwidth1=0.1, bandwidth2=0.1, reg_grid1=x_new1, reg_grid2=x_new2_short)
 
 
-def test_polyfit2d_model_x_new1_with_nan() -> None:
-    """Test that Polyfit2DModel raises error for x_new1 containing NaN values."""
+def test_polyfit2d_model_reg_grid1_with_nan() -> None:
+    """Test that Polyfit2DModel raises error for reg_grid1 containing NaN values."""
     X, y, w, _, x_new2 = make_test_inputs_2d()
 
     # Test with observation grid containing NaN for first dimension
@@ -635,8 +635,8 @@ def test_polyfit2d_model_x_new1_with_nan() -> None:
         model.fit(X, y, sample_weight=w, bandwidth1=0.1, bandwidth2=0.1, reg_grid1=x_new1_nan, reg_grid2=x_new2)
 
 
-def test_polyfit2d_model_x_new2_with_nan() -> None:
-    """Test that Polyfit2DModel raises error for x_new2 containing NaN values."""
+def test_polyfit2d_model_reg_grid2_with_nan() -> None:
+    """Test that Polyfit2DModel raises error for reg_grid2 containing NaN values."""
     X, y, w, x_new1, _ = make_test_inputs_2d()
 
     # Test with observation grid containing NaN for second dimension
@@ -644,6 +644,14 @@ def test_polyfit2d_model_x_new2_with_nan() -> None:
     model = Polyfit2DModel()
     with pytest.raises(ValueError, match="Input contains NaN"):
         model.fit(X, y, sample_weight=w, bandwidth1=0.1, bandwidth2=0.1, reg_grid1=x_new1, reg_grid2=x_new2_nan)
+
+
+@pytest.mark.parametrize("bad_num", [None, 1.5, [1.5], {'a': 1.5}])
+def test_polyfit2d_model_bad_num_points_reg_grid(bad_num):
+    X, y, w, _, _ = make_test_inputs_2d()
+    model = Polyfit2DModel()
+    with pytest.raises(TypeError, match="Number of points for interpolation grid, num_points_reg_grid, should be an integer"):
+        model.fit(X, y, sample_weight=w, bandwidth1=0.1, bandwidth2=0.1, num_points_reg_grid=bad_num)
 
 
 def test_polyfit2d_wrong_interp_kind() -> None:
@@ -680,6 +688,9 @@ def test_polyfit2d_cv_folds() -> None:
     model = Polyfit2DModel()
     with pytest.raises(ValueError, match="Number of cross-validation folds, cv_folds, should be at least 2"):
         model.fit(X, y, sample_weight=w, bandwidth_selection_method="cv", cv_folds=1, reg_grid1=x_new1, reg_grid2=x_new2)
+
+    with pytest.raises(TypeError, match="Number of cross-validation folds, cv_folds, should be an integer"):
+        model.fit(X, y, sample_weight=w, bandwidth_selection_method="cv", cv_folds=2.5, reg_grid1=x_new1, reg_grid2=x_new2)
 
 
 def test_polyfit2d_predict_with_direct_call() -> None:
@@ -828,7 +839,7 @@ def test_polyfit2d_polyfit_fail(monkeypatch):
     X, y, w, x_new1, x_new2 = make_test_inputs_2d()
     model = Polyfit2DModel(random_seed=100)
 
-    import pflm.smooth.polyfit_model as pm
+    import pflm.smooth.polyfit_model_2d as pm
 
     def fake_polyfit2d(x_grid, y, w, x_new1, x_new2, bandwidth1, bandwidth2, kernel_type, degree, deriv1, deriv2):
         raise ValueError("Error during polynomial fitting")
@@ -857,7 +868,7 @@ def test_polyfit2d_predict_interp_fail(monkeypatch):
     model = Polyfit2DModel(random_seed=100)
     model.fit(X, y, sample_weight=w, reg_grid1=x_new1, reg_grid2=x_new2)
 
-    import pflm.smooth.polyfit_model as pm
+    import pflm.smooth.polyfit_model_2d as pm
 
     def fake_interp2d(x, y, z, grid_x, grid_y, method):
         raise ValueError("Error during interpolation")

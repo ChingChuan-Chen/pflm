@@ -5,7 +5,7 @@ import pytest
 from numpy.testing import assert_allclose
 
 from pflm.smooth import Polyfit1DModel
-from pflm.smooth.kernel import KernelType
+from pflm.smooth import KernelType
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -601,6 +601,14 @@ def test_polyfit1d_model_reg_grid_with_nan():
         model.fit(x, y, sample_weight=w, bandwidth=0.1, reg_grid=reg_grid)
 
 
+@pytest.mark.parametrize("bad_num", [None, 1.5, [1.5], {'a': 1.5}])
+def test_polyfit1d_model_bad_num_points_reg_grid(bad_num):
+    x, y, w, _ = make_test_inputs()
+    model = Polyfit1DModel()
+    with pytest.raises(TypeError, match="Number of points for interpolation grid, num_points_reg_grid, should be an integer"):
+        model.fit(x, y, sample_weight=w, bandwidth=0.1, num_points_reg_grid=bad_num)
+
+
 def test_polyfit1d_wrong_interp_kind():
     x, y, w, x_new = make_test_inputs()
     with pytest.raises(ValueError, match="interp_kind must be one of"):
@@ -628,6 +636,9 @@ def test_polyfit1d_cv_folds():
     model = Polyfit1DModel()
     with pytest.raises(ValueError, match="Number of cross-validation folds, cv_folds, should be at least 2"):
         model.fit(x, y, sample_weight=w, bandwidth=0.1, bandwidth_selection_method="cv", cv_folds=1)
+
+    with pytest.raises(TypeError, match="Number of cross-validation folds, cv_folds, should be an integer"):
+        model.fit(x, y, sample_weight=w, bandwidth_selection_method="cv", cv_folds=2.5, reg_grid=x_new)
 
 
 def test_polyfit1d_custom_bw_candidates():
@@ -678,7 +689,7 @@ def test_polyfit1d_polyfit_fail(monkeypatch):
     x, y, w, x_new = make_test_inputs()
     model = Polyfit1DModel(random_seed=100)
 
-    import pflm.smooth.polyfit_model as pm
+    import pflm.smooth.polyfit_model_1d as pm
 
     def fake_polyfit1d(x, y, w, x_new, bandwidth, kernel_type, degree, deriv):
         raise ValueError("Error during polynomial fitting")
@@ -707,7 +718,7 @@ def test_polyfit1d_predict_interp_fail(monkeypatch):
     model = Polyfit1DModel(random_seed=100)
     model.fit(x, y, sample_weight=w, reg_grid=x_new)
 
-    import pflm.smooth.polyfit_model as pm
+    import pflm.smooth.polyfit_model_1d as pm
 
     def fake_interp1d(x, y, x_new, method):
         raise ValueError("Error during interpolation")

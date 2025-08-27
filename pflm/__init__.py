@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 __version__ = "0.1.0.dev0"
 
-_submodules = ["interp", "smooth", "utils", "fpca"]
+_submodules = ["fpca", "interp", "smooth", "utils"]
 
 
 __all__ = _submodules + ["__version__"]

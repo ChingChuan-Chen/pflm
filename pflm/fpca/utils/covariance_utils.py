@@ -6,10 +6,10 @@
 import numpy as np
 from sklearn.utils.validation import check_array
 
+from pflm.fpca.utils._raw_cov import get_raw_cov_f32, get_raw_cov_f64
+from pflm.fpca.utils._rotate_polyfit2d import rotate_polyfit2d_f32, rotate_polyfit2d_f64
 from pflm.smooth import KernelType, Polyfit1DModel
 from pflm.utils.utility import FlattenFunctionalData, trapz
-from pflm.fpca._raw_cov import get_raw_cov_f32, get_raw_cov_f64
-from pflm.fpca._rotate_polyfit2d import rotate_polyfit2d_f32, rotate_polyfit2d_f64
 
 
 def get_raw_cov(flatten_func_data: FlattenFunctionalData, mu: np.ndarray) -> np.ndarray:

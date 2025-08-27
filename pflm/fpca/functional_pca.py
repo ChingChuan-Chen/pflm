@@ -12,12 +12,8 @@ from sklearn.base import BaseEstimator
 from sklearn.utils._array_api import get_namespace_and_device, supported_float_dtypes
 from sklearn.utils.validation import check_array, check_is_fitted
 
-from pflm.interp import interp1d, interp2d
-from pflm.smooth import KernelType, Polyfit1DModel, Polyfit2DModel
-from pflm.utils import FlattenFunctionalData, flatten_and_sort_data_matrices, trapz
-from pflm.fpca import (
-    FpcaModelParams,
-    SmoothedModelResult,
+from pflm.fpca.fpca_result_class import FpcaModelParams, SmoothedModelResult
+from pflm.fpca.utils import (
     estimate_rho,
     get_covariance_matrix,
     get_eigen_analysis_results,
@@ -29,6 +25,9 @@ from pflm.fpca import (
     get_raw_cov,
     select_num_pcs_fve,
 )
+from pflm.interp import interp1d, interp2d
+from pflm.smooth import KernelType, Polyfit1DModel, Polyfit2DModel
+from pflm.utils import flatten_and_sort_data_matrices
 
 
 class FunctionalPCAMuCovParams:

@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
+from pflm.fpca.utils import rotate_polyfit2d
 from pflm.smooth import KernelType
-from pflm.fpca import rotate_polyfit2d
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])

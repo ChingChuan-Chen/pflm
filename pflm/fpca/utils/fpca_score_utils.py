@@ -6,7 +6,7 @@ from typing import List, Tuple
 
 import numpy as np
 
-from pflm.fpca._fpca_score import fpca_ce_score_f32, fpca_ce_score_f64, fpca_in_score_f32, fpca_in_score_f64
+from pflm.fpca.utils._fpca_score import fpca_ce_score_f32, fpca_ce_score_f64, fpca_in_score_f32, fpca_in_score_f64
 from pflm.utils._lapack_helper import _gels_memview_f32, _gels_memview_f64
 from pflm.utils.utility import FlattenFunctionalData, trapz
 
