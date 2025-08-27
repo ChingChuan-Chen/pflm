@@ -39,19 +39,19 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
     Attributes
     ----------
     X_ : np.ndarray of shape (n_samples,)
-        Training inputs (sorted copy stored as `sorted_X_`).
+        Training inputs (sorted copy stored as ``sorted_X_``).
     y_ : np.ndarray of shape (n_samples,)
-        Training targets (sorted copy stored as `sorted_y_`).
+        Training targets (sorted copy stored as ``sorted_y_``).
     sample_weight_ : np.ndarray of shape (n_samples,)
-        Sample weights (sorted copy stored as `sorted_sample_weight_`).
+        Sample weights (sorted copy stored as ``sorted_sample_weight_``).
     n_features_in_ : int
         Number of features during fit (always 1 for 1D).
     reg_grid_ : np.ndarray of shape (m,)
         Interpolation grid used for fast predictions.
     reg_fitted_values_ : np.ndarray of shape (m,)
-        Fitted values evaluated on `reg_grid_`.
+        Fitted values evaluated on ``reg_grid_``.
     obs_grid_ : np.ndarray of shape (n_obs_grid,)
-        Unique observed grid from `X_`.
+        Unique observed grid from ``X_``.
     bandwidth_ : float
         Selected/used bandwidth.
     bandwidth_selection_results_ : dict
@@ -497,21 +497,21 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
 
         Returns
         -------
-        np.ndarray of shape (len(reg_grid_),)
+        np.ndarray of shape (len(``reg_grid_``),)
             Fitted values evaluated on ``reg_grid_``.
         """
         check_is_fitted(self, ["reg_fitted_values_", "reg_grid_", "bandwidth_"])
         return self.reg_fitted_values_.copy()
 
     def get_fitted_grids(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Return observation and interpolation grids.
+        """Return interpolation grid and fitted values.
 
         Returns
         -------
-        obs_grid : np.ndarray of shape (n_obs_grid,)
-            Unique observed grid used during fit.
         reg_grid : np.ndarray of shape (m,)
-            Interpolation grid used for fast predictions.
+            Copy of ``reg_grid_``.
+        reg_fitted_values : np.ndarray of shape (m,)
+            Copy of ``reg_fitted_values_``.
 
         Raises
         ------

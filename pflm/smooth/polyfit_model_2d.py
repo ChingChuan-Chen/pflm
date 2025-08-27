@@ -58,6 +58,11 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         Selected/used bandwidth for the second dimension.
     bandwidth_selection_results_ : dict
         Selection details including candidates, method, and chosen pair.
+
+
+    See Also
+    --------
+    Polyfit1DModel : Local polynomial regression in 1D.
     """
 
     def __init__(
@@ -598,7 +603,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
 
         Returns
         -------
-        np.ndarray of shape (len(reg_grid1_) * len(reg_grid2_),)
+        np.ndarray of shape (len(``reg_grid1_``) * len(``reg_grid2_``),)
             Fitted values evaluated on the 2D interpolation mesh.
         """
         check_is_fitted(self, ["reg_fitted_values_", "reg_grid1_", "reg_grid2_", "bandwidth1_", "bandwidth2_"])
@@ -606,12 +611,16 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
 
     def get_fitted_grids(self) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Returns the fitted grids.
+        Return interpolation grids and fitted values.
 
         Returns
         -------
-        (reg_grid1, reg_grid2)
-            Copies of ``reg_grid1_`` and ``reg_grid2_``.
+        reg_grid1 : np.ndarray of shape (m1,)
+            Copy of ``reg_grid1_``.
+        reg_grid2 : np.ndarray of shape (m2,)
+            Copy of ``reg_grid2_``.
+        reg_fitted_values : np.ndarray of shape (m1, m2)
+            Copy of ``reg_fitted_values_``.
         """
         check_is_fitted(self, ["reg_fitted_values_", "reg_grid1_", "reg_grid2_", "bandwidth1_", "bandwidth2_"])
         return self.reg_grid1_.copy(), self.reg_grid2_.copy(), self.reg_fitted_values_.copy()

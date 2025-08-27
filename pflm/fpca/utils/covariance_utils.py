@@ -45,6 +45,10 @@ def get_raw_cov(flatten_func_data: FlattenFunctionalData, mu: np.ndarray) -> np.
       `get_covariance_matrix` to map these entries to a dense symmetric matrix.
     - The weight column `w` typically reflects subject-level weights expanded
       to pairwise entries.
+
+    See Also
+    --------
+    get_covariance_matrix : Map raw covariance entries to a dense matrix.
     """
     nt = flatten_func_data.unique_tid.size
     if mu.size != nt:
@@ -92,6 +96,10 @@ def get_covariance_matrix(raw_cov: np.ndarray, obs_grid: np.ndarray) -> np.ndarr
     -----
     - Pairs with total weight <= 1 are set to zero to avoid division by zero.
     - The diagonal is adjusted to ensure symmetry after filling the upper-triangular part.
+
+    See Also
+    --------
+    get_raw_cov : Get raw covariance entries from functional data.
     """
     # calculate the sum of weights and covariance for each unique pair of (t1, t2)
     t_pairs, idx = np.unique(raw_cov[:, [1, 2]], axis=0, return_inverse=True)
