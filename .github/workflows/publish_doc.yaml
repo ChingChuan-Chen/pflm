@@ -18,12 +18,13 @@ jobs:
           cache: 'pip'
       - name: Install dependencies
         run: |
-          pip install -e . --no-build-isolation
-          pip install .[docs]
+          python -m pip install numpy scipy scikit-learn cython meson-python
+          python -m pip install -e . --no-build-isolation
+          python -m pip install .[docs]
       - name: Sphinx build
         run: |
           cd doc
-          make html
+          python -m sphinx -b html source build/html
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v4
         with:
