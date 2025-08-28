@@ -103,10 +103,6 @@ def _gemm_memview_f64(
     np.float64_t[:, :] A, np.float64_t[:, :] B,
     int m, int n, int k
 ):
-    """
-    Float64 version of GEMM memview wrapper.
-    Delegates to the fused-typed `_gemm_memview`.
-    """
     cdef BLAS_Order order = A.strides[0] == A.itemsize
     cdef object output_order = 'F' if order == BLAS_Order.ColMajor else 'C'
     cdef np.ndarray[np.float64_t, ndim=2] C = np.zeros((m, n), dtype=np.float64, order=output_order)
@@ -120,10 +116,6 @@ def _gemm_memview_f32(
     np.float32_t[:, :] A, np.float32_t[:, :] B,
     int m, int n, int k
 ):
-    """
-    Float32 version of GEMM memview wrapper.
-    Delegates to the fused-typed `_gemm_memview`.
-    """
     cdef BLAS_Order order = A.strides[0] == A.itemsize
     cdef object output_order = 'F' if order == BLAS_Order.ColMajor else 'C'
     cdef np.ndarray[np.float32_t, ndim=2] C = np.zeros((m, n), dtype=np.float32, order=output_order)

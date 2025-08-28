@@ -7,5 +7,5 @@ cdef void trapz_mat_blas(
 ) noexcept nogil
 
 cdef void trapz_memview(
-    BLAS_Order, floating[:, :], floating[:], floating[:], int64_t
+    floating[:, :], floating[:], floating[:], int64_t
 ) noexcept nogil

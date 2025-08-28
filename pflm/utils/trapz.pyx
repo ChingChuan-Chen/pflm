@@ -23,6 +23,53 @@ cdef void trapz_mat_blas(
     floating* out,
     int64_t inc_out
 ) noexcept nogil:
+    """
+    Trapezoidal integration of a 2D array using BLAS GEMV, with automatic axis choice.
+
+    Parameters
+    ----------
+    order_store : BLAS_Order
+        Memory layout of `y` as stored in input buffers (RowMajor or ColMajor).
+    y_rows, y_cols : uint64_t
+        Dimensions of matrix Y (shape = (y_rows, y_cols)).
+    y : floating*
+        Pointer to Y data (read-only); layout given by `order_store`.
+    x_size : uint64_t
+        Length of X (grid points).
+    x : floating*
+        Pointer to X data (read-only), used to form dx[i] = x[i+1] - x[i].
+    out_size : uint64_t
+        Size of the output vector:
+        - If x_size == y_cols: out_size must be y_rows (integrate along columns).
+        - If x_size == y_rows: out_size must be y_cols (integrate along rows).
+    out : floating*
+        Output buffer (written in-place) with stride `inc_out`.
+    inc_out : int64_t
+        Stride between consecutive outputs in `out` (typically 1).
+
+    Behavior
+    --------
+    - If len(x) matches y_cols, integrate each row over columns (axis=1).
+      For k = 0..y_rows-1:
+        out[k] = Σ_{i=0}^{y_cols-2} (x[i+1]-x[i]) / 2 * (Y[k,i] + Y[k,i+1])
+    - If len(x) matches y_rows, integrate each column over rows (axis=0).
+      For k = 0..y_cols-1:
+        out[k] = Σ_{i=0}^{y_rows-2} (x[i+1]-x[i]) / 2 * (Y[i,k] + Y[i+1,k])
+    - Otherwise (mismatch) or if temporary allocation fails, `out` is filled with NaN and the function returns.
+
+    Implementation notes
+    --------------------
+    - Uses two GEMV calls with α = 1/2:
+        out  = 0.5 * Y[:, :n-1] @ dx
+        out += 0.5 * Y[:, 1:n]  @ dx
+      where dx[i] = x[i+1] - x[i] and (m, n) are the effective GEMV dims
+      after potentially toggling BLAS order to avoid explicit transpose.
+    - If x_size equals the non-leading dimension for the stored layout,
+      the routine toggles the BLAS order and offsets the Y pointer by one
+      logical column to realize the shifted window (Y[:, 1:n]).
+    - No Python exceptions are raised here (noexcept); error conditions are
+      signaled by writing NaN to `out`.
+    """
     cdef int64_t i
     if (y_cols != x_size) and (y_rows != x_size):
         for i in prange(<int64_t> out_size - 1, nogil=True):
@@ -76,12 +123,12 @@ cdef void trapz_mat_blas(
 
 
 cdef void trapz_memview(
-    BLAS_Order order,
     floating[:, :] y,
     floating[:] x,
     floating[:] out,
     int64_t inc_out
 ) noexcept nogil:
+    cdef BLAS_Order order = BLAS_Order.ColMajor if y.strides[0] == y.itemsize else BLAS_Order.RowMajor
     cdef uint64_t y_rows = y.shape[0], y_cols = y.shape[1], x_size = x.shape[0], out_size = out.shape[0]
     trapz_mat_blas(order, y_rows, y_cols, &y[0, 0], x_size, &x[0], out_size, &out[0], inc_out)
 

@@ -39,6 +39,25 @@ def trapz(y: np.ndarray, x: np.ndarray) -> Union[np.ndarray, float]:
         If the number of points in `x` does not match either the number of rows
         or the number of columns of `y`.
 
+    Mathematical definition
+    -----------------------
+    For a single curve ``y`` of length ``n`` and ``x`` of the same length:
+
+    .. math::
+        T(y, x) = \sum_{i=0}^{n-2} \frac{x_{i+1}-x_i}{2}\,\big(y_i + y_{i+1}\big).
+
+    For a matrix ``Y`` of shape ``(m, n)`` with ``len(x) = n`` (integrate along axis 1):
+
+    .. math::
+        [T(Y, x)]_k = \sum_{i=0}^{n-2} \frac{x_{i+1}-x_i}{2}\,\big(Y_{k,i} + Y_{k,i+1}\big),
+        \quad k=0,\dots,m-1.
+
+    If instead ``len(x) = m`` (integrate along axis 0):
+
+    .. math::
+        [T(Y, x)]_k = \sum_{i=0}^{m-2} \frac{x_{i+1}-x_i}{2}\,\big(Y_{i,k} + Y_{i+1,k}\big),
+        \quad k=0,\dots,n-1.
+
     Notes
     -----
     - The implementation dispatches to a float32/float64 optimized backend.

@@ -16,3 +16,9 @@ This section introduces the concepts and usage patterns in pflm.
    :caption: Advanced Usage
 
    c_api
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Benchmarks
+
+   benchmark

@@ -172,6 +172,7 @@ def polyfit1d_f64(
         polyfit1d_helper(bandwidth, x_new_view[i], &mu_view[i], x_view, y_view, w_view, degree, deriv, kernel_type)
     return mu
 
+
 def polyfit1d_f32(
     np.ndarray[np.float32_t] x,
     np.ndarray[np.float32_t] y,

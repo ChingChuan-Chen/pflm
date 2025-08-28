@@ -27,9 +27,50 @@ cdef void _gels_helper(
     floating *a, int lda, floating *b, int ldb, int *info
 ) noexcept nogil:
     """
-    Workspace-managing helper for gels.
-    - ColMajor: query + compute directly on given buffers.
-    - RowMajor: transpose once to temporaries, query + compute on them, then copy back.
+    LAPACK GELS (least-squares) helper with RowMajor/ColMajor support and workspace query.
+
+    Parameters
+    ----------
+    order : BLAS_Order
+        Input/output memory layout (RowMajor or ColMajor).
+    trans : BLAS_Trans
+        'N' (NoTrans) solves min || A*X - B ||, 'T' solves min || A^T*X - B ||.
+    m, n, nrhs : int
+        A is m-by-n; B has nrhs right-hand sides.
+    a : floating*
+        On entry: A, stored according to `order` and `lda`.
+        On exit: overwritten by the QR/LQ factors as in LAPACK xGELS.
+    lda : int
+        Leading dimension of A.
+        - ColMajor: lda >= max(1, m)
+        - RowMajor: lda >= max(1, n)
+    b : floating*
+        On entry:
+        - ColMajor: B with leading dimension ldb >= max(m, n)
+        - RowMajor: B with shape (m, nrhs) and ldb >= nrhs
+        On exit: first min(m, n) rows contain the solution X; if m > n the
+        remaining rows may contain residual information (per LAPACK).
+    ldb : int
+        Leading dimension of B.
+        - ColMajor: ldb >= max(1, max(m, n))
+        - RowMajor: ldb >= max(1, nrhs)
+    info : int*
+        Output status (C-style). 0 on success.
+        < 0: illegal argument at index -info (C indexing).
+        > 0: algorithm-specific failure.
+
+    Behavior
+    --------
+    - ColMajor: perform lwork=-1 workspace query, then compute in-place on (a, b).
+    - RowMajor: check lda >= n (info = -7), ldb >= nrhs (info = -9); transpose A,B
+      into temporary ColMajor buffers (Ac with ldac=m, Bc with ldbc=max(m,n)),
+      pad Bc rows if m < ldbc, query then compute on temporaries, and copy back
+      to RowMajor buffers on success.
+
+    Notes
+    -----
+    - Negative info from the Fortran routine is adjusted earlier to C-style.
+    - This routine is noexcept and safe to call under the GIL released.
     """
     cdef int lwork = -1
     cdef floating *work_query = <floating *> malloc(1 * sizeof(floating))
@@ -125,9 +166,51 @@ cdef void _gelss_helper(
     floating *a, int lda, floating *b, int ldb, floating *rcond, int *rank, int *info
 ) noexcept nogil:
     """
-    Workspace-managing GELSS with RowMajor/ColMajor support.
-    - ColMajor: query + compute directly.
-    - RowMajor: transpose once to temporaries, query + compute on them, then copy back.
+    LAPACK GELSS (SVD-based least-squares) helper with RowMajor/ColMajor support and workspace query.
+
+    Parameters
+    ----------
+    order : BLAS_Order
+        Input/output memory layout (RowMajor or ColMajor).
+    m, n, nrhs : int
+        A is m-by-n; B has nrhs right-hand sides.
+    a : floating*
+        On entry: A, stored according to `order` and `lda`.
+        On exit: overwritten; contents are LAPACK-internal (SVD factors).
+    lda : int
+        Leading dimension of A.
+        - ColMajor: lda >= max(1, m)
+        - RowMajor: lda >= max(1, n)
+    b : floating*
+        On entry:
+        - ColMajor: ldb >= max(1, max(m, n))
+        - RowMajor: shape (m, nrhs) and ldb >= nrhs
+        On exit: the first n rows contain the solution X (for each RHS),
+        consistent with LAPACK xGELSS contract.
+    ldb : int
+        Leading dimension of B.
+        - ColMajor: ldb >= max(1, max(m, n))
+        - RowMajor: ldb >= max(1, nrhs)
+    rcond : floating*
+        RCOND for effective-rank determination. Use negative to trigger default.
+    rank : int*
+        On exit: effective numerical rank of A as determined by SVD and rcond.
+    info : int*
+        Output status (C-style). 0 on success.
+        < 0: illegal argument at index -info (C indexing).
+        > 0: DBDSQR did not converge; INFO = number of unconverged off-diagonals.
+
+    Behavior
+    --------
+    - ColMajor: allocate S, query with lwork=-1, then compute in-place on (a, b).
+    - RowMajor: check lda >= n (info = -6), ldb >= nrhs (info = -8); transpose
+      to temporary Ac (ldac=m) and Bc (ldbc=max(m,n)), pad Bc rows if m < ldbc,
+      query then compute on temporaries, and copy back on success.
+
+    Notes
+    -----
+    - Negative info from the Fortran routine is adjusted to C-style in _gelss.
+    - This routine is noexcept and safe to call under the GIL released.
     """
     cdef int lwork = -1
     cdef int s_size = min(m, n)
@@ -241,9 +324,42 @@ cdef void _syevd_helper(
     floating *a, int lda, floating *w, int *info
 ) noexcept nogil:
     """
-    Workspace-managing helper for syevd.
-    - ColMajor: query + compute directly.
-    - RowMajor: single transpose to temporary, reuse for query + compute, copy back.
+    LAPACK SYEVD (symmetric eigen-decomposition) helper with RowMajor/ColMajor support and workspace query.
+
+    Parameters
+    ----------
+    order : BLAS_Order
+        Input/output memory layout (RowMajor or ColMajor).
+    jobz : BLAS_Jobz
+        'N' (NoVec) for eigenvalues only, 'V' (Vec) for eigenvalues and eigenvectors.
+    uplo : BLAS_Uplo
+        Triangle of A to reference: 'U' (Upper) or 'L' (Lower).
+    n : int
+        Order of the matrix A (n-by-n).
+    a : floating*
+        On entry: symmetric matrix A stored per `order` and `lda`.
+        On exit: if jobz='V', contains orthonormal eigenvectors; otherwise overwritten.
+    lda : int
+        Leading dimension of A.
+        - ColMajor: lda >= max(1, n)
+        - RowMajor: lda >= max(1, n) (number of columns)
+    w : floating*
+        On exit: eigenvalues in ascending order (length n).
+    info : int*
+        Output status (C-style). 0 on success.
+        < 0: illegal argument at index -info (C indexing).
+        > 0: algorithm failed to converge.
+
+    Behavior
+    --------
+    - ColMajor: query lwork/liwork with lwork=liwork=-1, then compute in-place on A.
+    - RowMajor: check lda >= n (info = -6); transpose A into temporary ColMajor
+      buffer Ac (ldac=n), query then compute on Ac, and copy back to RowMajor on success.
+
+    Notes
+    -----
+    - Negative info from the Fortran routine is adjusted earlier to C-style.
+    - This routine is noexcept and safe to call under the GIL released.
     """
     cdef int lwork = -1, liwork = -1
     cdef floating *work_query = <floating *> malloc(1 * sizeof(floating))
