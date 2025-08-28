@@ -10,8 +10,9 @@ from libcpp.utility cimport pair
 from libcpp.iterator cimport distance
 from libcpp.algorithm cimport lower_bound
 from libc.stdlib cimport malloc, free
-from pflm.smooth._polyfit cimport calculate_kernel_value
-from pflm.utils._lapack_helper cimport _gels_helper, _gelss_helper
+from pflm.smooth.polyfit cimport calculate_kernel_value
+from pflm.utils.blas_helper cimport NoTrans, ColMajor
+from pflm.utils.lapack_helper cimport _gels_helper, _gelss_helper
 
 
 cdef void rotate_polyfit2d_helper(
@@ -97,6 +98,7 @@ cdef void rotate_polyfit2d_helper(
     cdef floating rcond = -1.0
     if use_svd == 1:
         _gelss_helper(
+            ColMajor,
             <int> n_rows, 3, 1,
             lx, <int> n_rows,
             ly, <int> n_rows,
@@ -104,7 +106,8 @@ cdef void rotate_polyfit2d_helper(
         )
     else:
         _gels_helper(
-            110, <int> n_rows, 3, 1,
+            ColMajor, NoTrans,
+            <int> n_rows, 3, 1,
             lx, <int> n_rows,
             ly, <int> n_rows,
             &info

@@ -70,7 +70,7 @@ def test_get_eigen_analysis_results_rank1_matrix():
 def test_get_eigen_analysis_results_lapack_fail(monkeypatch):
     import pflm.fpca.utils.fpca_base_func_utils as fh
 
-    def fake_syevd(eig_vector, eig_lambda, uplo, n, lwork):
+    def fake_syevd(jobz, uplo, eig_vector, eig_lambda, n):
         # mimic LAPACK failure by returning non‑zero info
         return 1
 

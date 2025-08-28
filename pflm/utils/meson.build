@@ -2,20 +2,27 @@ utils_cython_tree = [
     pflm_root_cython_tree,
     fs.copyfile('__init__.py'),
     fs.copyfile('__init__.pxd'),
-    fs.copyfile('_trapz.pxd'),
-    fs.copyfile('_lapack_helper.pxd'),
+    fs.copyfile('blas_helper.pxd'),
+    fs.copyfile('lapack_helper.pxd'),
+    fs.copyfile('trapz.pxd')
 ]
 
 utils_extension_metadata = {
-    '_lapack_helper': {
+    'blas_helper': {
         'sources': [
-            cython_gen_cpp.process('_lapack_helper.pyx'),
+            cython_gen_cpp.process('blas_helper.pyx'),
         ],
         'dependencies': [np_dep, openmp_dep],
     },
-    '_trapz': {
+    'lapack_helper': {
         'sources': [
-            cython_gen_cpp.process('_trapz.pyx'),
+            cython_gen_cpp.process('lapack_helper.pyx'),
+        ],
+        'dependencies': [np_dep, openmp_dep],
+    },
+    'trapz': {
+        'sources': [
+            cython_gen_cpp.process('trapz.pyx'),
         ],
         'dependencies': [np_dep, openmp_dep],
     }

@@ -10,15 +10,15 @@ utils_extension_metadata = {
         ],
         'dependencies': [np_dep, openmp_dep],
     },
-    '_rotate_polyfit2d': {
+    'rotate_polyfit2d': {
         'sources': [
-            cython_gen_cpp.process('_rotate_polyfit2d.pyx'),
+            cython_gen_cpp.process('rotate_polyfit2d.pyx'),
         ],
         'dependencies': [np_dep, openmp_dep],
     },
-    '_fpca_score': {
+    'fpca_score': {
         'sources': [
-            cython_gen_cpp.process('_fpca_score.pyx'),
+            cython_gen_cpp.process('fpca_score.pyx'),
         ],
         'dependencies': [np_dep, openmp_dep],
     }

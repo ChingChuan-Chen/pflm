@@ -8,7 +8,7 @@ This module provides fast linear and spline interpolation for 1D/2D arrays.
 
 import numpy as np
 
-from pflm.interp._interp import interp1d_f32, interp1d_f64, interp2d_f32, interp2d_f64
+from pflm.interp.interp import interp1d_f32, interp1d_f64, interp2d_f32, interp2d_f64
 
 
 def interp1d(x: np.ndarray, y: np.ndarray, x_new: np.ndarray, method: str = "linear") -> np.ndarray:

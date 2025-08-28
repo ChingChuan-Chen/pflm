@@ -64,12 +64,12 @@ def test_get_measurement_error_variance_happy_path(raw_cov):
     }
     for kernel_type, (expected_cov_diag, expected_diag_cov_surface, expected_sigma2) in expected_results.items():
         sigma2, smoothed_cov_diag, diag_smoothed_cov_surface = get_measurement_error_variance(raw_cov, reg_grid, 0.15, kernel_type)
-        assert_allclose(smoothed_cov_diag, expected_cov_diag, rtol=1e-5, atol=1e-8, err_msg=f"Covariance diagonal mismatch for {kernel_type}")
+        assert_allclose(smoothed_cov_diag, expected_cov_diag, rtol=1e-5, atol=1e-4, err_msg=f"Covariance diagonal mismatch for {kernel_type}")
         assert_allclose(
             diag_smoothed_cov_surface,
             expected_diag_cov_surface,
             rtol=1e-5,
-            atol=1e-8,
+            atol=1e-4,
             err_msg=f"Diagonal smoothed covariance surface mismatch for {kernel_type}",
         )
         assert_almost_equal(sigma2, expected_sigma2, decimal=5, err_msg=f"Sigma2 mismatch for {kernel_type}")

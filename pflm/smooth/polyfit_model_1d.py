@@ -13,7 +13,7 @@ from sklearn.utils.validation import check_array, check_is_fitted
 
 from pflm.interp import interp1d
 from pflm.smooth import KernelType
-from pflm.smooth._polyfit import calculate_kernel_value_f32, calculate_kernel_value_f64, polyfit1d_f32, polyfit1d_f64
+from pflm.smooth.polyfit import calculate_kernel_value_f32, calculate_kernel_value_f64, polyfit1d_f32, polyfit1d_f64
 
 
 class Polyfit1DModel(BaseEstimator, RegressorMixin):

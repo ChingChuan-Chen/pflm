@@ -65,13 +65,13 @@ numpydoc_show_class_members = False
 
 # Mock C/Cython extensions during docs build
 autodoc_mock_imports = [
-    'pflm.interp._interp',
-    'pflm.smooth._polyfit',
-    'pflm.fpca.utils._fpca_score',
+    'pflm.interp.interp',
+    'pflm.smooth.polyfit',
+    'pflm.fpca.utils.fpca_score',
     'pflm.fpca.utils._raw_cov',
-    'pflm.fpca.utils._rotate_polyfit2d',
-    'pflm.utils._lapack_helper',
-    'pflm.utils._trapz',
+    'pflm.fpca.utils.rotate_polyfit2d',
+    'pflm.utils.lapack_helper',
+    'pflm.utils.trapz',
 ]
 
 # Intersphinx cross-references

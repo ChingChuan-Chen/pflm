@@ -4,35 +4,61 @@ Access pflm C-API
 Available extensions
 -------------------------------
 
-- ``pflm.smooth._polyfit``: low-level kernels and polynomial fitters
-  - ``polyfit1d_f32``, ``polyfit1d_f64``
-  - ``polyfit2d_f32``, ``polyfit2d_f64``
+- ``pflm.smooth.polyfit``: low-level kernels and polynomial fitters
   - ``calculate_kernel_value_f32``, ``calculate_kernel_value_f64``
-- ``pflm.interp._interp``: internal interpolation routines
-- ``pflm.utils._trapz``, ``pflm.utils._lapack_helper``: numeric helpers
+  - ``polyfit1d_helper``, ``polyfit2d_helper``
+- ``pflm.interp.interp``: internal interpolation routines
+  - ``interp1d_linear``, ``interp1d_spline_small``, ``interp1d_spline``
+  - ``interp2d_linear``, ``interp2d_spline``
+- ``pflm.utils.lapack_helper``: LAPACK wrappers
+- ``pflm.utils.blas_helper``: BLAS wrappers
+- ``pflm.utils.trapz``: numeric helpers
 
-Example: call a 1D fitter directly
-----------------------------------
+Example: call GEMV
+------------------
+
+.. code-block:: cython
+
+    from pflm.utils.blas_helper cimport BLAS_Order, BLAS_Trans, _gemv
+    cimport numpy as np
+    import numpy as np
+
+    # y := alpha * op(A) @ x + beta * y
+    def call_gemv_f64(
+        np.float64_t[:, :] A, np.float64_t[:] x,
+        BLAS_Trans trans = BLAS_Trans.NoTrans,
+        double alpha = 1.0, double beta = 0.0,
+    ):
+        cdef int m = A.shape[0]
+        cdef int n = A.shape[1]
+        cdef BLAS_Order order = BLAS_Order.ColMajor if A.strides[0] == A.itemsize else BLAS_Order.RowMajor
+        cdef int lda = m if order == BLAS_Order.ColMajor else n
+        cdef int out_size = m if trans == BLAS_Trans.NoTrans else n
+        cdef np.ndarray[np.float64_t, ndim=1] y = np.zeros(out_size, dtype=np.float64)
+        _gemv(order, trans, m, n, alpha, &A[0, 0], lda, &x[0], 1, beta, &y[0], 1)
+        return y
+
+    def call_gemv_f32(
+        np.float32_t[:, :] A, np.float32_t[:] x,
+        BLAS_Trans trans = BLAS_Trans.NoTrans,
+        float alpha = 1.0, float beta = 0.0,
+    ):
+        cdef int m = A.shape[0]
+        cdef int n = A.shape[1]
+        cdef BLAS_Order order = BLAS_Order.ColMajor if A.strides[0] == A.itemsize else BLAS_Order.RowMajor
+        cdef int lda = m if order == BLAS_Order.ColMajor else n
+        cdef int out_size = m if trans == BLAS_Trans.NoTrans else n
+        cdef np.ndarray[np.float32_t, ndim=1] y = np.zeros(out_size, dtype=np.float32)
+        _gemv(order, trans, m, n, alpha, &A[0, 0], lda, &x[0], 1, beta, &y[0], 1)
+        return y
+
+Usage in Python:
 
 .. code-block:: python
 
-   import numpy as np
-   from pflm.smooth._polyfit import polyfit1d_f64
+    import numpy as np
 
-   x = np.linspace(0, 1, 21, dtype=np.float64)
-   y = np.sin(2*np.pi*x).astype(np.float64)
-   w = np.ones_like(y)
-   reg_grid = np.linspace(0, 1, 51, dtype=np.float64)
-
-   kernel_type = 0  # GAUSSIAN in this project
-   degree = 1
-   deriv = 0
-   bandwidth = 0.1
-
-   y_fit = polyfit1d_f64(x, y, w, reg_grid, bandwidth, kernel_type, degree, deriv)
-
-Notes
------
-
-- Inputs must be contiguous and use the exact dtype (``float32`` for ``*_f32`` and ``float64`` for ``*_f64``).
-- ABI can vary by platform; prefer the high-level estimators for stability.
+    A = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float64)
+    b = np.array([1.0, 2.0], dtype=np.float64)
+    y = call_gemv_f64(A, b)
+    print(y)

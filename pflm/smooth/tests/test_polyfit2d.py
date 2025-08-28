@@ -11,8 +11,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from pflm.smooth import Polyfit2DModel
-from pflm.smooth import KernelType
+from pflm.smooth import KernelType, Polyfit2DModel
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -646,7 +645,7 @@ def test_polyfit2d_model_reg_grid2_with_nan() -> None:
         model.fit(X, y, sample_weight=w, bandwidth1=0.1, bandwidth2=0.1, reg_grid1=x_new1, reg_grid2=x_new2_nan)
 
 
-@pytest.mark.parametrize("bad_num", [None, 1.5, [1.5], {'a': 1.5}])
+@pytest.mark.parametrize("bad_num", [None, 1.5, [1.5], {"a": 1.5}])
 def test_polyfit2d_model_bad_num_points_reg_grid(bad_num):
     X, y, w, _, _ = make_test_inputs_2d()
     model = Polyfit2DModel()

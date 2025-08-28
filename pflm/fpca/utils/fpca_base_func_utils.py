@@ -7,7 +7,8 @@ from typing import Tuple
 
 import numpy as np
 
-from pflm.utils._lapack_helper import _syevd_memview_f32, _syevd_memview_f64
+from pflm.utils.blas_helper import BLAS_Jobz, BLAS_Uplo
+from pflm.utils.lapack_helper import _syevd_memview_f32, _syevd_memview_f64
 from pflm.utils.utility import trapz
 
 
@@ -46,12 +47,12 @@ def get_eigen_analysis_results(reg_cov: np.ndarray, is_upper_triangular: bool = 
     # initialize eigenvalues and eigenvectors
     nt = reg_cov.shape[0]
     eig_lambda = np.zeros(nt, dtype=reg_cov.dtype)
-    eig_vector = reg_cov.copy().ravel()
+    eig_vector = reg_cov.copy()
 
     # compute eigenvalues and eigenvectors
     eig_func = _syevd_memview_f64 if reg_cov.dtype == np.float64 else _syevd_memview_f32
-    uplo = 117 if is_upper_triangular else 108  # 'u'/'l'
-    info = eig_func(eig_vector, eig_lambda, uplo, nt, nt)
+    uplo = BLAS_Uplo.Upper if is_upper_triangular else BLAS_Uplo.Lower
+    info = eig_func(BLAS_Jobz.Vec, uplo, eig_vector, eig_lambda, nt)
     if info != 0:
         warnings.warn(f"LAPACK syevd failed with info={info}")
         return None, None
@@ -61,7 +62,7 @@ def get_eigen_analysis_results(reg_cov: np.ndarray, is_upper_triangular: bool = 
     # sort eigen values and corresponding eigen vectors
     mask = np.isfinite(eig_lambda) & (eig_lambda > 10.0 * np.finfo(eig_lambda.dtype).eps)  # only leave significant eigenvalues
     ord_idx = np.argsort(eig_lambda[mask])[::-1]
-    return eig_lambda[mask][ord_idx], eig_vector.reshape(-1, nt).T[:, mask][:, ord_idx]
+    return eig_lambda[mask][ord_idx], eig_vector[:, mask][:, ord_idx]
 
 
 def select_num_pcs_fve(eig_lambda: np.ndarray, fve_threshold: float, max_components: int = 20):

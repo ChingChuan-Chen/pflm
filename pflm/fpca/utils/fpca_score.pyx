@@ -7,10 +7,9 @@ from libcpp.vector cimport vector
 from libc.math cimport NAN
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
-from sklearn.utils._cython_blas cimport _gemv, _gemm
-from sklearn.utils._cython_blas cimport BLAS_Order, ColMajor, RowMajor, NoTrans, Trans
-from pflm.utils._lapack_helper cimport _posv
-from pflm.utils._trapz cimport trapz_mat_blas
+from pflm.utils.blas_helper cimport BLAS_Order, ColMajor, RowMajor, NoTrans, Trans, Lower, _gemv, _gemm
+from pflm.utils.lapack_helper cimport _posv
+from pflm.utils.trapz cimport trapz_mat_blas
 
 
 cdef void get_fitted_y_mat(
@@ -85,7 +84,7 @@ cdef void fpca_ce_score_helper(
 
     # perform A = inv(sub_sigma_y) * sub_lambda_phi
     cdef int info = 0
-    _posv(108, <int> data_cnt, <int> num_pcs, sub_sigma_y, <int> data_cnt, sub_sigma_lambda_phi, <int> data_cnt, &info)
+    _posv(ColMajor, Lower, <int> data_cnt, <int> num_pcs, sub_sigma_y, <int> data_cnt, sub_sigma_lambda_phi, <int> data_cnt, &info)
     if info != 0:
         for j in range(<int64_t> num_pcs):
             xi[j] = NAN

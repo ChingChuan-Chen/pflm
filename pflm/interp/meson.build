@@ -5,9 +5,9 @@ interp_cython_tree = [
 ]
 
 interp_extension_metadata = {
-    '_interp': {
+    'interp': {
         'sources': [
-            cython_gen_cpp.process('_interp.pyx'),
+            cython_gen_cpp.process('interp.pyx'),
             'src' / 'interp.cpp'
         ],
         'dependencies': [np_dep, openmp_dep],

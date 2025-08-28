@@ -7,10 +7,9 @@ from libcpp.vector cimport vector
 from libc.math cimport NAN
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
-from sklearn.utils._cython_blas cimport _gemv, _gemm
-from sklearn.utils._cython_blas cimport ColMajor, NoTrans, Trans
-from pflm.utils._lapack_helper cimport _posv
-from pflm.utils._trapz cimport trapz_mat_blas
+from pflm.utils.blas_helper cimport ColMajor, NoTrans, Trans, _gemv, _gemm
+from pflm.utils.lapack_helper cimport _posv
+from pflm.utils.trapz cimport trapz_mat_blas
 
 
 cdef void log_likelihood_helper(

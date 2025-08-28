@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
-from pflm.interp._interp import find_le_indices_memview_f32, find_le_indices_memview_f64
+from pflm.interp.interp import find_le_indices_memview_f32, find_le_indices_memview_f64
 
 
 @pytest.mark.parametrize("dtype, func", [(np.float32, find_le_indices_memview_f32), (np.float64, find_le_indices_memview_f64)])

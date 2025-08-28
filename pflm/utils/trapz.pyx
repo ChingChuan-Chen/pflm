@@ -5,8 +5,7 @@ from cython.parallel cimport prange
 from libc.math cimport NAN
 from libc.stdint cimport int64_t, uint64_t
 from libc.stdlib cimport malloc, free
-from sklearn.utils._cython_blas cimport _gemv
-from sklearn.utils._cython_blas cimport BLAS_Order, ColMajor, RowMajor, BLAS_Trans, NoTrans, Trans
+from pflm.utils.blas_helper cimport BLAS_Order, ColMajor, RowMajor, BLAS_Trans, NoTrans, Trans, _gemv
 
 
 cdef inline BLAS_Order opposite_order(BLAS_Order Order) noexcept nogil:

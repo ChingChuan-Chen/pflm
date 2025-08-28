@@ -8,7 +8,7 @@ from typing import List, Optional, Union
 import numpy as np
 from sklearn.utils.validation import check_array
 
-from pflm.utils._trapz import trapz_f32, trapz_f64
+from pflm.utils.trapz import trapz_f32, trapz_f64
 
 
 def trapz(y: np.ndarray, x: np.ndarray) -> Union[np.ndarray, float]:
