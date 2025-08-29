@@ -3,7 +3,8 @@ from libc.stdlib cimport malloc, free
 import numpy as np
 cimport numpy as np
 from pflm.utils.blas_helper cimport BLAS_Jobz, BLAS_Uplo, BLAS_Trans, BLAS_Order, ColMajor
-from scipy.linalg.cython_lapack cimport sgels, dgels, sgelss, dgelss, ssyevd, dsyevd, sposv, dposv
+from scipy.linalg.cython_lapack cimport sgels, dgels, sgelss, dgelss, ssyevd, dsyevd, sposv, dposv, sgtsv, dgtsv
+
 
 cdef void _gels(
     BLAS_Trans trans, int m, int n, int nrhs,
@@ -21,6 +22,7 @@ cdef void _gels(
         dgels(&trans_, &m, &n, &nrhs, a, &lda, b, &ldb, work, &lwork, info)
     if info[0] < 0:
         info[0] -= 1
+
 
 cdef void _gels_helper(
     BLAS_Order order, BLAS_Trans trans, int m, int n, int nrhs,
@@ -106,46 +108,46 @@ cdef void _gels_helper(
 
     cdef int ldac = m
     cdef int ldbc = m if m >= n else n
-    cdef floating *Ac = <floating*> malloc(ldac * n * sizeof(floating))
-    cdef floating *Bc = <floating*> malloc(ldbc * nrhs * sizeof(floating))
-    if not Ac or not Bc:
-        if Ac: free(Ac)
-        if Bc: free(Bc)
+    cdef floating *a_cm = <floating*> malloc(ldac * n * sizeof(floating))
+    cdef floating *b_cm = <floating*> malloc(ldbc * nrhs * sizeof(floating))
+    if not a_cm or not b_cm:
+        if a_cm: free(a_cm)
+        if b_cm: free(b_cm)
         info[0] = -1
         return
 
     cdef int i, j
     for i in range(m):
         for j in range(n):
-            Ac[i + j * ldac] = a[i * lda + j]
+            a_cm[i + j * ldac] = a[i * lda + j]
     for j in range(nrhs):
         for i in range(m):
-            Bc[i + j * ldbc] = b[i * ldb + j]
+            b_cm[i + j * ldbc] = b[i * ldb + j]
         for i in range(m, ldbc):
-            Bc[i + j * ldbc] = 0
+            b_cm[i + j * ldbc] = 0
 
-    _gels(trans, m, n, nrhs, Ac, ldac, Bc, ldbc, work_query, lwork, info)
+    _gels(trans, m, n, nrhs, a_cm, ldac, b_cm, ldbc, work_query, lwork, info)
     lwork = <int> work_query[0]
     free(work_query)
 
     work = <floating*> malloc(lwork * sizeof(floating))
     if not work:
         info[0] = -1
-        free(Ac); free(Bc)
+        free(a_cm); free(b_cm)
         return
 
-    _gels(trans, m, n, nrhs, Ac, ldac, Bc, ldbc, work, lwork, info)
+    _gels(trans, m, n, nrhs, a_cm, ldac, b_cm, ldbc, work, lwork, info)
     free(work)
 
     if info[0] == 0:
         for i in range(m):
             for j in range(n):
-                a[i * lda + j] = Ac[i + j * ldac]
+                a[i * lda + j] = a_cm[i + j * ldac]
         for j in range(nrhs):
             for i in range(m):
-                b[i * ldb + j] = Bc[i + j * ldbc]
-    free(Ac)
-    free(Bc)
+                b[i * ldb + j] = b_cm[i + j * ldbc]
+    free(a_cm)
+    free(b_cm)
 
 
 cdef void _gelss(
@@ -252,11 +254,11 @@ cdef void _gelss_helper(
 
     cdef int ldac = m
     cdef int ldbc = m if m >= n else n  # LAPACK requires ldb >= max(m,n) for robust storage
-    cdef floating *Ac = <floating*> malloc(ldac * n * sizeof(floating))
-    cdef floating *Bc = <floating*> malloc(ldbc * nrhs * sizeof(floating))
-    if not Ac or not Bc:
-        if Ac: free(Ac)
-        if Bc: free(Bc)
+    cdef floating *a_cm = <floating*> malloc(ldac * n * sizeof(floating))
+    cdef floating *b_cm = <floating*> malloc(ldbc * nrhs * sizeof(floating))
+    if not a_cm or not b_cm:
+        if a_cm: free(a_cm)
+        if b_cm: free(b_cm)
         free(s); free(work_query)
         info[0] = -1
         return
@@ -265,26 +267,26 @@ cdef void _gelss_helper(
     # RowMajor -> ColMajor
     for i in range(m):
         for j in range(n):
-            Ac[i + j * ldac] = a[i * lda + j]
+            a_cm[i + j * ldac] = a[i * lda + j]
     for j in range(nrhs):
         for i in range(m):
-            Bc[i + j * ldbc] = b[i * ldb + j]
+            b_cm[i + j * ldbc] = b[i * ldb + j]
         for i in range(m, ldbc):
-            Bc[i + j * ldbc] = 0
+            b_cm[i + j * ldbc] = 0
 
     # Query
-    _gelss(m, n, nrhs, Ac, ldac, Bc, ldbc, s, rcond, rank, work_query, lwork, info)
+    _gelss(m, n, nrhs, a_cm, ldac, b_cm, ldbc, s, rcond, rank, work_query, lwork, info)
     lwork = <int> work_query[0]
     free(work_query)
 
     # Compute
     work = <floating *> malloc(lwork * sizeof(floating))
     if not work:
-        free(Ac); free(Bc); free(s)
+        free(a_cm); free(b_cm); free(s)
         info[0] = -1
         return
 
-    _gelss(m, n, nrhs, Ac, ldac, Bc, ldbc, s, rcond, rank, work, lwork, info)
+    _gelss(m, n, nrhs, a_cm, ldac, b_cm, ldbc, s, rcond, rank, work, lwork, info)
     free(work)
     free(s)
 
@@ -292,13 +294,13 @@ cdef void _gelss_helper(
         # Copy back to RowMajor buffers (first m rows; solution typically in first n rows)
         for i in range(m):
             for j in range(n):
-                a[i * lda + j] = Ac[i + j * ldac]
+                a[i * lda + j] = a_cm[i + j * ldac]
         for j in range(nrhs):
             for i in range(m):
-                b[i * ldb + j] = Bc[i + j * ldbc]
+                b[i * ldb + j] = b_cm[i + j * ldbc]
 
-    free(Ac)
-    free(Bc)
+    free(a_cm)
+    free(b_cm)
 
 
 cdef void _syevd(
@@ -397,17 +399,17 @@ cdef void _syevd_helper(
         return
 
     cdef int ldac = n
-    cdef floating *Ac = <floating*> malloc(n * n * sizeof(floating))
-    if not Ac:
+    cdef floating *a_cm = <floating*> malloc(n * n * sizeof(floating))
+    if not a_cm:
         info[0] = -1
         return
 
     cdef int i, j
     for i in range(n):
         for j in range(n):
-            Ac[i + j * ldac] = a[i * lda + j]
+            a_cm[i + j * ldac] = a[i * lda + j]
 
-    _syevd(jobz, uplo, n, Ac, ldac, w, work_query, lwork, iwork_query, liwork, info)
+    _syevd(jobz, uplo, n, a_cm, ldac, w, work_query, lwork, iwork_query, liwork, info)
     lwork = <int> work_query[0]
     liwork = iwork_query[0]
     free(work_query)
@@ -419,19 +421,19 @@ cdef void _syevd_helper(
         info[0] = -1
         if work: free(work)
         if iwork: free(iwork)
-        free(Ac)
+        free(a_cm)
         return
 
-    _syevd(jobz, uplo, n, Ac, ldac, w, work, lwork, iwork, liwork, info)
+    _syevd(jobz, uplo, n, a_cm, ldac, w, work, lwork, iwork, liwork, info)
 
     if info[0] == 0:
         for i in range(n):
             for j in range(n):
-                a[i * lda + j] = Ac[i + j * ldac]
+                a[i * lda + j] = a_cm[i + j * ldac]
 
     free(work)
     free(iwork)
-    free(Ac)
+    free(a_cm)
 
 
 cdef void _posv(
@@ -489,11 +491,11 @@ cdef void _posv(
     # Copy to temporary column-major buffers, call, then copy back.
     cdef int ldac = n
     cdef int ldbc = n
-    cdef floating *Ac = <floating*> malloc(n * n * sizeof(floating))
-    cdef floating *Bc = <floating*> malloc(n * nrhs * sizeof(floating))
-    if not Ac or not Bc:
-        if Ac: free(Ac)
-        if Bc: free(Bc)
+    cdef floating *a_cm = <floating*> malloc(n * n * sizeof(floating))
+    cdef floating *b_cm = <floating*> malloc(n * nrhs * sizeof(floating))
+    if not a_cm or not b_cm:
+        if a_cm: free(a_cm)
+        if b_cm: free(b_cm)
         info[0] = -1  # memory allocation failure
         return
 
@@ -502,18 +504,18 @@ cdef void _posv(
     for i in range(n):
         for j in range(n):
             # a[i, j] with RowMajor leading dimension lda (num of columns)
-            Ac[i + j * ldac] = a[i * lda + j]
+            a_cm[i + j * ldac] = a[i * lda + j]
 
     # Transpose B: RowMajor -> ColMajor (n x nrhs)
     for i in range(n):
         for j in range(nrhs):
-            Bc[i + j * ldbc] = b[i * ldb + j]
+            b_cm[i + j * ldbc] = b[i * ldb + j]
 
     # Call Fortran LAPACK on column-major temporaries
     if floating is float:
-        sposv(&uplo_, &n, &nrhs, Ac, &ldac, Bc, &ldbc, info)
+        sposv(&uplo_, &n, &nrhs, a_cm, &ldac, b_cm, &ldbc, info)
     else:
-        dposv(&uplo_, &n, &nrhs, Ac, &ldac, Bc, &ldbc, info)
+        dposv(&uplo_, &n, &nrhs, a_cm, &ldac, b_cm, &ldbc, info)
 
     # Adjust negative info as LAPACKE does
     if info[0] < 0:
@@ -523,13 +525,112 @@ cdef void _posv(
         # Transpose back outputs
         for i in range(n):
             for j in range(n):
-                a[i * lda + j] = Ac[i + j * ldac]
+                a[i * lda + j] = a_cm[i + j * ldac]
         for i in range(n):
             for j in range(nrhs):
-                b[i * ldb + j] = Bc[i + j * ldbc]
+                b[i * ldb + j] = b_cm[i + j * ldbc]
 
-    free(Ac)
-    free(Bc)
+    free(a_cm)
+    free(b_cm)
+
+
+cdef void _gtsv(
+    BLAS_Order order, int n, int nrhs,
+    floating *dl, floating *d, floating *du,
+    floating *b, int ldb, int *info
+) noexcept nogil:
+    """
+    Solve a general tridiagonal system A * X = B via LAPACK xGTSV (no pivoting).
+
+    This routine wraps SGTSV/DGTSV depending on `floating` (float32/float64).
+    It overwrites the tridiagonal bands (dl, d, du) with the LU factors and
+    overwrites `b` in-place with the solution `X`.
+
+    Parameters
+    ----------
+    order : BLAS_Order
+        Input/output memory layout for `b`: RowMajor (C-order) or ColMajor (Fortran-order).
+        The tridiagonal bands `dl, d, du` are always supplied as 1D arrays independent of layout.
+    n : int
+        Order of the system (A is n-by-n).
+    nrhs : int
+        Number of right-hand sides (columns of B and X).
+    dl : floating*, shape (n-1,)
+        Sub-diagonal of A. Overwritten on exit by multipliers for the LU factorization.
+    d : floating*, shape (n,)
+        Main diagonal of A. Overwritten on exit by the diagonal of U.
+    du : floating*, shape (n-1,)
+        Super-diagonal of A. Overwritten on exit by the super-diagonal of U.
+    b : floating*
+        Right-hand side matrix B. On exit, contains the solution X.
+        - ColMajor: leading dimension `ldb >= max(1, n)`, stored n-by-nrhs.
+        - RowMajor: treated as shape (n, nrhs) with `ldb >= max(1, nrhs)`.
+    ldb : int
+        Leading dimension of B with respect to `order` (see above).
+    info : int*
+        Output status (C-style):
+        - 0  : success.
+        - <0 : illegal argument at index -info.
+        - >0 : factorization produced a zero pivot at U(info, info); no solution.
+
+    Notes
+    -----
+    - xGTSV performs Gaussian elimination without pivoting; it may be unstable
+      for ill-conditioned problems. For more robust behavior use xGTTRF + xGTTRS.
+    - RowMajor path copies only B to a temporary ColMajor buffer; the bands
+      (dl, d, du) are used directly.
+
+    See Also
+    --------
+    dgttrf, dgttrs : LU factorization and solve for tridiagonal with partial pivoting.
+    dptsv : SPD tridiagonal solver (if A is symmetric positive definite).
+    """
+    if order == BLAS_Order.ColMajor:
+        # Direct call on column-major buffers
+        if floating is float:
+            sgtsv(&n, &nrhs, dl, d, du, b, &ldb, info)
+        else:
+            dgtsv(&n, &nrhs, dl, d, du, b, &ldb, info)
+        if info[0] < 0:
+            info[0] -= 1
+        return
+
+    # RowMajor path (LAPACKE-like): dimension checks first.
+    # LAPACKE returns -8 if ldb < nrhs.
+    if ldb < nrhs:
+        info[0] = -8
+        return
+
+    # Copy to temporary column-major buffers, call, then copy back.
+    cdef int ldbc = n
+    cdef floating *b_cm = <floating*> malloc(n * nrhs * sizeof(floating))
+    if not b_cm:
+        info[0] = -1  # memory allocation failure
+        return
+
+    cdef int i, j
+    # Transpose B: RowMajor -> ColMajor (n x nrhs)
+    for i in range(n):
+        for j in range(nrhs):
+            b_cm[i + j * ldbc] = b[i * ldb + j]
+
+    # Call Fortran LAPACK on column-major temporaries
+    if floating is float:
+        sgtsv(&n, &nrhs, dl, d, du, b_cm, &ldbc, info)
+    else:
+        dgtsv(&n, &nrhs, dl, d, du, b_cm, &ldbc, info)
+
+    # Adjust negative info as LAPACKE does
+    if info[0] < 0:
+        info[0] -= 1
+
+    if info[0] == 0:
+        # Transpose back outputs
+        for i in range(n):
+            for j in range(nrhs):
+                b[i * ldb + j] = b_cm[i + j * ldbc]
+
+    free(b_cm)
 
 
 def _gels_memview_f64(
@@ -625,4 +726,26 @@ def _posv_memview_f32(
     cdef int ldb = m if order == BLAS_Order.ColMajor else nrhs
     cdef int info = 0
     _posv(order, uplo, n, nrhs, &A[0, 0], lda, &b[0, 0], ldb, &info)
+    return info
+
+
+def _gtsv_memview_f64(
+    np.float64_t[:] dl, np.float64_t[:] d, np.float64_t[:] du,
+    np.float64_t[:, :] b, int n, int nrhs
+):
+    cdef BLAS_Order order = b.strides[0] == b.itemsize
+    cdef int ldb = n if order == BLAS_Order.ColMajor else nrhs
+    cdef int info = 0
+    _gtsv(order, n, nrhs, &dl[0], &d[0], &du[0], &b[0, 0], ldb, &info)
+    return info
+
+
+def _gtsv_memview_f32(
+    np.float32_t[:] dl, np.float32_t[:] d, np.float32_t[:] du,
+    np.float32_t[:, :] b, int n, int nrhs
+):
+    cdef BLAS_Order order = b.strides[0] == b.itemsize
+    cdef int ldb = n if order == BLAS_Order.ColMajor else nrhs
+    cdef int info = 0
+    _gtsv(order, n, nrhs, &dl[0], &d[0], &du[0], &b[0, 0], ldb, &info)
     return info

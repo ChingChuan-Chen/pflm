@@ -20,3 +20,5 @@ cdef void _syevd_helper(
 ) noexcept nogil
 
 cdef void _posv(BLAS_Order, BLAS_Uplo, int, int, floating*, int, floating*, int, int*) noexcept nogil
+
+cdef void _gtsv(BLAS_Order, int, int, floating*, floating*, floating*, floating*, int, int*) noexcept nogil

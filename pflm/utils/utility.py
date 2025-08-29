@@ -15,22 +15,36 @@ def trapz(y: np.ndarray, x: np.ndarray) -> Union[np.ndarray, float]:
     """
     Compute the integrated area using the trapezoidal rule.
 
+    For a single curve ``y`` of length ``n`` and ``x`` of the same length:
+
+    .. math:: T(y, x) = \\sum_{i=0}^{n-2} (x_{i+1}-x_i) \\, \\frac{y_i + y_{i+1}}{2}.
+
+    For a matrix ``Y`` of shape ``(m, n)`` with ``len(x) = n`` (integrate along axis 1):
+
+    .. math:: [T(Y, x)]_k = \\sum_{i=0}^{n-2} (x_{i+1}-x_i) \\, \\frac{Y_{k,i} + Y_{k,i+1}}{2}, \\quad k=0,\\dots,m-1.
+
+    If instead ``len(x) = m`` (integrate along axis 0):
+
+    .. math:: [T(Y, x)]_k = \\sum_{i=0}^{m-2} (x_{i+1}-x_i) \\, \\frac{Y_{i,k} + Y_{i+1,k}}{2}, \\quad k=0,\\dots,n-1.
+
     Parameters
     ----------
     y : array_like
         1D or 2D array of function values with respect to `x`.
+
         Accepted shapes:
-        - (n_features,) for a single curve.
-        - (n_samples, n_features) for multiple curves.
-        If `y` is 1D, it is treated as a single row (1, n_features).
-    x : array_like of shape (n_features,)
+          - (n,) for a single curve.
+          - (m, n) for multiple curves.
+
+        If `y` is 1D, it is treated as a single row (1, n).
+    x : array_like of shape (n,)
         1D array of x-coordinates corresponding to the function values.
 
     Returns
     -------
     np.ndarray or float
         If `y` was 1D, returns a scalar float.
-        If `y` was 2D, returns a 1D array of shape (n_samples,) with the integral
+        If `y` was 2D, returns a 1D array of shape (m,) with the integral
         per row of `y`.
 
     Raises
@@ -38,25 +52,6 @@ def trapz(y: np.ndarray, x: np.ndarray) -> Union[np.ndarray, float]:
     ValueError
         If the number of points in `x` does not match either the number of rows
         or the number of columns of `y`.
-
-    Mathematical definition
-    -----------------------
-    For a single curve ``y`` of length ``n`` and ``x`` of the same length:
-
-    .. math::
-        T(y, x) = \sum_{i=0}^{n-2} \frac{x_{i+1}-x_i}{2}\,\big(y_i + y_{i+1}\big).
-
-    For a matrix ``Y`` of shape ``(m, n)`` with ``len(x) = n`` (integrate along axis 1):
-
-    .. math::
-        [T(Y, x)]_k = \sum_{i=0}^{n-2} \frac{x_{i+1}-x_i}{2}\,\big(Y_{k,i} + Y_{k,i+1}\big),
-        \quad k=0,\dots,m-1.
-
-    If instead ``len(x) = m`` (integrate along axis 0):
-
-    .. math::
-        [T(Y, x)]_k = \sum_{i=0}^{m-2} \frac{x_{i+1}-x_i}{2}\,\big(Y_{i,k} + Y_{i+1,k}\big),
-        \quad k=0,\dots,n-1.
 
     Notes
     -----
@@ -161,6 +156,10 @@ def flatten_and_sort_data_matrices(
     - NaN entries in `y` (and matching positions in `t`) are removed.
     - `unique_tid` is constructed from the de-duplicated sorted values of `t`.
     - The `tid` indices are built via `np.digitize` against `unique_tid`.
+
+    See Also
+    --------
+    FlattenFunctionalData: The returned dataclass holding the flattened arrays and indices.
     """
     if not isinstance(y, list):
         raise ValueError("y must be a list of arrays.")

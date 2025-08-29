@@ -12,7 +12,7 @@ cdef inline BLAS_Order opposite_order(BLAS_Order Order) noexcept nogil:
     return RowMajor if Order == ColMajor else ColMajor
 
 
-cdef void trapz_mat_blas(
+cdef void trapz(
     BLAS_Order order_store,
     uint64_t y_rows,
     uint64_t y_cols,
@@ -122,17 +122,6 @@ cdef void trapz_mat_blas(
     free(dx)
 
 
-cdef void trapz_memview(
-    floating[:, :] y,
-    floating[:] x,
-    floating[:] out,
-    int64_t inc_out
-) noexcept nogil:
-    cdef BLAS_Order order = BLAS_Order.ColMajor if y.strides[0] == y.itemsize else BLAS_Order.RowMajor
-    cdef uint64_t y_rows = y.shape[0], y_cols = y.shape[1], x_size = x.shape[0], out_size = out.shape[0]
-    trapz_mat_blas(order, y_rows, y_cols, &y[0, 0], x_size, &x[0], out_size, &out[0], inc_out)
-
-
 def trapz_f64(
     np.ndarray[np.float64_t, ndim=2] y,
     np.ndarray[np.float64_t] x
@@ -149,7 +138,7 @@ def trapz_f64(
     cdef np.float64_t[:] out_view = out
 
     with nogil:
-        trapz_mat_blas(order, y_rows, y_cols, &y_view[0, 0], x_size, &x_view[0], out_size, &out_view[0], 1)
+        trapz(order, y_rows, y_cols, &y_view[0, 0], x_size, &x_view[0], out_size, &out_view[0], 1)
 
     if not np.isfinite(out).all():
         raise ValueError("Non-finite values encountered in the integration result.")
@@ -172,7 +161,7 @@ def trapz_f32(
     cdef np.float32_t[:] out_view = out
 
     with nogil:
-        trapz_mat_blas(order, y_rows, y_cols, &y_view[0, 0], x_size, &x_view[0], out_size, &out_view[0], 1)
+        trapz(order, y_rows, y_cols, &y_view[0, 0], x_size, &x_view[0], out_size, &out_view[0], 1)
 
     if not np.isfinite(out).all():
         raise ValueError("Non-finite values encountered in the integration result.")

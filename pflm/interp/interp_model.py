@@ -143,8 +143,8 @@ def interp2d(
     x_unique, idx_x = np.unique(x, return_index=True)
     y_unique, idx_y = np.unique(y.astype(x.dtype, copy=False), return_index=True)
     # C++ Function takes x as the second dimension and y as the first dimension for v
-    v_unique = np.ascontiguousarray(v[np.ix_(idx_x, idx_y)].astype(x.dtype, copy=False).T)
+    v_unique = np.ascontiguousarray(v[np.ix_(idx_x, idx_y)].astype(x.dtype, copy=False))
     v_new = interp_func(
         x_unique, y_unique, v_unique, x_new.astype(x.dtype, copy=False), y_new.astype(x.dtype, copy=False), method_mapping[method]
-    ).T
+    )
     return v_new

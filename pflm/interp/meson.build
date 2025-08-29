@@ -1,14 +1,12 @@
 interp_cython_tree = [
     pflm_root_cython_tree,
-    fs.copyfile('__init__.py'),
-    fs.copyfile('src/interp.h'),
+    fs.copyfile('__init__.py')
 ]
 
 interp_extension_metadata = {
     'interp': {
         'sources': [
-            cython_gen_cpp.process('interp.pyx'),
-            'src' / 'interp.cpp'
+            cython_gen_cpp.process('interp.pyx')
         ],
         'dependencies': [np_dep, openmp_dep],
     },

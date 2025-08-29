@@ -15,7 +15,7 @@ This section introduces the concepts and usage patterns in pflm.
    :maxdepth: 1
    :caption: Advanced Usage
 
-   c_api
+   cython_api
 
 .. toctree::
    :maxdepth: 1

@@ -9,7 +9,7 @@ from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
 from pflm.utils.blas_helper cimport BLAS_Order, ColMajor, RowMajor, NoTrans, Trans, Lower, _gemv, _gemm
 from pflm.utils.lapack_helper cimport _posv
-from pflm.utils.trapz cimport trapz_mat_blas
+from pflm.utils.trapz cimport trapz
 
 
 cdef void get_fitted_y_mat(
@@ -297,7 +297,7 @@ cdef void fpca_in_score_helper(
                 temp[i + j * num_pcs] = fpca_phi[tid[j] * num_pcs + i] * sub_y_minus_mu[j]
 
     cdef int64_t inc_xi = num_unique_sid if order == ColMajor else 1
-    trapz_mat_blas(ColMajor, num_pcs, data_cnt, temp, data_cnt, sub_t, num_pcs, xi, inc_xi)
+    trapz(ColMajor, num_pcs, data_cnt, temp, data_cnt, sub_t, num_pcs, xi, inc_xi)
 
     if if_shrinkage:
         if order == ColMajor:
