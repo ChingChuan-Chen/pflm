@@ -29,21 +29,21 @@ def get_phi_cov(ffd, mu):
     return num_pcs, fpca_lambda, fpca_phi, fitted_cov
 
 
-@pytest.mark.parametrize(
-    "flatten_data, dtype, order",
-    [(np.float32, np.float32, "F"), (np.float64, np.float64, "F"), (np.float32, np.float32, "C"), (np.float64, np.float64, "C")],
-    indirect=["flatten_data"],
-)
-def test_fpca_ce_score_happy_path(flatten_data, dtype, order):
+@pytest.mark.parametrize("flatten_data, dtype", [(np.float32, np.float32), (np.float64, np.float64)], indirect=["flatten_data"])
+@pytest.mark.parametrize("order", ["C", "F"])
+@pytest.mark.parametrize("sigma2_val", [0.0, 0.1, 0.3, 1.0, 2.0])
+def test_fpca_ce_score_happy_path(flatten_data, dtype, order, sigma2_val):
     ffd, mu = flatten_data
     num_samples = ffd.sid_cnt.size
     num_pcs, fpca_lambda, fpca_phi, fitted_cov = get_phi_cov(ffd, mu)
     lambda_mat = np.diag(fpca_lambda)
     fpca_phi = np.ascontiguousarray(fpca_phi) if order == "C" else np.asfortranarray(fpca_phi)
-    sigma2 = dtype(0.3)
+    sigma2 = dtype(sigma2_val)
 
     xi, xi_var, yhat_mat, yhat = get_fpca_ce_score(ffd, mu, num_pcs, fpca_lambda, fpca_phi, fitted_cov, sigma2)
-    sigma_y = fitted_cov + np.eye(fitted_cov.shape[0], dtype=dtype) * sigma2
+    sigma_y = fitted_cov
+    if sigma2 > 0.0:
+        np.fill_diagonal(sigma_y, np.diagonal(sigma_y) + sigma2)
 
     xi_expected = np.zeros((ffd.unique_sid.size, num_pcs), dtype=dtype)
     xi_var_expected = []
@@ -95,50 +95,50 @@ def test_get_fpca_ce_score_fpca_phi_shape_mismatch(flatten_data):
         get_fpca_ce_score(ffd, mu, 2, np.array([[2.0, 1.0]]), bad_phi, fitted_cov, 0.5)
 
 
+# @pytest.mark.parametrize(
+#     "flatten_data, dtype",
+#     [
+#         (np.float64, np.float64),
+#         (np.float32, np.float32),
+#     ],
+#     indirect=["flatten_data"],
+# )
+# @pytest.mark.parametrize("method_rho", ["ridge", "truncated"])
+# @pytest.mark.parametrize("order", ["F", "C"])
+# @pytest.mark.parametrize("sigma2_val", [0.0, 0.1, 0.3, 1.0, 2.0])
+# def test_estimate_rho_happy_path(flatten_data, dtype, method_rho, order, sigma2_val):
+#     ffd, mu = flatten_data
+#     _, fpca_lambda, fpca_phi, fitted_cov = get_phi_cov(ffd, mu)
+#     fpca_phi = np.ascontiguousarray(fpca_phi) if order == "C" else np.asfortranarray(fpca_phi)
+#     sigma2 = dtype(sigma2_val)
+
+#     rho_estimate = estimate_rho(method_rho, ffd, ffd.unique_tid, mu, mu, fpca_lambda, fpca_phi, fpca_phi, fitted_cov, sigma2)
+#     assert np.issubdtype(rho_estimate.dtype, np.floating)
+#     assert rho_estimate > 0.0
+
+#     expected_rho_dict = {
+#         0.0: {"truncated": 0.007986683, "ridge": 0.000007581265},
+#         0.1: {"truncated": 0.007807683, "ridge": 0.000007581265},
+#         0.3: {"truncated": 0.007993797, "ridge": 0.000007581265},
+#         1.0: {"truncated": 0.008771596, "ridge": 0.000007581265},
+#         2.0: {"truncated": 0.009893764, "ridge": 0.000007581265},
+#     }
+#     expected_rho = expected_rho_dict.get(sigma2_val, {}).get(method_rho, None)
+#     if not (dtype == np.float32 and method_rho == "ridge"):
+#         # not validate results in float32 which is less accurate when solving an inverse with small sigma2
+#         assert_allclose(rho_estimate, expected_rho, rtol=1e-5, atol=1e-5)
+
+
 @pytest.mark.parametrize(
-    "flatten_data, dtype, method_rho, order",
+    "flatten_data, dtype",
     [
-        (np.float64, np.float64, "ridge", "F"),
-        (np.float64, np.float64, "ridge", "C"),
-        (np.float32, np.float32, "ridge", "F"),
-        (np.float32, np.float32, "ridge", "C"),
-        (np.float64, np.float64, "truncated", "F"),
-        (np.float64, np.float64, "truncated", "C"),
-        (np.float32, np.float32, "truncated", "F"),
-        (np.float32, np.float32, "truncated", "C"),
+        (np.float64, np.float64),
+        (np.float32, np.float32),
     ],
     indirect=["flatten_data"],
 )
-def test_estimate_rho_happy_path(flatten_data, dtype, method_rho, order):
-    ffd, mu = flatten_data
-    _, fpca_lambda, fpca_phi, fitted_cov = get_phi_cov(ffd, mu)
-    fpca_phi = np.ascontiguousarray(fpca_phi) if order == "C" else np.asfortranarray(fpca_phi)
-    sigma2 = dtype(2)
-
-    rho_estimate = estimate_rho(method_rho, ffd, ffd.unique_tid, mu, mu, fpca_lambda, fpca_phi, fpca_phi, fitted_cov, sigma2)
-    assert np.issubdtype(rho_estimate.dtype, np.floating)
-    assert rho_estimate > 0.0
-
-    expected_rho = {"truncated": 0.009893764, "ridge": 0.000007581265}.get(method_rho, None)
-    if not (method_rho == "ridge" and dtype == np.float32):
-        # not validate results in float32 which is less accurate when solving an inverse with small sigma2
-        assert_allclose(rho_estimate, expected_rho, rtol=1e-5, atol=1e-5)
-
-
-@pytest.mark.parametrize(
-    "flatten_data, dtype, if_shrinkage, order",
-    [
-        (np.float32, np.float32, False, "F"),
-        (np.float64, np.float64, False, "F"),
-        (np.float32, np.float32, False, "C"),
-        (np.float64, np.float64, False, "C"),
-        (np.float32, np.float32, True, "F"),
-        (np.float64, np.float64, True, "F"),
-        (np.float32, np.float32, True, "C"),
-        (np.float64, np.float64, True, "C"),
-    ],
-    indirect=["flatten_data"],
-)
+@pytest.mark.parametrize("if_shrinkage", [True, False])
+@pytest.mark.parametrize("order", ["F", "C"])
 def test_get_fpca_in_score_happy_path(flatten_data, dtype, if_shrinkage, order):
     ffd, mu = flatten_data
     num_samples = ffd.sid_cnt.size

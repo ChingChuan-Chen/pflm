@@ -71,7 +71,9 @@ def get_fpca_ce_score(
         raise ValueError("fpca_phi must have shape (nt, fpca_lambda.size).")
 
     input_dtype = flatten_func_data.y.dtype
-    sigma_y = (fitted_cov + np.eye(fitted_cov.shape[0]) * sigma2).astype(input_dtype, copy=False)
+    sigma_y = fitted_cov.astype(input_dtype, copy=False)
+    if sigma2 > 0.0:
+        np.fill_diagonal(sigma_y, np.diagonal(sigma_y) + sigma2)
     fpca_ce_score_func = fpca_ce_score_f64 if input_dtype == np.float64 else fpca_ce_score_f32
     xi, xi_var, fitted_y_mat, fitted_y = fpca_ce_score_func(
         flatten_func_data.y,
@@ -104,7 +106,7 @@ def estimate_rho(
 
     Parameters
     ----------
-    method_rho : {"ridge", "trunc"}
+    method_rho : {"ridge", "truncated"}
         Estimation strategy for rho.
     flatten_func_data : FlattenFunctionalData
         Flattened data (y, t, tid, unique_sid, sid_cnt).
@@ -123,7 +125,7 @@ def estimate_rho(
     fitted_cov : np.ndarray of shape (nt, nt)
         Fitted covariance on observation grid.
     sigma2 : float
-        Noise variance or starting value (for "trunc" path).
+        Noise variance or starting value (for "truncated" path).
 
     Returns
     -------
@@ -132,14 +134,15 @@ def estimate_rho(
 
     Notes
     -----
-    Values of `method_rho` other than "ridge" are treated as "trunc".
+    Values of `method_rho` other than "ridge" are treated as "truncated".
     """
     num_pcs = fpca_lambda.size
     obs_grid = flatten_func_data.unique_tid
     total_fpca_lambda = np.sum(fpca_lambda)
     if method_rho == "ridge":
+        min_rho_power = -13 if fpca_lambda.dtype == np.float64 else -9
         r = np.sqrt((trapz(mu_obs**2, obs_grid) + total_fpca_lambda) / (obs_grid[-1] - obs_grid[0]))
-        rho_candidates = np.exp(np.linspace(-13, -1.5, 50)) * r
+        rho_candidates = np.exp(np.linspace(min_rho_power, -1.5, 50)) * r
     else:
         for _ in range(2):
             _, _, fitted_y_mat, _ = get_fpca_ce_score(flatten_func_data, mu_obs, num_pcs, fpca_lambda, fpca_phi_obs, fitted_cov, sigma2)

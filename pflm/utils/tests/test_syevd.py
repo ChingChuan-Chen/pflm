@@ -23,7 +23,7 @@ def test_syevd_lower_triangular_matrix_memview(dtype, syevd_func, order):
             [-3.18, 7.21, -7.42, 8.54, 2.51],
         ],
         dtype=dtype,
-        order=order
+        order=order,
     )
     w = np.zeros(A.shape[0], dtype=dtype)
 
@@ -60,7 +60,7 @@ def test_syevd_upper_triangular_matrix_memview(dtype, syevd_func, order):
             [0.0, 0.0, 0.0, 0.0, 2.51],
         ],
         dtype=dtype,
-        order=order
+        order=order,
     )
     w = np.zeros(A.shape[0], dtype=dtype)
 

@@ -254,11 +254,29 @@ cdef void polyfit2d_helper(
         use_svd = 0
 
     cdef uint64_t n_rows = idx.size()
-    cdef set[pair[floating, floating]] unique_grid_points
+    cdef set[pair[int64_t, int64_t]] unique_grid_points
+    cdef floating tolerance
+    if floating is float:
+        tolerance = 1e-6
+    else:
+        tolerance = 1e-12
+    cdef floating inv_tol = (<floating>1.0) / tolerance
+    cdef int64_t kx, ky
+
     if check_rank == 1:
         for i in range(n_rows):
-            unique_grid_points.insert(pair[floating, floating](x_grid[0, idx[i]], x_grid[1, idx[i]]))
-        if unique_grid_points.size() < num_lx_cols:
+            # quantize (round-to-nearest) to integer bins under tol_unique
+            if x_grid[0, idx[i]] >= 0:
+                kx = <int64_t>(x_grid[0, idx[i]] * inv_tol + (<floating>0.5))
+            else:
+                kx = <int64_t>(x_grid[0, idx[i]] * inv_tol - (<floating>0.5))
+            if x_grid[1, idx[i]] >= 0:
+                ky = <int64_t>(x_grid[1, idx[i]] * inv_tol + (<floating>0.5))
+            else:
+                ky = <int64_t>(x_grid[1, idx[i]] * inv_tol - (<floating>0.5))
+            unique_grid_points.insert(pair[int64_t, int64_t](kx, ky))
+
+        if unique_grid_points.size() <= num_lx_cols*2:
             use_svd = 1
         else:
             use_svd = 0
@@ -327,7 +345,7 @@ def polyfit2d_f64(
     int deriv2
 ) -> np.ndarray[np.float64_t]:
     cdef uint64_t n1 = x_new1.size, n2 = x_new2.size
-    cdef np.ndarray[np.float64_t, ndim=2] mu = np.empty((n2, n1), order='C', dtype=np.float64)
+    cdef np.ndarray[np.float64_t, ndim=2] mu = np.empty((n1, n2), order='C', dtype=np.float64)
     cdef np.float64_t[:, ::1] x_grid_view = x_grid
     cdef np.float64_t[:] y_view = y
     cdef np.float64_t[:] w_view = w
@@ -337,16 +355,16 @@ def polyfit2d_f64(
 
     cdef int64_t i, j, l, mu_size = <int64_t> (n1 * n2)
     for l in prange(mu_size, nogil=True):
-        i = l // <int64_t> n2
-        j = l % <int64_t> n2
+        i = <int64_t> (l // n2)
+        j = <int64_t> (l % n2)
         polyfit2d_helper(
             bandwidth1, bandwidth2,
             x_new1_view[i], x_new2_view[j],
-            &mu_view[j, i],
+            &mu_view[i, j],
             x_grid_view, y_view, w_view,
             kernel_type, degree, deriv1, deriv2
         )
-    return mu.T
+    return mu
 
 
 def polyfit2d_f32(
@@ -363,7 +381,7 @@ def polyfit2d_f32(
     int deriv2
 ) -> np.ndarray[np.float32_t]:
     cdef uint64_t n1 = x_new1.size, n2 = x_new2.size
-    cdef np.ndarray[np.float32_t, ndim=2] mu = np.empty((n2, n1), order='C', dtype=np.float32)
+    cdef np.ndarray[np.float32_t, ndim=2] mu = np.empty((n1, n2), order='C', dtype=np.float32)
     cdef np.float32_t[:, ::1] x_grid_view = x_grid
     cdef np.float32_t[:] y_view = y
     cdef np.float32_t[:] w_view = w
@@ -373,13 +391,13 @@ def polyfit2d_f32(
 
     cdef int64_t i, j, l, mu_size = <int64_t> (n1 * n2)
     for l in prange(mu_size, nogil=True):
-        i = l // <int64_t> n2
-        j = l % <int64_t> n2
+        i = <int64_t> (l // n2)
+        j = <int64_t> (l % n2)
         polyfit2d_helper(
             bandwidth1, bandwidth2,
             x_new1_view[i], x_new2_view[j],
-            &mu_view[j, i],
+            &mu_view[i, j],
             x_grid_view, y_view, w_view,
             kernel_type, degree, deriv1, deriv2
         )
-    return mu.T
+    return mu

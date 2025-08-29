@@ -14,10 +14,13 @@ def tri_to_full(dl, d, du):
     return A
 
 
-@pytest.mark.parametrize("func, dtype", [
-    (_gtsv_memview_f64, np.float64),
-    (_gtsv_memview_f32, np.float32),
-])
+@pytest.mark.parametrize(
+    "func, dtype",
+    [
+        (_gtsv_memview_f64, np.float64),
+        (_gtsv_memview_f32, np.float32),
+    ],
+)
 @pytest.mark.parametrize("order", ["C", "F"])
 def test_gtsv_f64_single_rhs(func, dtype, order):
     rng = np.random.default_rng(0)
@@ -38,10 +41,13 @@ def test_gtsv_f64_single_rhs(func, dtype, order):
     assert_allclose(x_cmp, x_true, rtol=1e-4, atol=1e-6)
 
 
-@pytest.mark.parametrize("func, dtype", [
-    (_gtsv_memview_f64, np.float64),
-    (_gtsv_memview_f32, np.float32),
-])
+@pytest.mark.parametrize(
+    "func, dtype",
+    [
+        (_gtsv_memview_f64, np.float64),
+        (_gtsv_memview_f32, np.float32),
+    ],
+)
 def test_gtsv_zero_pivot_info(func, dtype):
     # Construct a singular tridiagonal: first diagonal element is zero
     n, nrhs = 3, 1

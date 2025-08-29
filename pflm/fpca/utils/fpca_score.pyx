@@ -8,7 +8,7 @@ from libc.math cimport NAN
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
 from pflm.utils.blas_helper cimport BLAS_Order, ColMajor, RowMajor, NoTrans, Trans, Lower, _gemv, _gemm
-from pflm.utils.lapack_helper cimport _posv
+from pflm.utils.lapack_helper cimport _sysv
 from pflm.utils.trapz cimport trapz
 
 
@@ -62,9 +62,9 @@ cdef void fpca_ce_score_helper(
     floating* lambda_phi  # shape: (nt, num_pcs)
 ) noexcept nogil:
     cdef int64_t i, j
-    cdef floating* sub_lambda_phi = <floating*> malloc(num_pcs * data_cnt * sizeof(floating))        # shape: (data_cnt, num_pcs) col-major for _posv
-    cdef floating* sub_sigma_lambda_phi = <floating*> malloc(num_pcs * data_cnt * sizeof(floating))  # shape: (data_cnt, num_pcs) col-major for _posv
-    cdef floating* sub_sigma_y = <floating*> malloc(data_cnt * data_cnt * sizeof(floating))          # shape: (data_cnt, data_cnt) col-major upper-triangular for _posv
+    cdef floating* sub_lambda_phi = <floating*> malloc(num_pcs * data_cnt * sizeof(floating))        # shape: (data_cnt, num_pcs) col-major for _sysv
+    cdef floating* sub_sigma_lambda_phi = <floating*> malloc(num_pcs * data_cnt * sizeof(floating))  # shape: (data_cnt, num_pcs) col-major for _sysv
+    cdef floating* sub_sigma_y = <floating*> malloc(data_cnt * data_cnt * sizeof(floating))          # shape: (data_cnt, data_cnt) col-major upper-triangular for _sysv
     cdef floating* sub_y_minus_mu = <floating*> malloc(data_cnt * sizeof(floating))                  # shape: (data_cnt, )
     for i in range(<int64_t> data_cnt):
         sub_y_minus_mu[i] = yy[i] - mu[tid[i]]
@@ -84,10 +84,12 @@ cdef void fpca_ce_score_helper(
 
     # perform A = inv(sub_sigma_y) * sub_lambda_phi
     cdef int info = 0
-    _posv(ColMajor, Lower, <int> data_cnt, <int> num_pcs, sub_sigma_y, <int> data_cnt, sub_sigma_lambda_phi, <int> data_cnt, &info)
+    cdef int *ipiv = <int*> malloc(data_cnt * sizeof(int))
+    _sysv(ColMajor, Lower, <int> data_cnt, <int> num_pcs, sub_sigma_y, <int> data_cnt, ipiv, sub_sigma_lambda_phi, <int> data_cnt, &info)
     if info != 0:
         for j in range(<int64_t> num_pcs):
             xi[j] = NAN
+    free(ipiv)
 
     # perform xi = A * (y - mu) with _gemv: y = alpha * A^T * x + beta * y
     cdef int64_t inc_xi = num_unique_sid if order == ColMajor else 1

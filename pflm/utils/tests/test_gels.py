@@ -44,5 +44,5 @@ def test_gels_multiple_rhs(dtype, gels_func, order):
     assert info == 0, f"LAPACK gels failed with info={info}"
     # the solution length is A.shape[1] * b2.shape[1]
     # the dimensions of x2 should be (A.shape[1], b2.shape[1])
-    x2 = B[:B.shape[1], :]
+    x2 = B[: B.shape[1], :]
     assert_allclose(x2, x_np2, rtol=1e-5, atol=0.0)

@@ -15,10 +15,7 @@ from pflm.utils.lapack_helper import _gelss_memview_f32, _gelss_memview_f64
 def test_gelss_memview(dtype, func, order):
     # Create a simple overdetermined system Ax = b
     # A = [[1, 1], [1, 2], [1, 3]], b = [6, 0, 0]
-    A = np.array(
-        [[1.0, 1.0], [1.0, 2.0], [1.0, 3.0]],
-        dtype=dtype, order=order
-    )
+    A = np.array([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0]], dtype=dtype, order=order)
     B = np.array([[6.0], [0.0], [0.0]], dtype=dtype, order=order)
     # Also check the solution is close to numpy.linalg.lstsq
     x_np, *_ = np.linalg.lstsq(A, B, rcond=None)
@@ -60,5 +57,5 @@ def test_gelss_memview_multiple_rhs(dtype, func, order):
     assert rank == 2
     # the solution length is A.shape[1] * B.shape[1]
     # the dimensions of x2 should be (A.shape[1], B.shape[1])
-    x2 = B[:B.shape[1], :]
+    x2 = B[: B.shape[1], :]
     assert_allclose(x2, x_np2, rtol=1e-5, atol=0.0)

@@ -115,10 +115,10 @@ class FunctionalPCAMuCovParams:
             raise ValueError("method_select_cov_bw must be either 'gcv' or 'cv'.")
         if not isinstance(apply_geo_avg_cov_bw, bool):
             raise ValueError("apply_geo_avg_cov_bw must be a boolean value.")
-        if cv_folds_mu <= 0 or not isinstance(cv_folds_mu, int):
-            raise ValueError("cv_folds_mu must be a positive integer.")
-        if cv_folds_cov <= 0 or not isinstance(cv_folds_cov, int):
-            raise ValueError("cv_folds_cov must be a positive integer.")
+        if not isinstance(cv_folds_mu, int) or cv_folds_mu <= 2:
+            raise ValueError("cv_folds_mu must be greater than 2.")
+        if not isinstance(cv_folds_cov, int) or cv_folds_cov <= 2:
+            raise ValueError("cv_folds_cov must be greater than 2.")
         if random_seed is not None and (not isinstance(random_seed, int) or random_seed < 0):
             raise ValueError("random_seed must be a non-negative integer.")
 
@@ -208,10 +208,10 @@ class FunctionalPCAUserDefinedParams:
             if t_cov is not None or cov is not None:
                 raise ValueError("Both t_cov and cov must be provided together.")
 
-        if sigma2 is not None and (not isinstance(sigma2, (int, float)) or sigma2 < 0):
+        if sigma2 is not None and (not isinstance(sigma2, (int, float, np.floating)) or sigma2 < 0):
             raise ValueError("Variance sigma2 must be a non-negative scalar.")
 
-        if rho is not None and (not isinstance(rho, (int, float)) or rho < 0):
+        if rho is not None and (not isinstance(rho, (int, float, np.floating)) or rho < 0):
             raise ValueError("Correlation rho must be a non-negative scalar.")
 
         self.t_mu = t_mu
@@ -263,6 +263,8 @@ class FunctionalPCA(BaseEstimator):
         Smoothed mean/covariance on the regular grid.
     fpca_model_params_ : FpcaModelParams
         FPCA artifacts: eigen decomposition, selected phi/lambda, fitted covariances, rho, eigenvalue fit, etc.
+    num_pcs_ : int
+        Number of principal components.
     xi_ : np.ndarray of shape (n_samples, k)
         Estimated principal component scores.
     xi_var_ : np.ndarray or List[np.ndarray]
@@ -329,10 +331,9 @@ class FunctionalPCA(BaseEstimator):
 
     def __check_fit_params(
         self,
-        num_samples: int,
         method_pcs: Literal["IN", "CE"] = "CE",
         method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
-        method_rho: Literal["trunc", "ridge", "vanilla"] = "vanilla",
+        method_rho: Literal["truncated", "ridge", "vanilla"] = "vanilla",
         max_num_pcs: Optional[int] = None,
         if_impute_scores: bool = True,
         if_shrinkage: bool = False,
@@ -343,14 +344,12 @@ class FunctionalPCA(BaseEstimator):
 
         Parameters
         ----------
-        num_samples : int
-            Number of samples in the dataset (used for bounds).
         method_pcs : {"IN", "CE"}, default="CE"
             Score computation method (In-sample or Conditional Expectation).
         method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, default="FVE"
             Strategy to select the number of components or a fixed integer.
-        method_rho : {"trunc", "ridge", "vanilla"}, default="vanilla"
-            Rho strategy for CE scoring ("trunc" = truncate sigma2, "ridge" = ridge parameter).
+        method_rho : {"truncated", "ridge", "vanilla"}, default="vanilla"
+            Rho strategy for CE scoring ("truncated" = truncate sigma2, "ridge" = ridge parameter).
         max_num_pcs : int, optional
             Upper bound for PCs; inferred if None.
         if_impute_scores : bool, default=True
@@ -377,10 +376,8 @@ class FunctionalPCA(BaseEstimator):
             raise ValueError("method_select_num_pcs must be one of 'FVE', 'AIC', 'BIC' or a positive integer.")
         if method_rho not in ["truncated", "ridge", "vanilla"]:
             raise ValueError("method_rho must be one of 'truncated', 'ridge', 'vanilla'.")
-        if max_num_pcs is not None and (not isinstance(max_num_pcs, int) or max_num_pcs <= 0):
+        if not isinstance(max_num_pcs, int) or max_num_pcs <= 0:
             raise ValueError("max_num_pcs must be a positive integer.")
-        if max_num_pcs is None:
-            self.max_num_pcs = min(num_samples - 2, self.num_points_reg_grid - 2)
         if not isinstance(fve_threshold, float) or fve_threshold <= 0 or fve_threshold > 1:
             raise ValueError("fve_threshold must be a float between 0 and 1.")
         if not isinstance(if_impute_scores, bool):
@@ -397,7 +394,7 @@ class FunctionalPCA(BaseEstimator):
         w: Optional[List[Union[np.ndarray, List[float]]]] = None,
         method_pcs: Literal["IN", "CE"] = "CE",
         method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
-        method_rho: Literal["trunc", "ridge", "vanilla"] = "vanilla",
+        method_rho: Literal["truncated", "ridge", "vanilla"] = "vanilla",
         max_num_pcs: Optional[int] = None,
         if_impute_scores: bool = True,
         if_shrinkage: bool = False,
@@ -420,7 +417,7 @@ class FunctionalPCA(BaseEstimator):
             Score computation method (In-sample or Conditional Expectation).
         method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, default="FVE"
             Number of PCs selection strategy or fixed integer.
-        method_rho : {"trunc", "ridge", "vanilla"}, default="vanilla"
+        method_rho : {"truncated", "ridge", "vanilla"}, default="vanilla"
             Rho strategy for CE (ignored for IN).
         max_num_pcs : int, optional
             Upper bound for PCs; inferred if None.
@@ -446,9 +443,9 @@ class FunctionalPCA(BaseEstimator):
         - Timing diagnostics are recorded in `elapsed_time_` when `verbose=True`.
         """
         init_start_time = time.time_ns()
-        self.num_samples_ = len(y)
+        if max_num_pcs is None:
+            max_num_pcs = min(len(y) - 2, self.num_points_reg_grid - 2)
         self.__check_fit_params(
-            self.num_samples_,
             method_pcs=method_pcs,
             method_select_num_pcs=method_select_num_pcs,
             method_rho=method_rho,
@@ -464,17 +461,19 @@ class FunctionalPCA(BaseEstimator):
 
         y_p, *_ = get_namespace_and_device(t[0], y[0])
         supported_dtype = supported_float_dtypes(y_p)
-        tmp = check_array(y[0], ensure_2d=False, dtype=supported_dtype, force_all_finite=False)
+        tmp = check_array(y[0], ensure_2d=False, dtype=supported_dtype)
         self._input_dtype = tmp.dtype
         self.t_ = []
         self.y_ = []
         for ti, yi in zip(t, y):
             ti = check_array(ti, ensure_2d=False, dtype=self._input_dtype)
-            yi = check_array(yi, ensure_2d=False, dtype=self._input_dtype, force_all_finite=False)
+            yi = check_array(yi, ensure_2d=False, dtype=self._input_dtype)
             if ti.ndim != 1 or yi.ndim != 1:
                 raise ValueError("Each element of t and y must be a 1D array.")
             if len(ti) != len(yi):
                 raise ValueError("Each element of t and y must have the same length.")
+            if not np.all(np.isfinite(ti)) or not np.all(np.isfinite(yi)):
+                raise ValueError("Each element of t and y must be finite.")
             self.t_.append(ti)
             self.y_.append(yi)
 
@@ -482,28 +481,28 @@ class FunctionalPCA(BaseEstimator):
         self.flatten_func_data_ = flatten_and_sort_data_matrices(self.y_, self.t_, self._input_dtype, w)
         tt = self.flatten_func_data_.t
         obs_grid = self.flatten_func_data_.unique_tid
+        t_min, t_max = self.flatten_func_data_.unique_tid[0], self.flatten_func_data_.unique_tid[-1]
 
+        # check if all trajectories have at least two observations
         if np.any(self.flatten_func_data_.sid_cnt < 2):
             raise ValueError("Each sample must have at least two observations for covariance calculation.")
 
         # create reg_grid_
         if reg_grid is not None:
             # Use custom grid
-            reg_grid = check_array(reg_grid, ensure_2d=False, dtype=self._input_dtype)
+            reg_grid = np.sort(check_array(reg_grid, ensure_2d=False, dtype=self._input_dtype))
             if reg_grid.ndim != 1:
                 raise ValueError("reg_grid must be a 1D array")
             if len(reg_grid) < 2:
                 raise ValueError("reg_grid must have at least 2 points")
-
-            # Check if grid is within the range of input X
-            if np.min(reg_grid) < tt[0] or np.max(reg_grid) > tt[-1]:
-                raise ValueError(
-                    f"reg_grid must be within the range of input X [{tt[0]:.6f}, {tt[-1]:.6f}]. "
-                    f"Got reg_grid range [{np.min(reg_grid):.6f}, {np.max(reg_grid):.6f}]"
-                )
         else:
             # Create uniform grid within the range of input X
-            reg_grid = np.linspace(tt[0], tt[-1], self.num_points_reg_grid, dtype=self._input_dtype)
+            reg_grid = np.linspace(t_min, t_max, self.num_points_reg_grid, dtype=self._input_dtype)
+
+        # Check if grid is within the range of input X
+        if reg_grid[0] != t_min or reg_grid[-1] != t_max:
+            raise ValueError(f"reg_grid must start at {t_min:.6f} and end at {t_max:.6f}.")
+
         init_time = (time.time_ns() - init_start_time) / 1e9
 
         # calculate the mean function
@@ -537,6 +536,11 @@ class FunctionalPCA(BaseEstimator):
                 self._input_dtype, copy=False
             )
             mu_reg = interp1d(obs_grid, mu_obs, reg_grid, method="spline")
+
+        # Check if mu_reg and mu_obs are all finite
+        if not np.all(np.isfinite(mu_reg)) or not np.all(np.isfinite(mu_obs)):
+            raise ValueError("mu_reg and mu_obs must be finite.")
+
         mu_time = (time.time_ns() - start_time) / 1e9
 
         # calculate the covariance function
@@ -545,6 +549,12 @@ class FunctionalPCA(BaseEstimator):
         cov_reg = None
         use_user_cov = False
         self.raw_cov_ = get_raw_cov(self.flatten_func_data_, mu_obs)
+
+        # Check if raw_cov is all finite
+        if not np.all(np.isfinite(self.raw_cov_)):
+            raise ValueError("raw_cov contains non-finite values. Please check the input data.")
+
+        # calculate the covariance function
         if self.user_params.t_cov is not None and self.user_params.cov is not None:
             t_cov = check_array(self.user_params.t_cov, ensure_2d=False, dtype=self._input_dtype)
             cov = check_array(self.user_params.cov, ensure_2d=False, dtype=self._input_dtype)
@@ -569,12 +579,17 @@ class FunctionalPCA(BaseEstimator):
                 reg_grid2=obs_grid,
                 bandwidth_selection_method=self.mu_cov_params.method_select_cov_bw,
                 cv_folds=self.mu_cov_params.cv_folds_cov,
+                same_bandwidth_for_2dim=True,
             )
             cov_obs = cov_func_model.fitted_values()
             cov_reg = interp2d(obs_grid, obs_grid, cov_obs, reg_grid, reg_grid, method="spline")
         elif self.mu_cov_params.estimate_method == "cross-sectional":
             cov_obs = get_covariance_matrix(self.raw_cov_, obs_grid)
             cov_reg = interp2d(obs_grid, obs_grid, cov_obs, reg_grid, reg_grid, method="spline")
+
+        # Check if cov_obs and cov_reg are all finite
+        if not np.all(np.isfinite(cov_obs)) or not np.all(np.isfinite(cov_reg)):
+            raise ValueError("cov_obs and cov_reg must be finite.")
         cov_time = (time.time_ns() - start_time) / 1e9
 
         start_time = time.time_ns()
@@ -587,7 +602,7 @@ class FunctionalPCA(BaseEstimator):
                 diag_reg_var = interp1d(obs_grid, diag_obs_var, reg_grid)
                 sigma2 = np.average(diag_reg_var - np.diagonal(cov_reg))
             else:
-                sigma2 = get_measurement_error_variance(
+                sigma2, _, _ = get_measurement_error_variance(
                     self.raw_cov_,
                     reg_grid,
                     cov_func_model.bandwidth1_,
@@ -603,6 +618,14 @@ class FunctionalPCA(BaseEstimator):
             sigma2 = np.average(diff_2nd_order[diff_mask] ** 2) / 6.0
             if not use_user_cov:
                 np.fill_diagonal(cov_obs, cov_obs.diagonal() - sigma2)
+
+        # Check if sigma2 are greater than or equal to 0
+        if sigma2 < 0:
+            raise ValueError("sigma2 must be non-negative.")
+        # Check if sigma2 is finite
+        if not np.isfinite(sigma2):
+            raise ValueError("sigma2 must be finite.")
+
         sigma2_time = (time.time_ns() - start_time) / 1e9
 
         # Create / update smoothed result containers (phi / fitted_cov filled later in fit_score)
@@ -617,17 +640,17 @@ class FunctionalPCA(BaseEstimator):
         )
         eigen_time = (time.time_ns() - start_time) / 1e9
 
-        self.xi_, self.xi_var_, self.fitted_y_mat_, self.fitted_y_ = self.fit_score(
-            method_pcs, method_select_num_pcs, method_rho, max_num_pcs, if_impute_scores, if_shrinkage, if_fit_eigen_values, fve_threshold
-        )
         self.elapsed_time_ = {
             "initialization": init_time,
             "mu_estimation": mu_time,
             "cov_estimation": cov_time,
             "measurement_error_variance": sigma2_time,
             "eigen_decomposition": eigen_time,
-            "fit_total_time": (time.time_ns() - init_start_time) / 1e9,
         }
+        self.xi_, self.xi_var_, self.fitted_y_mat_, self.fitted_y_ = self.fit_score(
+            method_pcs, method_select_num_pcs, method_rho, max_num_pcs, if_impute_scores, if_shrinkage, if_fit_eigen_values, fve_threshold
+        )
+        self.elapsed_time_["fit_total_time"] = (time.time_ns() - init_start_time) / 1e9
         return self
 
     def fitted_values(self) -> Tuple[np.ndarray, List[np.ndarray]]:
@@ -726,8 +749,8 @@ class FunctionalPCA(BaseEstimator):
         self,
         method_pcs: Literal["IN", "CE"] = "CE",
         method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
-        method_rho: Literal["trunc", "ridge", "vanilla"] = "vanilla",
-        max_num_pcs: Optional[int] = None,
+        method_rho: Literal["truntruncatedc", "ridge", "vanilla"] = "vanilla",
+        max_num_pcs: int = 20,
         if_impute_scores: bool = True,
         if_shrinkage: bool = False,
         if_fit_eigen_values: bool = False,
@@ -745,10 +768,10 @@ class FunctionalPCA(BaseEstimator):
             Score computation method (In-sample or Conditional Expectation).
         method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, default="FVE"
             Selection strategy for number of components or fixed integer.
-        method_rho : {"trunc", "ridge", "vanilla"}, default="vanilla"
+        method_rho : {"truncated", "ridge", "vanilla"}, default="vanilla"
             Rho strategy for CE (ignored for IN).
-        max_num_pcs : int, optional
-            Upper bound for PCs; inferred if None.
+        max_num_pcs : int
+            Upper bound for PCs.
         if_impute_scores : bool, default=True
             Whether to compute scores.
         if_shrinkage : bool, default=False
@@ -783,7 +806,6 @@ class FunctionalPCA(BaseEstimator):
         """
         check_is_fitted(self, ["smoothed_model_result_obs_", "smoothed_model_result_reg_"])
         self.__check_fit_params(
-            num_samples=self.num_samples_,
             method_pcs=method_pcs,
             method_select_num_pcs=method_select_num_pcs,
             method_rho=method_rho,
@@ -811,7 +833,7 @@ class FunctionalPCA(BaseEstimator):
         if isinstance(method_select_num_pcs, str):
             if method_select_num_pcs == "FVE":
                 self.fpca_model_params_.select_num_pcs_criterion, num_pcs = select_num_pcs_fve(
-                    self.fpca_model_params_.eigen_results["eig_lambda"],
+                    self.fpca_model_params_.eigen_results["eigenvalues"],
                     self.fpca_model_params_.fve_threshold,
                     self.fpca_model_params_.max_num_pcs,
                 )
@@ -823,6 +845,7 @@ class FunctionalPCA(BaseEstimator):
             num_pcs = method_select_num_pcs
         else:
             raise ValueError("Invalid method_select_num_pcs. Must be one of ['FVE', 'AIC', 'BIC'] or an integer.")
+        self.num_pcs_ = num_pcs
         self.elapsed_time_["num_pcs_selection"] = (time.time_ns() - start_time) / 1e9
 
         obs_grid = self.smoothed_model_result_obs_.grid
@@ -832,8 +855,8 @@ class FunctionalPCA(BaseEstimator):
             num_pcs,
             reg_grid,
             self.smoothed_model_result_reg_.mu,
-            self.fpca_model_params_.eigen_results["eig_lambda"],
-            self.fpca_model_params_.eigen_results["eig_vector"],
+            self.fpca_model_params_.eigen_results["eigenvalues"],
+            self.fpca_model_params_.eigen_results["eigenvectors"],
         )
         fpca_phi_obs = np.zeros((len(obs_grid), num_pcs), dtype=self._input_dtype)
         for i in range(num_pcs):

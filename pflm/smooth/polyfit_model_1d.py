@@ -320,7 +320,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         if bandwidth_selection_method == "cv" and cv_folds < 2:
             raise ValueError("Number of cross-validation folds, cv_folds, should be at least 2 for 'cv' method.")
 
-        if bandwidth is not None and not isinstance(bandwidth, (float, int)):
+        if bandwidth is not None and not isinstance(bandwidth, (float, int, np.floating)):
             raise ValueError("bandwidth must be positive float or integer.")
         elif bandwidth is not None and np.isnan(bandwidth):
             raise ValueError("bandwidth must not be NaN")

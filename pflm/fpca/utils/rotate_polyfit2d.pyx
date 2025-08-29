@@ -67,11 +67,29 @@ cdef void rotate_polyfit2d_helper(
         use_svd = 0
 
     cdef uint64_t n_rows = idx.size()
-    cdef set[pair[floating, floating]] unique_grid_points
+    cdef set[pair[int64_t, int64_t]] unique_grid_points
+    cdef floating tolerance
+    if floating is float:
+        tolerance = 1e-6
+    else:
+        tolerance = 1e-12
+    cdef floating inv_tol = (<floating>1.0) / tolerance
+    cdef int64_t kx, ky
+
     if check_rank == 1:
         for i in range(n_rows):
-            unique_grid_points.insert(pair[floating, floating](x_grid[0, idx[i]], x_grid[1, idx[i]]))
-        if unique_grid_points.size() < num_lx_cols:
+            # quantize (round-to-nearest) to integer bins under tol_unique
+            if x_grid[0, idx[i]] >= 0:
+                kx = <int64_t>(x_grid[0, idx[i]] * inv_tol + (<floating>0.5))
+            else:
+                kx = <int64_t>(x_grid[0, idx[i]] * inv_tol - (<floating>0.5))
+            if x_grid[1, idx[i]] >= 0:
+                ky = <int64_t>(x_grid[1, idx[i]] * inv_tol + (<floating>0.5))
+            else:
+                ky = <int64_t>(x_grid[1, idx[i]] * inv_tol - (<floating>0.5))
+            unique_grid_points.insert(pair[int64_t, int64_t](kx, ky))
+
+        if unique_grid_points.size() <= num_lx_cols*2:
             use_svd = 1
         else:
             use_svd = 0

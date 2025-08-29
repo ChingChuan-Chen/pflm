@@ -3,7 +3,7 @@ from libc.stdlib cimport malloc, free
 import numpy as np
 cimport numpy as np
 from pflm.utils.blas_helper cimport BLAS_Jobz, BLAS_Uplo, BLAS_Trans, BLAS_Order, ColMajor
-from scipy.linalg.cython_lapack cimport sgels, dgels, sgelss, dgelss, ssyevd, dsyevd, sposv, dposv, sgtsv, dgtsv
+from scipy.linalg.cython_lapack cimport sgels, dgels, sgelss, dgelss, ssyevd, dsyevd, sposv, dposv, sgtsv, dgtsv, ssysv, dsysv
 
 
 cdef void _gels(
@@ -534,6 +534,145 @@ cdef void _posv(
     free(b_cm)
 
 
+cdef void _sysv(
+    BLAS_Order order, BLAS_Uplo uplo, int n, int nrhs,
+    floating *a, int lda, int *ipiv, floating *b, int ldb, int *info
+) noexcept nogil:
+    """
+    Solve symmetric (possibly indefinite) system A * X = B via LAPACK xSYSV
+    (Bunch–Kaufman: factorization + solve), LAPACKE-like API with Row/Col support.
+
+    Parameters
+    ----------
+    order : BLAS_Order
+        RowMajor (C-order) or ColMajor (Fortran-order) for input/output buffers.
+    uplo : BLAS_Uplo
+        'U' or 'L' triangle of A to reference.
+    n : int
+        Order of A (n-by-n).
+    nrhs : int
+        Number of RHS columns in B/X.
+    a : floating*
+        On entry: symmetric matrix A, per `order` with leading dimension `lda`.
+        On exit: overwritten by factorization (L/U and D blocks).
+    lda : int
+        Leading dimension of A. For both layouts require lda >= n.
+    ipiv : int*
+        Pivot indices (length >= n). On exit: 1-based pivoting info.
+    b : floating*
+        On entry: RHS B per `order` with leading dimension `ldb`.
+        On exit: solution X in place of B.
+    ldb : int
+        Leading dimension of B. ColMajor: ldb >= n; RowMajor: ldb >= nrhs.
+    info : int*
+        0 success; <0 illegal arg (C-style index); >0 singularity/zero pivot.
+    """
+    cdef char uplo_ = <char> uplo
+    cdef int lwork = -1
+    cdef floating *work_query = <floating *> malloc(1 * sizeof(floating))
+    if not work_query:
+        info[0] = -1
+        return
+
+    cdef floating *work
+    if order == BLAS_Order.ColMajor:
+        # Query workspace
+        if floating is float:
+            ssysv(&uplo_, &n, &nrhs, a, &lda, ipiv, b, &ldb, work_query, &lwork, info)
+        else:
+            dsysv(&uplo_, &n, &nrhs, a, &lda, ipiv, b, &ldb, work_query, &lwork, info)
+        if info[0] < 0:
+            info[0] -= 1
+        lwork = <int> work_query[0]
+        free(work_query)
+
+        work = <floating *> malloc(lwork * sizeof(floating))
+        if not work:
+            info[0] = -1
+            return
+
+        if floating is float:
+            ssysv(&uplo_, &n, &nrhs, a, &lda, ipiv, b, &ldb, work, &lwork, info)
+        else:
+            dsysv(&uplo_, &n, &nrhs, a, &lda, ipiv, b, &ldb, work, &lwork, info)
+        if info[0] < 0:
+            info[0] -= 1
+        free(work)
+        return
+
+    # RowMajor path: LAPACKE-like checks: -6 for lda, -9 for ldb
+    if lda < n:
+        free(work_query)
+        info[0] = -6
+        return
+    if ldb < nrhs:
+        free(work_query)
+        info[0] = -9
+        return
+
+    # Transpose into column-major temporaries
+    cdef int ldac = n
+    cdef int ldbc = n
+    cdef floating *a_cm = <floating*> malloc(n * n * sizeof(floating))
+    cdef floating *b_cm = <floating*> malloc(n * nrhs * sizeof(floating))
+    cdef int *ipiv_tmp = <int*> malloc(n * sizeof(int))
+    if not a_cm or not b_cm or not ipiv_tmp:
+        if a_cm: free(a_cm)
+        if b_cm: free(b_cm)
+        if ipiv_tmp: free(ipiv_tmp)
+        free(work_query)
+        info[0] = -1
+        return
+
+    cdef int i, j
+    for i in range(n):
+        for j in range(n):
+            a_cm[i + j * ldac] = a[i * lda + j]
+    for i in range(n):
+        for j in range(nrhs):
+            b_cm[i + j * ldbc] = b[i * ldb + j]
+
+    # Query
+    if floating is float:
+        ssysv(&uplo_, &n, &nrhs, a_cm, &ldac, ipiv_tmp, b_cm, &ldbc, work_query, &lwork, info)
+    else:
+        dsysv(&uplo_, &n, &nrhs, a_cm, &ldac, ipiv_tmp, b_cm, &ldbc, work_query, &lwork, info)
+    if info[0] < 0:
+        info[0] -= 1
+    lwork = <int> work_query[0]
+    free(work_query)
+
+    work = <floating *> malloc(lwork * sizeof(floating))
+    if not work:
+        free(a_cm); free(b_cm); free(ipiv_tmp)
+        info[0] = -1
+        return
+
+    # Compute
+    if floating is float:
+        ssysv(&uplo_, &n, &nrhs, a_cm, &ldac, ipiv_tmp, b_cm, &ldbc, work, &lwork, info)
+    else:
+        dsysv(&uplo_, &n, &nrhs, a_cm, &ldac, ipiv_tmp, b_cm, &ldbc, work, &lwork, info)
+    if info[0] < 0:
+        info[0] -= 1
+
+    if info[0] == 0:
+        # Copy back factors/solution and pivots
+        for i in range(n):
+            for j in range(n):
+                a[i * lda + j] = a_cm[i + j * ldac]
+        for i in range(n):
+            for j in range(nrhs):
+                b[i * ldb + j] = b_cm[i + j * ldbc]
+        for i in range(n):
+            ipiv[i] = ipiv_tmp[i]
+
+    free(work)
+    free(a_cm)
+    free(b_cm)
+    free(ipiv_tmp)
+
+
 cdef void _gtsv(
     BLAS_Order order, int n, int nrhs,
     floating *dl, floating *d, floating *du,
@@ -709,23 +848,60 @@ def _posv_memview_f64(
     np.float64_t[:, :] A, np.float64_t[:, :] b,
     int m, int n, int nrhs
 ):
-    cdef BLAS_Order order = A.strides[0] == A.itemsize
+    cdef BLAS_Order order = BLAS_Order.ColMajor if A.strides[0] == A.itemsize else BLAS_Order.RowMajor
     cdef int lda = m if order == BLAS_Order.ColMajor else n
     cdef int ldb = m if order == BLAS_Order.ColMajor else nrhs
     cdef int info = 0
     _posv(order, uplo, n, nrhs, &A[0, 0], lda, &b[0, 0], ldb, &info)
     return info
 
+
 def _posv_memview_f32(
     BLAS_Uplo uplo,
     np.float32_t[:, :] A, np.float32_t[:, :] b,
     int m, int n, int nrhs
 ):
-    cdef BLAS_Order order = A.strides[0] == A.itemsize
+    cdef BLAS_Order order = BLAS_Order.ColMajor if A.strides[0] == A.itemsize else BLAS_Order.RowMajor
     cdef int lda = m if order == BLAS_Order.ColMajor else n
     cdef int ldb = m if order == BLAS_Order.ColMajor else nrhs
     cdef int info = 0
     _posv(order, uplo, n, nrhs, &A[0, 0], lda, &b[0, 0], ldb, &info)
+    return info
+
+
+def _sysv_memview_f64(
+    BLAS_Uplo uplo,
+    np.float64_t[:, :] A,  # n x n
+    np.int32_t[:] ipiv,    # length n
+    np.float64_t[:, :] B,  # n x nrhs
+    int n, int nrhs
+):
+    if sizeof(int) != sizeof(np.int32_t):
+        raise RuntimeError("C int is not 32-bit.")
+    cdef BLAS_Order order = BLAS_Order.ColMajor if A.strides[0] == A.itemsize else BLAS_Order.RowMajor
+    cdef int lda = n   # square; both layouts require >= n
+    cdef int ldb = n if order == BLAS_Order.ColMajor else nrhs
+    cdef int *ipiv_ptr = <int *> &ipiv[0]
+    cdef int info = 0
+    _sysv(order, uplo, n, nrhs, &A[0, 0], lda, ipiv_ptr, &B[0, 0], ldb, &info)
+    return info
+
+
+def _sysv_memview_f32(
+    BLAS_Uplo uplo,
+    np.float32_t[:, :] A,  # n x n
+    np.int32_t[:] ipiv,    # length n
+    np.float32_t[:, :] B,  # n x nrhs
+    int n, int nrhs
+):
+    if sizeof(int) != sizeof(np.int32_t):
+        raise RuntimeError("C int is not 32-bit.")
+    cdef BLAS_Order order = BLAS_Order.ColMajor if A.strides[0] == A.itemsize else BLAS_Order.RowMajor
+    cdef int lda = n
+    cdef int ldb = n if order == BLAS_Order.ColMajor else nrhs
+    cdef int *ipiv_ptr = <int *> &ipiv[0]
+    cdef int info = 0
+    _sysv(order, uplo, n, nrhs, &A[0, 0], lda, ipiv_ptr, &B[0, 0], ldb, &info)
     return info
 
 
@@ -733,7 +909,7 @@ def _gtsv_memview_f64(
     np.float64_t[:] dl, np.float64_t[:] d, np.float64_t[:] du,
     np.float64_t[:, :] b, int n, int nrhs
 ):
-    cdef BLAS_Order order = b.strides[0] == b.itemsize
+    cdef BLAS_Order order = BLAS_Order.ColMajor if b.strides[0] == b.itemsize else BLAS_Order.RowMajor
     cdef int ldb = n if order == BLAS_Order.ColMajor else nrhs
     cdef int info = 0
     _gtsv(order, n, nrhs, &dl[0], &d[0], &du[0], &b[0, 0], ldb, &info)
@@ -744,7 +920,7 @@ def _gtsv_memview_f32(
     np.float32_t[:] dl, np.float32_t[:] d, np.float32_t[:] du,
     np.float32_t[:, :] b, int n, int nrhs
 ):
-    cdef BLAS_Order order = b.strides[0] == b.itemsize
+    cdef BLAS_Order order = BLAS_Order.ColMajor if b.strides[0] == b.itemsize else BLAS_Order.RowMajor
     cdef int ldb = n if order == BLAS_Order.ColMajor else nrhs
     cdef int info = 0
     _gtsv(order, n, nrhs, &dl[0], &d[0], &du[0], &b[0, 0], ldb, &info)

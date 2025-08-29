@@ -96,9 +96,8 @@ def test_get_measurement_error_variance_reg_grid_not_increasing(raw_cov):
         get_measurement_error_variance(raw_cov, reg_grid_bad, 0.15, KernelType.GAUSSIAN)
 
 
-@pytest.mark.parametrize(
-    "raw_cov,bad_bw", [(np.float64, "0.15"), (np.float64, [0.15]), (np.float64, (0.15,)), (np.float64, {"bw": 0.15})], indirect=["raw_cov"]
-)
+@pytest.mark.parametrize("raw_cov", [np.float64], indirect=["raw_cov"])
+@pytest.mark.parametrize("bad_bw", ["0.15", [0.15], (0.15,), {"bw": 0.15}])
 def test_get_measurement_error_variance_invalid_bandwidth_type(raw_cov, bad_bw):
     reg_grid = np.array([0.1, 0.2, 0.3], dtype=np.float64)
     with pytest.raises(ValueError, match="bandwidth must be a numeric value"):
@@ -112,7 +111,8 @@ def test_get_measurement_error_variance_non_positive_bandwidth(raw_cov):
         get_measurement_error_variance(raw_cov, reg_grid, 0.0, KernelType.GAUSSIAN)
 
 
-@pytest.mark.parametrize("raw_cov,nan_val", [(np.float64, float("nan")), (np.float64, np.nan)], indirect=["raw_cov"])
+@pytest.mark.parametrize("raw_cov", [np.float64], indirect=["raw_cov"])
+@pytest.mark.parametrize("nan_val", [float("nan"), np.nan])
 def test_get_measurement_error_variance_bandwidth_nan(raw_cov, nan_val):
     reg_grid = np.array([0.1, 0.2, 0.3], dtype=np.float64)
     with pytest.raises(ValueError, match="bandwidth must not be NaN"):

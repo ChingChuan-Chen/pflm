@@ -13,19 +13,18 @@ from pflm.fpca.utils import get_covariance_matrix, get_raw_cov
 def test_get_raw_cov_happy_path(raw_cov, flatten_data, dtype):
     ffd, mu = flatten_data
     mu = (np.bincount(ffd.tid, ffd.y) / np.bincount(ffd.tid)).astype(dtype, copy=False)
-    raw_cov = get_raw_cov(ffd, mu)
-    expected_num_pairs = np.sum(ffd.sid_cnt * (ffd.sid_cnt + 1) // 2)
+    calc_raw_cov = get_raw_cov(ffd, mu)
+    expected_num_pairs = np.sum(ffd.sid_cnt * ffd.sid_cnt)
 
     # check shape
-    assert raw_cov.shape[0] == expected_num_pairs
-    assert raw_cov.shape[1] == 5  # sid, t1, t2, w, cov
+    assert calc_raw_cov.shape[0] == expected_num_pairs
+    assert calc_raw_cov.shape[1] == 5  # sid, t1, t2, w, cov
     # check type
-    assert isinstance(raw_cov, np.ndarray)
-    assert raw_cov.dtype == dtype
+    assert isinstance(calc_raw_cov, np.ndarray)
+    assert calc_raw_cov.dtype == dtype
 
     # check result
-    expected_raw_cov = raw_cov.astype(dtype)
-    assert_allclose(raw_cov, expected_raw_cov, rtol=1e-5, atol=0.0)
+    assert_allclose(calc_raw_cov, raw_cov.astype(dtype), rtol=1e-5, atol=0.0)
 
 
 @pytest.mark.parametrize("flatten_data", [np.float64], indirect=True)

@@ -10,7 +10,7 @@ cdef inline vector[pair[uint64_t, uint64_t]] _all_pairs_indices_vec(uint64_t n) 
     cdef uint64_t i, j
     cdef vector[pair[uint64_t, uint64_t]] out
     for i in range(n):
-        for j in range(i, n):
+        for j in range(n):
             out.push_back(pair[uint64_t, uint64_t](i, j))
     return out
 
@@ -50,7 +50,7 @@ def get_raw_cov_f64(
 ) -> np.ndarray[np.float64_t]:
     cdef uint64_t num_unique_sid = unique_sid.size
     cdef np.ndarray[np.int64_t] sid_cum_cnt = np.cumsum(sid_cnt)
-    cdef np.ndarray[np.int64_t] pairs_cum_cnt = np.cumsum(sid_cnt * (sid_cnt + 1) // 2)
+    cdef np.ndarray[np.int64_t] pairs_cum_cnt = np.cumsum(sid_cnt * sid_cnt)
     cdef int64_t total_pairs = pairs_cum_cnt[pairs_cum_cnt.size-1]
     if total_pairs <= 0:
         return np.empty((0, 5), dtype=np.float64)
@@ -91,7 +91,7 @@ def get_raw_cov_f32(
 ) -> np.ndarray[np.float32_t]:
     cdef uint64_t num_unique_sid = unique_sid.size
     cdef np.ndarray[np.int64_t] sid_cum_cnt = np.cumsum(sid_cnt)
-    cdef np.ndarray[np.int64_t] pairs_cum_cnt = np.cumsum((sid_cnt + 1) * sid_cnt // 2)
+    cdef np.ndarray[np.int64_t] pairs_cum_cnt = np.cumsum(sid_cnt * sid_cnt)
     cdef int64_t total_pairs = pairs_cum_cnt[pairs_cum_cnt.size-1]
     if total_pairs <= 0:
         return np.empty((0, 5), dtype=np.float32)

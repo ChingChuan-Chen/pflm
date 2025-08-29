@@ -128,8 +128,11 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         """
         d_star = np.max(sorted_unique_support[lag:] - sorted_unique_support[:-lag])
         r = sorted_unique_support[-1] - sorted_unique_support[0]
-        h0 = min(2.0 * d_star, r)
-        q = math.pow(0.25 * r / h0, 1.0 / (num_bw_candidates - 1))
+        # the bw candidates have a larger range than original PACE
+        # In the original PACE, the bw candidate is range from min(1.5*d_star, r) to range of time / 4 for sparse case.
+        # Here, we set it be from min(1.5*d_star, r) to 0.35 times range of time for all case. Also, the number of bw is increasing from 9 to 21.
+        h0 = min(1.5 * d_star, r)
+        q = math.pow(0.35 * r / h0, 1.0 / (num_bw_candidates - 1))
         return h0 * (q ** np.linspace(0, num_bw_candidates - 1, num_bw_candidates, dtype=self._input_dtype))
 
     def _generate_bandwidth_candidates(self, num_bw_candidates: int, same_bandwidth_for_2dim: bool = False) -> np.ndarray:
@@ -160,10 +163,10 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
 
         # return candidates
         if same_bandwidth_for_2dim:
-            return np.vstack((bw1_candidates, bw2_candidates))
+            return np.vstack((bw1_candidates, bw2_candidates)).T
         else:
             bw1v, bw2v = np.meshgrid(bw1_candidates, bw2_candidates)
-            return np.vstack((bw1v.ravel(), bw2v.ravel()))
+            return np.vstack((bw1v.ravel(), bw2v.ravel())).T
 
     def _compute_cv_score(
         self,
@@ -338,6 +341,7 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
                     for i in range(bandwidth_candidates_.shape[0])
                 ]
             )
+
             if (~np.isfinite(gcv_scores)).all():
                 raise ValueError("All GCV scores are non-finite. Check your data and bandwidth candidates.")
             self.bandwidth_selection_results_["gcv_scores"] = gcv_scores
@@ -404,14 +408,14 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         if bandwidth_selection_method == "cv" and cv_folds < 2:
             raise ValueError("Number of cross-validation folds, cv_folds, should be at least 2 for 'cv' method.")
 
-        if bandwidth1 is not None and not isinstance(bandwidth1, (float, int)):
+        if bandwidth1 is not None and not isinstance(bandwidth1, (float, int, np.floating)):
             raise ValueError("bandwidth1 must be positive float or integer.")
         elif bandwidth1 is not None and np.isnan(bandwidth1):
             raise ValueError("bandwidth1 must not be NaN")
         elif bandwidth1 is not None and bandwidth1 <= 0:
             raise ValueError("bandwidth1 must be positive.")
 
-        if bandwidth2 is not None and not isinstance(bandwidth2, (float, int)):
+        if bandwidth2 is not None and not isinstance(bandwidth2, (float, int, np.floating)):
             raise ValueError("bandwidth2 must be positive float or integer.")
         elif bandwidth2 is not None and np.isnan(bandwidth2):
             raise ValueError("bandwidth2 must not be NaN")

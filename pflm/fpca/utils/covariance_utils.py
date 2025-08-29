@@ -108,16 +108,15 @@ def get_covariance_matrix(raw_cov: np.ndarray, obs_grid: np.ndarray) -> np.ndarr
     covariances[ww_sum <= 1.0] = 0.0  # set cov to 0 if weight is less than or equal to 1
 
     # map the pairs to the observation grid
-    upper_cov_matrix = np.zeros((obs_grid.size, obs_grid.size), dtype=raw_cov.dtype)
+    cov_matrix = np.zeros((obs_grid.size, obs_grid.size), dtype=raw_cov.dtype)
     t1 = np.digitize(t_pairs[:, 0], obs_grid, right=True)
     t2 = np.digitize(t_pairs[:, 1], obs_grid, right=True)
 
     for t1_idx, t2_idx, cov in zip(t1, t2, covariances):
-        upper_cov_matrix[t1_idx, t2_idx] = cov
+        cov_matrix[t1_idx, t2_idx] = cov
 
     # ensure symmetry
-    cov_matrix = upper_cov_matrix + upper_cov_matrix.T
-    np.fill_diagonal(cov_matrix, cov_matrix.diagonal() / 2.0)
+    cov_matrix = (cov_matrix + cov_matrix.T) / 2.0
     return cov_matrix
 
 
@@ -170,7 +169,7 @@ def rotate_polyfit2d(
       the low-level routine.
     - This function does not select bandwidth; it assumes `bandwidth` is given.
     """
-    if not isinstance(bandwidth, (int, float)):
+    if not isinstance(bandwidth, (int, float, np.floating)):
         raise ValueError("bandwidth must be a numeric value.")
     if bandwidth <= 0:
         raise ValueError("bandwidth must be a positive number.")
@@ -263,7 +262,7 @@ def get_measurement_error_variance(
         raise ValueError("reg_grid must be a 1D array.")
     if np.any(np.diff(reg_grid) <= 0):
         raise ValueError("reg_grid must be a 1D array with increasing values.")
-    if not isinstance(bandwidth, (int, float)):
+    if not isinstance(bandwidth, (int, float, np.floating)):
         raise ValueError("bandwidth must be a numeric value.")
     if bandwidth <= 0:
         raise ValueError("bandwidth must be a positive number.")

@@ -67,7 +67,7 @@ class FpcaModelParams:
         Upper bound used when searching the number of PCs.
     method_pcs : {"IN","CE"}, optional
         Score estimation method (In-sample or Conditional Expectation).
-    method_rho : {"trunc","ridge","vanilla"}, optional
+    method_rho : {"truncated","ridge","vanilla"}, optional
         Strategy for rho selection in CE.
     if_shrinkage : bool, optional
         Whether shrinkage was applied to IN scores.
@@ -85,13 +85,12 @@ class FpcaModelParams:
     select_num_pcs_criterion: Optional[np.ndarray] = None
     fpca_lambda: Optional[np.ndarray] = None
     fpca_phi: Optional[Dict[str, np.ndarray]] = None
-    num_pcs: Optional[int] = None
     fitted_covariance: Optional[Dict[str, np.ndarray]] = None
     rho: Optional[float] = None
     eigenvalue_fit: Optional[np.ndarray] = None
     method_select_num_pcs: Optional[Union[int, Literal["FVE", "AIC", "BIC"]]] = None
     max_num_pcs: Optional[int] = None
     method_pcs: Optional[Literal["IN", "CE"]] = None
-    method_rho: Optional[Literal["trunc", "ridge", "vanilla"]] = None
+    method_rho: Optional[Literal["truncated", "ridge", "vanilla"]] = None
     if_shrinkage: Optional[bool] = None
     fve_threshold: Optional[float] = None
