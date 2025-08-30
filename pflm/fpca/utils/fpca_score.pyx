@@ -88,7 +88,10 @@ cdef void fpca_ce_score_helper(
     cdef floating* sub_sigma_y_copy = <floating*> malloc(data_cnt * data_cnt * sizeof(floating))     # shape: (data_cnt, data_cnt) col-major, symmetric
     cdef floating* sub_y_minus_mu = <floating*> malloc(data_cnt * sizeof(floating))                  # shape: (data_cnt, )
     if (not sub_lambda_phi) or (not sub_sigma_y) or (not sub_sigma_y_copy) or (not sub_y_minus_mu):
-        free(sub_lambda_phi); free(sub_sigma_y); free(sub_sigma_y_copy); free(sub_y_minus_mu)
+        if sub_lambda_phi:  free(sub_lambda_phi)
+        if sub_sigma_y:  free(sub_sigma_y)
+        if sub_sigma_y_copy:  free(sub_sigma_y_copy)
+        if sub_y_minus_mu:  free(sub_y_minus_mu)
         for i in prange(<int64_t> num_pcs, nogil=True):
             xi[i*inc_xi] = NAN
             for j in range(<int64_t> num_pcs):
@@ -350,7 +353,9 @@ cdef void fpca_in_score_helper(
     cdef floating* sub_y_minus_mu = <floating*> malloc(data_cnt * sizeof(floating))       # shape: (data_cnt, )
     cdef floating* sub_t = <floating*> malloc(data_cnt * sizeof(floating))                # shape: (data_cnt, )
     if (not temp) or (not sub_y_minus_mu) or (not sub_t):
-        free(temp); free(sub_y_minus_mu); free(sub_t)
+        if temp: free(temp)
+        if sub_y_minus_mu: free(sub_y_minus_mu)
+        if sub_t: free(sub_t)
         for j in range(<int64_t> num_pcs):
             xi[j] = NAN
         return

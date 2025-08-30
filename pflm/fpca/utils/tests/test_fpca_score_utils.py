@@ -1,8 +1,8 @@
 import warnings
 
 import numpy as np
-import scipy.linalg
 import pytest
+import scipy.linalg
 from numpy.testing import assert_allclose
 
 from pflm.fpca.utils import (

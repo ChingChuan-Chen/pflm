@@ -22,7 +22,7 @@ def get_fpca_ce_score(
     sigma2: float,
 ) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
     """
-    Compute conditional-expectation (CE) FPCA scores and fitted curves.
+    Compute conditional expectation (CE) FPCA scores and fitted curves.
 
     Parameters
     ----------
@@ -60,7 +60,7 @@ def get_fpca_ce_score(
 
     See Also
     --------
-    get_fpca_in_score : In-sample (projection-based) score computation.
+    get_fpca_in_score : Numerical integration score computation.
     """
     nt = flatten_func_data.unique_tid.size
     if fitted_cov.shape != (nt, nt):
@@ -176,7 +176,7 @@ def get_fpca_in_score(
     if_shrinkage: bool = False,
 ) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray, List[np.ndarray]]:
     """
-    Compute in-sample (projection-based) FPCA scores and fitted curves.
+    Compute Numerical integration FPCA scores and fitted curves.
 
     Parameters
     ----------
@@ -214,7 +214,7 @@ def get_fpca_in_score(
 
     See Also
     --------
-    get_fpca_ce_score : Conditional-expectation score computation.
+    get_fpca_ce_score : Conditional expectation score computation.
     """
     nt = flatten_func_data.unique_tid.size
     if num_pcs > fpca_lambda.size:

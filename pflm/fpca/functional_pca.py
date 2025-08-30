@@ -329,6 +329,99 @@ class FunctionalPCA(BaseEstimator):
                 + "Please set assume_measurement_error to True or set rho to None or 0."
             )
 
+    def __check_data(
+        self,
+        y: List[Union[np.ndarray, List[float]]],
+        t: List[Union[np.ndarray, List[float]]],
+        w: Optional[List[Union[np.ndarray, List[float]]]] = None,
+        dtype: Optional[Union[str, np.dtype]] = None,
+    ) -> Tuple[np.dtype, List[np.ndarray], List[np.ndarray]]:
+        """
+        Validate and normalize input series (y, t, optional w) and resolve output dtype.
+
+        This helper:
+        - Optionally warns when the number of samples is small (<= 3).
+        - Checks list lengths (len(y) == len(t)).
+        - Resolves the output dtype either from `dtype` or from the inputs using
+          sklearn's supported float dtypes.
+        - Validates each (ti, yi) pair:
+          * Both must be 1D arrays.
+          * Their lengths must match.
+          * All entries must be finite.
+          * Arrays are converted to the resolved dtype.
+        - Optionally validates/normalizes `w` when provided.
+
+        Parameters
+        ----------
+        y : list of array-like
+            Observations per sample; each element must be a 1D array of shape (n_i,).
+        t : list of array-like
+            Time vectors per sample; each element must be a 1D array of shape (n_i,).
+        w : list or array-like, optional
+            Optional weights (shape policy follows the downstream flatten utility).
+            If provided, validated and cast to the resolved dtype.
+        dtype : str or np.dtype, optional
+            If given, forces the output dtype; otherwise determined from inputs.
+
+        Returns
+        -------
+        output_dtype : np.dtype
+            The resolved dtype used to cast inputs.
+        y_ : list of np.ndarray
+            Normalized 1D arrays for observations, per sample.
+        t_ : list of np.ndarray
+            Normalized 1D arrays for time grids, per sample.
+        w_ : np.ndarray or None
+            Normalized weights if provided, else None.
+
+        Raises
+        ------
+        ValueError
+            If `y` and `t` lengths differ; if any (ti, yi) is not 1D or any (ti, yi) is not finite;
+            If `w` is provided and not 1D or has incompatible length;
+            if lengths within a pair differ; or if non-finite values are found.
+
+        Notes
+        -----
+        The dtype resolution uses `sklearn.utils._array_api.get_namespace_and_device`
+        and `supported_float_dtypes` to select a compatible floating dtype.
+        """
+        if len(y) <= 3:
+            warnings.warn("The number of samples is less than or equal to 3. This may lead to unreliable results in functional PCA.")
+        if len(y) != len(t):
+            raise ValueError("y and t must have the same length.")
+
+        if dtype is None:
+            y_p, *_ = get_namespace_and_device([yi.dtype for yi in y] + [ti.dtype for ti in t])
+            supported_dtype = supported_float_dtypes(y_p)
+            output_dtype = check_array(y[0], ensure_2d=False, dtype=supported_dtype).dtype
+        else:
+            output_dtype = check_array(y[0], ensure_2d=False, dtype=dtype).dtype
+
+        y_ = []
+        t_ = []
+        for ti, yi in zip(t, y):
+            ti = check_array(ti, ensure_2d=False, dtype=output_dtype)
+            yi = check_array(yi, ensure_2d=False, dtype=output_dtype)
+            if ti.ndim != 1 or yi.ndim != 1:
+                raise ValueError("Each element of t and y must be a 1D array.")
+            if yi.size <= 1 or ti.size <= 1:
+                raise ValueError("Each element of t and y must have more than one observation.")
+            if len(ti) != len(yi):
+                raise ValueError("Each element of t and y must have the same length.")
+            y_.append(yi)
+            t_.append(ti)
+
+        w_ = None
+        if w is not None:
+            w_ = check_array(w, ensure_2d=False, dtype=output_dtype)
+            if w_.size != len(y_):
+                raise ValueError("The length of w must be the same as the number of samples.")
+            if w_.ndim != 1:
+                raise ValueError("w must be a 1D array.")
+
+        return output_dtype, y_, t_, w_
+
     def __check_fit_params(
         self,
         method_pcs: Literal["IN", "CE"] = "CE",
@@ -456,36 +549,13 @@ class FunctionalPCA(BaseEstimator):
             fve_threshold=fve_threshold,
         )
 
-        if len(y) <= 3:
-            warnings.warn("The number of samples is less than or equal to 3. This may lead to unreliable results in functional PCA.")
-
-        y_p, *_ = get_namespace_and_device(t[0], y[0])
-        supported_dtype = supported_float_dtypes(y_p)
-        tmp = check_array(y[0], ensure_2d=False, dtype=supported_dtype)
-        self._input_dtype = tmp.dtype
-        self.t_ = []
-        self.y_ = []
-        for ti, yi in zip(t, y):
-            ti = check_array(ti, ensure_2d=False, dtype=self._input_dtype)
-            yi = check_array(yi, ensure_2d=False, dtype=self._input_dtype)
-            if ti.ndim != 1 or yi.ndim != 1:
-                raise ValueError("Each element of t and y must be a 1D array.")
-            if len(ti) != len(yi):
-                raise ValueError("Each element of t and y must have the same length.")
-            if not np.all(np.isfinite(ti)) or not np.all(np.isfinite(yi)):
-                raise ValueError("Each element of t and y must be finite.")
-            self.t_.append(ti)
-            self.y_.append(yi)
+        # check data
+        self._input_dtype, self.y_, self.t_, self.w_ = self.__check_data(y, t, w)
 
         # Flatten and sort the data matrices
-        self.flatten_func_data_ = flatten_and_sort_data_matrices(self.y_, self.t_, self._input_dtype, w)
-        tt = self.flatten_func_data_.t
+        self.flatten_func_data_ = flatten_and_sort_data_matrices(self.y_, self.t_, self._input_dtype, self.w_)
         obs_grid = self.flatten_func_data_.unique_tid
         t_min, t_max = self.flatten_func_data_.unique_tid[0], self.flatten_func_data_.unique_tid[-1]
-
-        # check if all trajectories have at least two observations
-        if np.any(self.flatten_func_data_.sid_cnt < 2):
-            raise ValueError("Each sample must have at least two observations for covariance calculation.")
 
         # create reg_grid_
         if reg_grid is not None:
@@ -658,98 +728,6 @@ class FunctionalPCA(BaseEstimator):
         self.elapsed_time_["fit_total_time"] = (time.time_ns() - init_start_time) / 1e9
         return self
 
-    def fitted_values(self) -> Tuple[np.ndarray, List[np.ndarray]]:
-        """Return fitted functional values on grids.
-
-        Returns
-        -------
-        fitted_y_mat : np.ndarray of shape (nt_obs, n_samples)
-            Fitted values on the observation grid.
-        fitted_y : List[np.ndarray]
-            Fitted values at actually observed time points per subject.
-
-        Raises
-        ------
-        sklearn.exceptions.NotFittedError
-            If called before fitting.
-        """
-        check_is_fitted(self, ["fpca_model_params_", "fitted_y_"])
-        return self.fitted_y_mat_, self.fitted_y_
-
-    def predict(
-        self,
-        y: List[Union[np.ndarray, List[float]]],
-        t: List[Union[np.ndarray, List[float]]],
-        w: Optional[List[Union[np.ndarray, List[float]]]] = None,
-        num_pcs: Optional[int] = None,
-    ) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray, List[np.ndarray]]:
-        """Predict scores and fitted curves for new observations.
-
-        Parameters
-        ----------
-        y : list of array-like
-            New observations per sample; each is 1D with shape (n_i,).
-        t : list of array-like
-            Matching time vectors per sample; each is 1D with shape (n_i,).
-        w : list of array-like, optional
-            Optional weights compatible with the flattening utility.
-        num_pcs : int, optional
-            Number of PCs to use; if None, uses the number selected during `fit`.
-
-        Returns
-        -------
-        new_xi : np.ndarray of shape (n_samples, k)
-            Predicted FPCA scores.
-        new_xi_var : np.ndarray or List[np.ndarray]
-            Predicted score variance summaries (method-dependent).
-        new_fitted_y_mat : np.ndarray of shape (nt_obs, n_samples)
-            Predicted values on the observation grid.
-        new_fitted_y : List[np.ndarray]
-            Predicted values at actually observed time points per subject.
-
-        Notes
-        -----
-        - The method of scoring follows the fitted configuration (`method_pcs`).
-        - LS/WLS pathways are not implemented and will raise if selected.
-        """
-        check_is_fitted(self, ["fpca_model_params_", "fitted_y_"])
-        new_flatten_func_data = flatten_and_sort_data_matrices(y, t, self._input_dtype, w)
-
-        start_time = time.time()
-        new_xi_ = None
-        new_xi_var_ = None
-        new_fitted_y_mat_ = None
-        new_fitted_y_ = None
-        if self.fpca_model_params_.method_pcs == "CE":
-            sigma2 = (
-                self.fpca_model_params_.rho if self.fpca_model_params_.rho is not None else self.fpca_model_params_.measurement_error_variance
-            )
-            new_xi_, new_xi_var_, new_fitted_y_mat_, new_fitted_y_ = get_fpca_ce_score(
-                new_flatten_func_data,
-                self.smoothed_model_result_obs_.mu,
-                num_pcs,
-                self.fpca_model_params_.fpca_lambda,
-                self.fpca_model_params_.fpca_phi["obs"],
-                self.fpca_model_params_.fitted_covariance["obs"],
-                sigma2,
-            )
-        elif self.fpca_model_params_.method_pcs == "IN":
-            new_xi_, new_xi_var_, new_fitted_y_mat_, new_fitted_y_ = get_fpca_in_score(
-                new_flatten_func_data,
-                self.smoothed_model_result_obs_.mu,
-                num_pcs,
-                self.fpca_model_params_.fpca_lambda,
-                self.fpca_model_params_.fpca_phi["obs"],
-                self.fpca_model_params_.measurement_error_variance,
-                self.fpca_model_params_.if_shrinkage,
-            )
-        elif self.fpca_model_params_.method_pcs == "LS":
-            NotImplementedError("Least squares method is not implemented.")
-        elif self.fpca_model_params_.method_pcs == "WLS":
-            NotImplementedError("Weighted least squares method is not implemented.")
-        self.elapsed_time_["prediction"] = time.time() - start_time
-        return new_xi_, new_xi_var_, new_fitted_y_mat_, new_fitted_y_
-
     def fit_score(
         self,
         method_pcs: Literal["IN", "CE"] = "CE",
@@ -770,7 +748,7 @@ class FunctionalPCA(BaseEstimator):
         Parameters
         ----------
         method_pcs : {"IN", "CE"}, default="CE"
-            Score computation method (In-sample or Conditional Expectation).
+            Score computation method. Numerical integration (IN) or Conditional Expectation (CE).
         method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, default="FVE"
             Selection strategy for number of components or fixed integer.
         method_rho : {"truncated", "ridge", "vanilla"}, default="vanilla"
@@ -915,10 +893,6 @@ class FunctionalPCA(BaseEstimator):
                     self.fpca_model_params_.measurement_error_variance,
                     self.fpca_model_params_.if_shrinkage,
                 )
-            elif method_pcs == "LS":
-                NotImplementedError("Least squares method is not implemented.")
-            elif method_pcs == "WLS":
-                NotImplementedError("Weighted least squares method is not implemented.")
         self.elapsed_time_["score_computation"] = (time.time_ns() - start_time) / 1e9 - self.elapsed_time_["rho_estimate"]
 
         if if_fit_eigen_values:
@@ -927,3 +901,92 @@ class FunctionalPCA(BaseEstimator):
             self.elapsed_time_["eigenvalue_fit"] = (time.time_ns() - start_time) / 1e9
 
         return self.xi_, self.xi_var_, self.fitted_y_mat_, self.fitted_y_
+
+    def fitted_values(self) -> Tuple[np.ndarray, List[np.ndarray]]:
+        """Return fitted functional values on grids.
+
+        Returns
+        -------
+        fitted_y_mat : np.ndarray of shape (nt_obs, n_samples)
+            Fitted values on the observation grid.
+        fitted_y : List[np.ndarray]
+            Fitted values at actually observed time points per subject.
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            If called before fitting.
+        """
+        check_is_fitted(self, ["fpca_model_params_", "fitted_y_"])
+        return self.fitted_y_mat_, self.fitted_y_
+
+    def predict(
+        self,
+        y: List[Union[np.ndarray, List[float]]],
+        t: List[Union[np.ndarray, List[float]]],
+        w: Optional[List[Union[np.ndarray, List[float]]]] = None,
+        num_pcs: Optional[int] = None,
+    ) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray, List[np.ndarray]]:
+        """Predict scores and fitted curves for new observations.
+
+        Parameters
+        ----------
+        y : list of array-like
+            New observations per sample; each is 1D with shape (n_i,).
+        t : list of array-like
+            Matching time vectors per sample; each is 1D with shape (n_i,).
+        w : list of array-like, optional
+            Optional weights compatible with the flattening utility.
+        num_pcs : int, optional
+            Number of PCs to use; if None, uses the number selected during `fit`.
+
+        Returns
+        -------
+        new_xi : np.ndarray of shape (n_samples, k)
+            Predicted FPCA scores.
+        new_xi_var : np.ndarray or List[np.ndarray]
+            Predicted score variance summaries (method-dependent).
+        new_fitted_y_mat : np.ndarray of shape (nt_obs, n_samples)
+            Predicted values on the observation grid.
+        new_fitted_y : List[np.ndarray]
+            Predicted values at actually observed time points per subject.
+
+        Notes
+        -----
+        - The method of scoring follows the fitted configuration (`method_pcs`).
+        """
+        check_is_fitted(self, ["fpca_model_params_", "fitted_y_"])
+        num_pcs = self.num_pcs_ if num_pcs is None else num_pcs
+        _, y_, t_, w_ = self.__check_data(y, t, w, self._input_dtype)
+        new_flatten_func_data = flatten_and_sort_data_matrices(y_, t_, self._input_dtype, w_)
+
+        start_time = time.time()
+        new_xi_ = None
+        new_xi_var_ = None
+        new_fitted_y_mat_ = None
+        new_fitted_y_ = None
+        if self.fpca_model_params_.method_pcs == "CE":
+            sigma2 = (
+                self.fpca_model_params_.rho if self.fpca_model_params_.rho is not None else self.fpca_model_params_.measurement_error_variance
+            )
+            new_xi_, new_xi_var_, new_fitted_y_mat_, new_fitted_y_ = get_fpca_ce_score(
+                new_flatten_func_data,
+                self.smoothed_model_result_obs_.mu,
+                num_pcs,
+                self.fpca_model_params_.fpca_lambda,
+                self.fpca_model_params_.fpca_phi["obs"],
+                self.fpca_model_params_.fitted_covariance["obs"],
+                sigma2,
+            )
+        elif self.fpca_model_params_.method_pcs == "IN":
+            new_xi_, new_xi_var_, new_fitted_y_mat_, new_fitted_y_ = get_fpca_in_score(
+                new_flatten_func_data,
+                self.smoothed_model_result_obs_.mu,
+                num_pcs,
+                self.fpca_model_params_.fpca_lambda,
+                self.fpca_model_params_.fpca_phi["obs"],
+                self.fpca_model_params_.measurement_error_variance,
+                self.fpca_model_params_.if_shrinkage,
+            )
+        self.elapsed_time_["prediction"] = time.time() - start_time
+        return new_xi_, new_xi_var_, new_fitted_y_mat_, new_fitted_y_
