@@ -71,7 +71,7 @@ def get_fpca_ce_score(
         raise ValueError("fpca_phi must have shape (nt, fpca_lambda.size).")
 
     input_dtype = flatten_func_data.y.dtype
-    sigma_y = fitted_cov.astype(input_dtype, copy=False)
+    sigma_y = fitted_cov.astype(input_dtype, copy=True)
     if sigma2 > 0.0:
         np.fill_diagonal(sigma_y, np.diagonal(sigma_y) + sigma2)
     fpca_ce_score_func = fpca_ce_score_f64 if input_dtype == np.float64 else fpca_ce_score_f32

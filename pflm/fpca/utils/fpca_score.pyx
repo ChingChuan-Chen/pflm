@@ -88,7 +88,6 @@ cdef void fpca_ce_score_helper(
 
     memcpy(sub_sigma_lambda_phi, sub_lambda_phi, num_pcs * data_cnt * sizeof(floating))
 
-    # perform A = inv(sub_sigma_y) * sub_lambda_phi
     cdef int info = 0
     cdef int *ipiv = <int*> malloc(data_cnt * sizeof(int))
     if not ipiv:
@@ -97,7 +96,8 @@ cdef void fpca_ce_score_helper(
             xi[j] = NAN
         return
 
-    # _sysv(ColMajor, Lower, <int> data_cnt, <int> num_pcs, sub_sigma_y, <int> data_cnt, ipiv, sub_sigma_lambda_phi, <int> data_cnt, &info)
+    # perform A = inv(sub_sigma_y) * sub_lambda_phi
+    _sysv(ColMajor, Lower, <int> data_cnt, <int> num_pcs, sub_sigma_y, <int> data_cnt, ipiv, sub_sigma_lambda_phi, <int> data_cnt, &info)
     if info != 0:
         free(sub_lambda_phi); free(sub_sigma_lambda_phi); free(sub_sigma_y); free(sub_y_minus_mu); free(ipiv)
         for j in range(<int64_t> num_pcs):

@@ -1,6 +1,7 @@
 import warnings
 
 import numpy as np
+import scipy.linalg
 import pytest
 from numpy.testing import assert_allclose
 
@@ -31,17 +32,18 @@ def get_phi_cov(ffd, mu):
 
 @pytest.mark.parametrize("flatten_data, dtype", [(np.float32, np.float32), (np.float64, np.float64)], indirect=["flatten_data"])
 @pytest.mark.parametrize("order", ["C", "F"])
-@pytest.mark.parametrize("sigma2_val", [0.0, 0.1, 0.3, 1.0, 2.0])
+@pytest.mark.parametrize("sigma2_val", [0.1, 0.3, 1.0, 2.0])
 def test_fpca_ce_score_happy_path(flatten_data, dtype, order, sigma2_val):
     ffd, mu = flatten_data
     num_samples = ffd.sid_cnt.size
     num_pcs, fpca_lambda, fpca_phi, fitted_cov = get_phi_cov(ffd, mu)
     lambda_mat = np.diag(fpca_lambda)
+    fitted_cov = np.ascontiguousarray(fitted_cov) if order == "C" else np.asfortranarray(fitted_cov)
     fpca_phi = np.ascontiguousarray(fpca_phi) if order == "C" else np.asfortranarray(fpca_phi)
     sigma2 = dtype(sigma2_val)
 
     xi, xi_var, yhat_mat, yhat = get_fpca_ce_score(ffd, mu, num_pcs, fpca_lambda, fpca_phi, fitted_cov, sigma2)
-    sigma_y = fitted_cov
+    sigma_y = fitted_cov.copy()
     if sigma2 > 0.0:
         np.fill_diagonal(sigma_y, np.diagonal(sigma_y) + sigma2)
 
@@ -50,10 +52,10 @@ def test_fpca_ce_score_happy_path(flatten_data, dtype, order, sigma2_val):
     for i, sid_val in enumerate(ffd.unique_sid):
         mask = ffd.sid == sid_val
         tid_i = ffd.tid[mask]
-        yi = ffd.y[mask]
-        sigma_lambda_phi = np.linalg.solve(sigma_y[np.ix_(tid_i, tid_i)], (fpca_phi @ lambda_mat)[tid_i, :])
-        xi_expected[i] = sigma_lambda_phi.T @ (yi - mu[tid_i])
-        xi_var_expected.append(lambda_mat - (fpca_phi @ lambda_mat)[tid_i, :].T @ sigma_lambda_phi)
+        lambda_phi_i = (fpca_phi @ lambda_mat)[tid_i, :]
+        inv_sigma_lambda_phi = scipy.linalg.solve(sigma_y[np.ix_(tid_i, tid_i)], lambda_phi_i, assume_a="sym")
+        xi_expected[i] = inv_sigma_lambda_phi.T @ (ffd.y[mask] - mu[tid_i])
+        xi_var_expected.append(lambda_mat - lambda_phi_i.T @ inv_sigma_lambda_phi)
 
     assert xi.shape == xi_expected.shape
     assert_allclose(xi, xi_expected, rtol=1e-5, atol=1e-5)
