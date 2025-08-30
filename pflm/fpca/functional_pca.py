@@ -318,14 +318,14 @@ class FunctionalPCA(BaseEstimator):
         self.verbose = verbose
 
         # Validate user-defined sigma2 and rho
-        if assume_measurement_error and user_params.sigma2 is not None and user_params.sigma2 > 0:
+        if not assume_measurement_error and user_params.sigma2 is not None and user_params.sigma2 > 0:
             raise ValueError(
                 "Measurement error is assumed to be false, but user-defined sigma2 is provided and greater than 0. "
                 + "Please set assume_measurement_error to True or set sigma2 to None or 0."
             )
-        if assume_measurement_error and user_params.rho is not None and user_params.rho > 0:
+        if not assume_measurement_error and user_params.rho is not None and user_params.rho > 0:
             raise ValueError(
-                "Measurement error is assumed to be true, but user-defined rho is provided and greater than 0. "
+                "Measurement error is assumed to be false, but user-defined rho is provided and greater than 0. "
                 + "Please set assume_measurement_error to True or set rho to None or 0."
             )
 
@@ -613,11 +613,16 @@ class FunctionalPCA(BaseEstimator):
             diff_mask = (self.flatten_func_data_.tid[:-2] - self.flatten_func_data_.tid[2:] == 2) & (
                 self.flatten_func_data_.sid[:-2] == self.flatten_func_data_.sid[2:]
             )
-            diff_2nd_order = self.flatten_func_data_.y[:-2] - self.flatten_func_data_.y[2:]
-            # Calculate sigma2 using the second-order difference method (6.0 = 4C2)
-            sigma2 = np.average(diff_2nd_order[diff_mask] ** 2) / 6.0
-            if not use_user_cov:
-                np.fill_diagonal(cov_obs, cov_obs.diagonal() - sigma2)
+
+            if not np.any(diff_mask):
+                warnings.warn("No valid second-order differences found.")
+                sigma2 = 0.0
+            else:
+                diff_2nd_order = self.flatten_func_data_.y[:-2] - self.flatten_func_data_.y[2:]
+                # Calculate sigma2 using the second-order difference method (6.0 = 4C2)
+                sigma2 = np.average(diff_2nd_order[diff_mask] ** 2) / 6.0
+                if not use_user_cov:
+                    np.fill_diagonal(cov_obs, cov_obs.diagonal() - sigma2)
 
         # Check if sigma2 are greater than or equal to 0
         if sigma2 < 0:
