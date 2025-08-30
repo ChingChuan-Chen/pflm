@@ -1,0 +1,697 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pflm.fpca.utils.fpca_score_utils &#8212; pflm 0.1.0.dev0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../../_static/documentation_options.js?v=965fac30"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../../_static/copybutton.js?v=f281be69"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/pflm/fpca/utils/fpca_score_utils';</script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.1.dev0" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">pflm</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+    User guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/ChingChuan-Chen/pflm">
+    GitHub
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+    User guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/ChingChuan-Chen/pflm">
+    GitHub
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">pflm.fpca.utils.fpca_score_utils</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for pflm.fpca.utils.fpca_score_utils</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Utility functions used for FPCA&quot;&quot;&quot;</span>
+
+<span class="c1"># Authors: Ching-Chuan Chen</span>
+<span class="c1"># SPDX-License-Identifier: MIT</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pflm.fpca.utils.fpca_score</span><span class="w"> </span><span class="kn">import</span> <span class="n">fpca_ce_score_f32</span><span class="p">,</span> <span class="n">fpca_ce_score_f64</span><span class="p">,</span> <span class="n">fpca_in_score_f32</span><span class="p">,</span> <span class="n">fpca_in_score_f64</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pflm.utils.blas_helper</span><span class="w"> </span><span class="kn">import</span> <span class="n">BLAS_Trans</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pflm.utils.lapack_helper</span><span class="w"> </span><span class="kn">import</span> <span class="n">_gels_memview_f32</span><span class="p">,</span> <span class="n">_gels_memview_f64</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pflm.utils.utility</span><span class="w"> </span><span class="kn">import</span> <span class="n">FlattenFunctionalData</span><span class="p">,</span> <span class="n">trapz</span>
+
+
+<div class="viewcode-block" id="get_fpca_ce_score">
+<a class="viewcode-back" href="../../../../reference/generated/pflm.fpca.utils.get_fpca_ce_score.html#pflm.fpca.utils.get_fpca_ce_score">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_fpca_ce_score</span><span class="p">(</span>
+    <span class="n">flatten_func_data</span><span class="p">:</span> <span class="n">FlattenFunctionalData</span><span class="p">,</span>
+    <span class="n">mu</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">num_pcs</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">fpca_lambda</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">fpca_phi</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">fitted_cov</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">sigma2</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute conditional expectation (CE) FPCA scores and fitted curves.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    flatten_func_data : FlattenFunctionalData</span>
+<span class="sd">        Flattened data containing fields y, t, tid, unique_sid, sid_cnt.</span>
+<span class="sd">    mu : np.ndarray of shape (nt,)</span>
+<span class="sd">        Mean on the observation grid.</span>
+<span class="sd">    num_pcs : int</span>
+<span class="sd">        Number of principal components to use (&lt;= len(fpca_lambda)).</span>
+<span class="sd">    fpca_lambda : np.ndarray of shape (k,)</span>
+<span class="sd">        Eigenvalues for FPCA components.</span>
+<span class="sd">    fpca_phi : np.ndarray of shape (nt, k)</span>
+<span class="sd">        Basis functions on the observation grid (columns are components).</span>
+<span class="sd">    fitted_cov : np.ndarray of shape (nt, nt)</span>
+<span class="sd">        Fitted covariance on the observation grid.</span>
+<span class="sd">    sigma2 : float</span>
+<span class="sd">        Measurement noise variance.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    xi : np.ndarray of shape (n_samples, num_pcs)</span>
+<span class="sd">        CE scores by subject.</span>
+<span class="sd">    xi_var : List[np.ndarray]</span>
+<span class="sd">        Per-subject score covariance matrices or variance summaries.</span>
+<span class="sd">    fitted_y_mat : np.ndarray of shape (nt, n_samples)</span>
+<span class="sd">        Fitted values on the observation grid.</span>
+<span class="sd">    fitted_y : List[np.ndarray]</span>
+<span class="sd">        Fitted values at the observed time points per subject.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If `fitted_cov` has wrong shape, `num_pcs` exceeds available eigenvalues,</span>
+<span class="sd">        or `fpca_phi` has incompatible shape.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    get_fpca_in_score : Numerical integration score computation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nt</span> <span class="o">=</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">unique_tid</span><span class="o">.</span><span class="n">size</span>
+    <span class="k">if</span> <span class="n">fitted_cov</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">nt</span><span class="p">,</span> <span class="n">nt</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;fitted_cov must have shape (nt, nt).&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">num_pcs</span> <span class="o">&gt;</span> <span class="n">fpca_lambda</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;num_pcs must be less than or equal to the number of eigenvalues.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">fpca_phi</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">nt</span><span class="p">,</span> <span class="n">fpca_lambda</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;fpca_phi must have shape (nt, fpca_lambda.size).&quot;</span><span class="p">)</span>
+
+    <span class="n">input_dtype</span> <span class="o">=</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="n">sigma_y</span> <span class="o">=</span> <span class="n">fitted_cov</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">input_dtype</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">sigma2</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">fill_diagonal</span><span class="p">(</span><span class="n">sigma_y</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">diagonal</span><span class="p">(</span><span class="n">sigma_y</span><span class="p">)</span> <span class="o">+</span> <span class="n">sigma2</span><span class="p">)</span>
+    <span class="n">fpca_ce_score_func</span> <span class="o">=</span> <span class="n">fpca_ce_score_f64</span> <span class="k">if</span> <span class="n">input_dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span> <span class="k">else</span> <span class="n">fpca_ce_score_f32</span>
+    <span class="n">xi</span><span class="p">,</span> <span class="n">xi_var</span><span class="p">,</span> <span class="n">fitted_y_mat</span><span class="p">,</span> <span class="n">fitted_y</span> <span class="o">=</span> <span class="n">fpca_ce_score_func</span><span class="p">(</span>
+        <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+        <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">t</span><span class="p">,</span>
+        <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">tid</span><span class="p">,</span>
+        <span class="n">mu</span><span class="p">,</span>
+        <span class="n">sigma_y</span><span class="p">,</span>
+        <span class="n">fpca_lambda</span><span class="p">,</span>
+        <span class="n">fpca_phi</span><span class="p">,</span>
+        <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">unique_sid</span><span class="p">,</span>
+        <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">sid_cnt</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">xi</span><span class="p">,</span> <span class="n">xi_var</span><span class="p">,</span> <span class="n">fitted_y_mat</span><span class="p">,</span> <span class="n">fitted_y</span></div>
+
+
+
+<div class="viewcode-block" id="estimate_rho">
+<a class="viewcode-back" href="../../../../reference/generated/pflm.fpca.utils.estimate_rho.html#pflm.fpca.utils.estimate_rho">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">estimate_rho</span><span class="p">(</span>
+    <span class="n">method_rho</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">flatten_func_data</span><span class="p">:</span> <span class="n">FlattenFunctionalData</span><span class="p">,</span>
+    <span class="n">reg_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">mu_obs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">mu_reg</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">fpca_lambda</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">fpca_phi_obs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">fpca_phi_reg</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">fitted_cov</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">sigma2</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Estimate the optimal rho parameter for CE scoring.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    method_rho : {&quot;ridge&quot;, &quot;truncated&quot;}</span>
+<span class="sd">        Estimation strategy for rho.</span>
+<span class="sd">    flatten_func_data : FlattenFunctionalData</span>
+<span class="sd">        Flattened data (y, t, tid, unique_sid, sid_cnt).</span>
+<span class="sd">    reg_grid : np.ndarray of shape (n_reg_grid,)</span>
+<span class="sd">        Regular grid used to compute variance of reconstructed curves.</span>
+<span class="sd">    mu_obs : np.ndarray of shape (nt,)</span>
+<span class="sd">        Mean on the observation grid.</span>
+<span class="sd">    mu_reg : np.ndarray of shape (n_reg_grid,)</span>
+<span class="sd">        Mean on the regular grid.</span>
+<span class="sd">    fpca_lambda : np.ndarray of shape (k,)</span>
+<span class="sd">        FPCA eigenvalues.</span>
+<span class="sd">    fpca_phi_obs : np.ndarray of shape (nt, k)</span>
+<span class="sd">        Basis on observation grid.</span>
+<span class="sd">    fpca_phi_reg : np.ndarray of shape (n_reg_grid, k)</span>
+<span class="sd">        Basis on regular grid.</span>
+<span class="sd">    fitted_cov : np.ndarray of shape (nt, nt)</span>
+<span class="sd">        Fitted covariance on observation grid.</span>
+<span class="sd">    sigma2 : float</span>
+<span class="sd">        Noise variance or starting value (for &quot;truncated&quot; path).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float</span>
+<span class="sd">        Estimated rho value that best matches target variance.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Values of `method_rho` other than &quot;ridge&quot; are treated as &quot;truncated&quot;.</span>
+<span class="sd">    When using float32, the results may not be the same with float64 because of the lower precision in calculations.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">num_pcs</span> <span class="o">=</span> <span class="n">fpca_lambda</span><span class="o">.</span><span class="n">size</span>
+    <span class="n">obs_grid</span> <span class="o">=</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">unique_tid</span>
+    <span class="n">total_fpca_lambda</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">fpca_lambda</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">method_rho</span> <span class="o">==</span> <span class="s2">&quot;ridge&quot;</span><span class="p">:</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">trapz</span><span class="p">(</span><span class="n">mu_obs</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">obs_grid</span><span class="p">)</span> <span class="o">+</span> <span class="n">total_fpca_lambda</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">obs_grid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">obs_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="n">rho_candidates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">13</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.5</span><span class="p">,</span> <span class="mi">50</span><span class="p">))</span> <span class="o">*</span> <span class="n">r</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="s2">&quot;F&quot;</span> <span class="k">if</span> <span class="n">fpca_phi_reg</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">f_contiguous</span> <span class="k">else</span> <span class="s2">&quot;C&quot;</span>
+        <span class="n">idx_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">flatten_func_data</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">order</span> <span class="o">==</span> <span class="s2">&quot;C&quot;</span><span class="p">:</span>
+            <span class="n">idx_vec</span> <span class="o">=</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">tid</span> <span class="o">*</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">unique_tid</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">sid</span>
+        <span class="k">elif</span> <span class="n">order</span> <span class="o">==</span> <span class="s2">&quot;F&quot;</span><span class="p">:</span>
+            <span class="n">idx_vec</span> <span class="o">=</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">sid</span> <span class="o">*</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">unique_tid</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">tid</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">fitted_y_mat</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">get_fpca_ce_score</span><span class="p">(</span><span class="n">flatten_func_data</span><span class="p">,</span> <span class="n">mu_obs</span><span class="p">,</span> <span class="n">num_pcs</span><span class="p">,</span> <span class="n">fpca_lambda</span><span class="p">,</span> <span class="n">fpca_phi_obs</span><span class="p">,</span> <span class="n">fitted_cov</span><span class="p">,</span> <span class="n">sigma2</span><span class="p">)</span>
+            <span class="n">squared_residuals</span> <span class="o">=</span> <span class="p">(</span><span class="n">fitted_y_mat</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">)[</span><span class="n">idx_vec</span><span class="p">]</span> <span class="o">-</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">y</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+            <span class="n">sigma2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">flatten_func_data</span><span class="o">.</span><span class="n">sid</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">squared_residuals</span><span class="p">)</span> <span class="o">/</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">sid_cnt</span><span class="p">)</span>
+        <span class="n">rho_candidates</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">50</span><span class="p">)</span> <span class="o">*</span> <span class="n">sigma2</span>
+
+    <span class="c1"># calculate rho scores</span>
+    <span class="n">rho_scores</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">rho_candidates</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">rho</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">rho_candidates</span><span class="p">):</span>
+        <span class="n">xi</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">get_fpca_ce_score</span><span class="p">(</span><span class="n">flatten_func_data</span><span class="p">,</span> <span class="n">mu_obs</span><span class="p">,</span> <span class="n">num_pcs</span><span class="p">,</span> <span class="n">fpca_lambda</span><span class="p">,</span> <span class="n">fpca_phi_obs</span><span class="p">,</span> <span class="n">fitted_cov</span><span class="p">,</span> <span class="n">sigma2</span><span class="o">=</span><span class="n">rho</span><span class="p">)</span>
+        <span class="n">fitted_y_mat_reg</span> <span class="o">=</span> <span class="n">mu_reg</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">fpca_phi_reg</span><span class="p">[:,</span> <span class="p">:</span><span class="n">num_pcs</span><span class="p">]</span> <span class="o">@</span> <span class="n">xi</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">var_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">fitted_y_mat_reg</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">ddof</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># variance across samples per time point</span>
+        <span class="n">rho_scores</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">total_fpca_lambda</span> <span class="o">-</span> <span class="n">trapz</span><span class="p">(</span><span class="n">var_y</span><span class="p">,</span> <span class="n">reg_grid</span><span class="p">))</span> <span class="o">**</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="n">rho_candidates</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">rho_scores</span><span class="p">)]</span></div>
+
+
+
+<div class="viewcode-block" id="get_fpca_in_score">
+<a class="viewcode-back" href="../../../../reference/generated/pflm.fpca.utils.get_fpca_in_score.html#pflm.fpca.utils.get_fpca_in_score">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_fpca_in_score</span><span class="p">(</span>
+    <span class="n">flatten_func_data</span><span class="p">:</span> <span class="n">FlattenFunctionalData</span><span class="p">,</span>
+    <span class="n">mu</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">num_pcs</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">fpca_lambda</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">fpca_phi</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">sigma2</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">if_shrinkage</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute Numerical integration FPCA scores and fitted curves.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    flatten_func_data : FlattenFunctionalData</span>
+<span class="sd">        Flattened data containing fields y, t, tid, unique_sid, sid_cnt.</span>
+<span class="sd">    mu : np.ndarray of shape (nt,)</span>
+<span class="sd">        Mean on the observation grid.</span>
+<span class="sd">    num_pcs : int</span>
+<span class="sd">        Number of principal components to use (&lt;= len(fpca_lambda)).</span>
+<span class="sd">    fpca_lambda : np.ndarray of shape (k,)</span>
+<span class="sd">        FPCA eigenvalues.</span>
+<span class="sd">    fpca_phi : np.ndarray of shape (nt, k)</span>
+<span class="sd">        Basis on the observation grid (columns are components).</span>
+<span class="sd">    sigma2 : float</span>
+<span class="sd">        Measurement noise variance used in shrinkage (if enabled).</span>
+<span class="sd">    if_shrinkage : bool, default=False</span>
+<span class="sd">        Whether to apply shrinkage to the IN scores.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    xi : np.ndarray of shape (n_samples, num_pcs)</span>
+<span class="sd">        IN scores by subject.</span>
+<span class="sd">    xi_var : List[np.ndarray]</span>
+<span class="sd">        Per-subject score covariance matrices or variance summaries.</span>
+<span class="sd">    fitted_y_mat : np.ndarray of shape (nt, n_samples)</span>
+<span class="sd">        Fitted values on the observation grid.</span>
+<span class="sd">    fitted_y : List[np.ndarray]</span>
+<span class="sd">        Fitted values at observed time points per subject.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If `num_pcs` exceeds available eigenvalues, `fpca_phi` has incompatible</span>
+<span class="sd">        shape, or `if_shrinkage` is not a boolean.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    get_fpca_ce_score : Conditional expectation score computation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nt</span> <span class="o">=</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">unique_tid</span><span class="o">.</span><span class="n">size</span>
+    <span class="k">if</span> <span class="n">num_pcs</span> <span class="o">&gt;</span> <span class="n">fpca_lambda</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;num_pcs must be less than or equal to the number of eigenvalues.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">fpca_phi</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">nt</span><span class="p">,</span> <span class="n">fpca_lambda</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;fpca_phi must have shape (nt, fpca_lambda.size).&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">if_shrinkage</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;if_shrinkage must be a boolean.&quot;</span><span class="p">)</span>
+
+    <span class="n">input_dtype</span> <span class="o">=</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="n">fpca_in_score_func</span> <span class="o">=</span> <span class="n">fpca_in_score_f64</span> <span class="k">if</span> <span class="n">input_dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span> <span class="k">else</span> <span class="n">fpca_in_score_f32</span>
+    <span class="n">t_range</span> <span class="o">=</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">unique_tid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">unique_tid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">xi</span><span class="p">,</span> <span class="n">fitted_y_mat</span><span class="p">,</span> <span class="n">fitted_y</span> <span class="o">=</span> <span class="n">fpca_in_score_func</span><span class="p">(</span>
+        <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+        <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">t</span><span class="p">,</span>
+        <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">tid</span><span class="p">,</span>
+        <span class="n">mu</span><span class="p">,</span>
+        <span class="n">fpca_lambda</span><span class="p">,</span>
+        <span class="n">fpca_phi</span><span class="p">,</span>
+        <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">unique_sid</span><span class="p">,</span>
+        <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">sid_cnt</span><span class="p">,</span>
+        <span class="n">sigma2</span><span class="p">,</span>
+        <span class="n">t_range</span><span class="p">,</span>
+        <span class="n">if_shrinkage</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">xi_var</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_pcs</span><span class="p">,</span> <span class="n">num_pcs</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">input_dtype</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">flatten_func_data</span><span class="o">.</span><span class="n">sid_cnt</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">xi</span><span class="p">,</span> <span class="n">xi_var</span><span class="p">,</span> <span class="n">fitted_y_mat</span><span class="p">,</span> <span class="n">fitted_y</span></div>
+
+
+
+<div class="viewcode-block" id="get_eigenvalue_fit">
+<a class="viewcode-back" href="../../../../reference/generated/pflm.fpca.utils.get_eigenvalue_fit.html#pflm.fpca.utils.get_eigenvalue_fit">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_eigenvalue_fit</span><span class="p">(</span><span class="n">raw_cov</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">obs_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">fpca_phi_obs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">num_pcs</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Fit eigenvalues by projecting raw covariance onto the FPCA subspace.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    raw_cov : np.ndarray of shape (M, 5)</span>
+<span class="sd">        Raw covariance entries (sid, t1, t2, w, cov).</span>
+<span class="sd">    obs_grid : np.ndarray of shape (nt,)</span>
+<span class="sd">        Sorted observation grid.</span>
+<span class="sd">    fpca_phi_obs : np.ndarray of shape (nt, num_pcs)</span>
+<span class="sd">        Basis on the observation grid (only the first `num_pcs` columns used).</span>
+<span class="sd">    num_pcs : int</span>
+<span class="sd">        Number of principal components to fit.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    np.ndarray of shape (num_pcs,)</span>
+<span class="sd">        Fitted eigenvalues in the FPCA subspace.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If `fpca_phi_obs` has incompatible shape.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The least-squares solve is performed with a low-level LAPACK GELS routine.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nt</span> <span class="o">=</span> <span class="n">obs_grid</span><span class="o">.</span><span class="n">size</span>
+    <span class="k">if</span> <span class="n">fpca_phi_obs</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">nt</span><span class="p">,</span> <span class="n">num_pcs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;fpca_phi_obs must have shape (nt, num_pcs).&quot;</span><span class="p">)</span>
+
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">raw_cov</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">raw_cov</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span>
+    <span class="n">tid1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">obs_grid</span><span class="p">,</span> <span class="n">raw_cov</span><span class="p">[</span><span class="n">mask</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">tid2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">obs_grid</span><span class="p">,</span> <span class="n">raw_cov</span><span class="p">[</span><span class="n">mask</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+    <span class="n">ev_fit_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">raw_cov</span><span class="p">[</span><span class="n">mask</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">fpca_phi_obs</span><span class="p">[</span><span class="n">tid1</span><span class="p">,</span> <span class="p">:</span><span class="n">num_pcs</span><span class="p">]</span> <span class="o">*</span> <span class="n">fpca_phi_obs</span><span class="p">[</span><span class="n">tid2</span><span class="p">,</span> <span class="p">:</span><span class="n">num_pcs</span><span class="p">]</span>  <span class="c1"># shape (n_pairs, num_pcs)</span>
+    <span class="n">order_x</span> <span class="o">=</span> <span class="s2">&quot;F&quot;</span> <span class="k">if</span> <span class="n">ev_fit_x</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">f_contiguous</span> <span class="k">else</span> <span class="s2">&quot;C&quot;</span>
+    <span class="n">ev_fit_y</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">raw_cov</span><span class="p">[</span><span class="n">mask</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span> <span class="o">*</span> <span class="n">raw_cov</span><span class="p">[</span><span class="n">mask</span><span class="p">,</span> <span class="mi">4</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">ev_fit_x</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order_x</span><span class="p">)</span>
+    <span class="n">gles_func</span> <span class="o">=</span> <span class="n">_gels_memview_f64</span> <span class="k">if</span> <span class="n">ev_fit_x</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span> <span class="k">else</span> <span class="n">_gels_memview_f32</span>
+    <span class="n">gles_func</span><span class="p">(</span><span class="n">BLAS_Trans</span><span class="o">.</span><span class="n">NoTrans</span><span class="p">,</span> <span class="n">ev_fit_x</span><span class="p">,</span> <span class="n">ev_fit_y</span><span class="p">,</span> <span class="n">ev_fit_x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ev_fit_x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ev_fit_y</span><span class="p">[:</span><span class="n">num_pcs</span><span class="p">]</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="n">order_x</span><span class="p">)</span></div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, Ching-Chuan Chen.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

@@ -1,0 +1,1410 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pflm.fpca.functional_pca &#8212; pflm 0.1.0.dev0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../_static/documentation_options.js?v=965fac30"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/pflm/fpca/functional_pca';</script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.1.dev0" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">pflm</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../user_guide/index.html">
+    User guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/ChingChuan-Chen/pflm">
+    GitHub
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../user_guide/index.html">
+    User guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/ChingChuan-Chen/pflm">
+    GitHub
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">pflm.fpca.functional_pca</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for pflm.fpca.functional_pca</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Functional Principal Component Analysis (FPCA) implementation.&quot;&quot;&quot;</span>
+
+<span class="c1"># Authors: Ching-Chuan Chen</span>
+<span class="c1"># SPDX-License-Identifier: MIT</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseEstimator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.utils._array_api</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_namespace_and_device</span><span class="p">,</span> <span class="n">supported_float_dtypes</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.utils.validation</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_array</span><span class="p">,</span> <span class="n">check_is_fitted</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pflm.fpca.fpca_result_class</span><span class="w"> </span><span class="kn">import</span> <span class="n">FpcaModelParams</span><span class="p">,</span> <span class="n">SmoothedModelResult</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pflm.fpca.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">estimate_rho</span><span class="p">,</span>
+    <span class="n">get_covariance_matrix</span><span class="p">,</span>
+    <span class="n">get_eigen_analysis_results</span><span class="p">,</span>
+    <span class="n">get_eigenvalue_fit</span><span class="p">,</span>
+    <span class="n">get_fpca_ce_score</span><span class="p">,</span>
+    <span class="n">get_fpca_in_score</span><span class="p">,</span>
+    <span class="n">get_fpca_phi</span><span class="p">,</span>
+    <span class="n">get_measurement_error_variance</span><span class="p">,</span>
+    <span class="n">get_raw_cov</span><span class="p">,</span>
+    <span class="n">select_num_pcs_fve</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pflm.interp</span><span class="w"> </span><span class="kn">import</span> <span class="n">interp1d</span><span class="p">,</span> <span class="n">interp2d</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pflm.smooth</span><span class="w"> </span><span class="kn">import</span> <span class="n">KernelType</span><span class="p">,</span> <span class="n">Polyfit1DModel</span><span class="p">,</span> <span class="n">Polyfit2DModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pflm.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">flatten_and_sort_data_matrices</span>
+
+
+<div class="viewcode-block" id="FunctionalPCAMuCovParams">
+<a class="viewcode-back" href="../../../reference/generated/pflm.fpca.FunctionalPCAMuCovParams.html#pflm.fpca.FunctionalPCAMuCovParams">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FunctionalPCAMuCovParams</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parameters for mean and covariance functions in Functional PCA.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    bw_mu : float, optional</span>
+<span class="sd">        Bandwidth for the mean function. If None, it will be estimated.</span>
+<span class="sd">    bw_cov : float, optional</span>
+<span class="sd">        Bandwidth for the covariance function. If None, it will be estimated.</span>
+<span class="sd">    estimate_method : {&#39;smooth&#39;, &#39;cross-sectional&#39;}, default=&#39;smooth&#39;</span>
+<span class="sd">        Method to estimate the mean and covariance functions.</span>
+<span class="sd">    kernel_type : KernelType, default=KernelType.EPANECHNIKOV</span>
+<span class="sd">        Type of kernel to use for smoothing.</span>
+<span class="sd">    method_select_mu_bw : {&#39;cv&#39;, &#39;gcv&#39;}, default=&#39;gcv&#39;</span>
+<span class="sd">        Method to select bandwidth for the mean function.</span>
+<span class="sd">    method_select_cov_bw : {&#39;cv&#39;, &#39;gcv&#39;}, default=&#39;gcv&#39;</span>
+<span class="sd">        Method to select bandwidth for the covariance function.</span>
+<span class="sd">    apply_geo_avg_cov_bw : bool, default=False</span>
+<span class="sd">        Whether to apply geometric averaging when selecting covariance bandwidth.</span>
+<span class="sd">    cv_folds_mu : int, default=10</span>
+<span class="sd">        Number of folds for cross-validation when selecting bandwidth for the mean function.</span>
+<span class="sd">    cv_folds_cov : int, default=10</span>
+<span class="sd">        Number of folds for cross-validation when selecting bandwidth for the covariance function.</span>
+<span class="sd">    random_seed : int, optional</span>
+<span class="sd">        Random seed for reproducibility which is used only in CV. If None, no seed is set.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bw_mu</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">bw_cov</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">estimate_method</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;smooth&quot;</span><span class="p">,</span> <span class="s2">&quot;cross-sectional&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;smooth&quot;</span><span class="p">,</span>
+        <span class="n">kernel_type</span><span class="p">:</span> <span class="n">KernelType</span> <span class="o">=</span> <span class="n">KernelType</span><span class="o">.</span><span class="n">EPANECHNIKOV</span><span class="p">,</span>
+        <span class="n">method_select_mu_bw</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;cv&quot;</span><span class="p">,</span> <span class="s2">&quot;gcv&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;gcv&quot;</span><span class="p">,</span>
+        <span class="n">method_select_cov_bw</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;cv&quot;</span><span class="p">,</span> <span class="s2">&quot;gcv&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;gcv&quot;</span><span class="p">,</span>
+        <span class="n">apply_geo_avg_cov_bw</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">cv_folds_mu</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+        <span class="n">cv_folds_cov</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+        <span class="n">random_seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate and store smoothing-related parameters.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        bw_mu : float, optional</span>
+<span class="sd">            Positive bandwidth for the mean smoother, or None to auto-select.</span>
+<span class="sd">        bw_cov : float, optional</span>
+<span class="sd">            Positive bandwidth for the covariance smoother, or None to auto-select.</span>
+<span class="sd">        estimate_method : {&#39;smooth&#39;, &#39;cross-sectional&#39;}, default=&#39;smooth&#39;</span>
+<span class="sd">            Mean/covariance estimation approach.</span>
+<span class="sd">        kernel_type : KernelType, default=KernelType.EPANECHNIKOV</span>
+<span class="sd">            Kernel for local regression.</span>
+<span class="sd">        method_select_mu_bw : {&#39;cv&#39;, &#39;gcv&#39;}, default=&#39;gcv&#39;</span>
+<span class="sd">            Bandwidth selection for mean.</span>
+<span class="sd">        method_select_cov_bw : {&#39;cv&#39;, &#39;gcv&#39;}, default=&#39;gcv&#39;</span>
+<span class="sd">            Bandwidth selection for covariance.</span>
+<span class="sd">        apply_geo_avg_cov_bw : bool, default=False</span>
+<span class="sd">            Whether to geometric-average candidate bandwidths for covariance.</span>
+<span class="sd">        cv_folds_mu : int, default=10</span>
+<span class="sd">            K-folds for CV when selecting mean bandwidth.</span>
+<span class="sd">        cv_folds_cov : int, default=10</span>
+<span class="sd">            K-folds for CV when selecting covariance bandwidth.</span>
+<span class="sd">        random_seed : int, optional</span>
+<span class="sd">            Random seed used in CV (if applicable).</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If any parameter violates its expected type or range.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">bw_mu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">bw_mu</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Bandwidth for mean function bw_mu must be a positive scalar.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">bw_cov</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">bw_cov</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Bandwidth for covariance function bw_cov must be a positive scalar.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">estimate_method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;smooth&quot;</span><span class="p">,</span> <span class="s2">&quot;cross-sectional&quot;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;estimate_method must be either &#39;smooth&#39; or &#39;cross-sectional&#39;.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kernel_type</span><span class="p">,</span> <span class="n">KernelType</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;kernel_type must be an instance of KernelType Enum.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">method_select_mu_bw</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;gcv&quot;</span><span class="p">,</span> <span class="s2">&quot;cv&quot;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;method_select_mu_bw must be either &#39;gcv&#39; or &#39;cv&#39;.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">method_select_cov_bw</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;gcv&quot;</span><span class="p">,</span> <span class="s2">&quot;cv&quot;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;method_select_cov_bw must be either &#39;gcv&#39; or &#39;cv&#39;.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">apply_geo_avg_cov_bw</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;apply_geo_avg_cov_bw must be a boolean value.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cv_folds_mu</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="n">cv_folds_mu</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;cv_folds_mu must be greater than 2.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cv_folds_cov</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="n">cv_folds_cov</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;cv_folds_cov must be greater than 2.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">random_seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">random_seed</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="n">random_seed</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;random_seed must be a non-negative integer.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">bw_mu</span> <span class="o">=</span> <span class="n">bw_mu</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bw_cov</span> <span class="o">=</span> <span class="n">bw_cov</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">estimate_method</span> <span class="o">=</span> <span class="n">estimate_method</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kernel_type</span> <span class="o">=</span> <span class="n">kernel_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">method_select_mu_bw</span> <span class="o">=</span> <span class="n">method_select_mu_bw</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">method_select_cov_bw</span> <span class="o">=</span> <span class="n">method_select_cov_bw</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_geo_avg_cov_bw</span> <span class="o">=</span> <span class="n">apply_geo_avg_cov_bw</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cv_folds_mu</span> <span class="o">=</span> <span class="n">cv_folds_mu</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cv_folds_cov</span> <span class="o">=</span> <span class="n">cv_folds_cov</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">random_seed</span> <span class="o">=</span> <span class="n">random_seed</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a concise representation of parameters for logging/debugging.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;FPCASmoothingParams(bw_mu=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">bw_mu</span><span class="si">}</span><span class="s2">, bw_cov=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">bw_cov</span><span class="si">}</span><span class="s2">, estimate_method=&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">estimate_method</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;kernel_type=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">kernel_type</span><span class="si">}</span><span class="s2">, method_select_mu_bw=&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">method_select_mu_bw</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;method_select_cov_bw=&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">method_select_cov_bw</span><span class="si">}</span><span class="s2">&#39;, apply_geo_avg_cov_bw=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_geo_avg_cov_bw</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;k_fold_mu=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cv_folds_mu</span><span class="si">}</span><span class="s2">, k_fold_cov=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">cv_folds_cov</span><span class="si">}</span><span class="s2">, random_seed=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">random_seed</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="FunctionalPCAUserDefinedParams">
+<a class="viewcode-back" href="../../../reference/generated/pflm.fpca.FunctionalPCAUserDefinedParams.html#pflm.fpca.FunctionalPCAUserDefinedParams">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FunctionalPCAUserDefinedParams</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    User-defined parameters for Functional PCA.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    t_mu : np.ndarray or List[float], optional</span>
+<span class="sd">        Time points for the mean function. If provided, must match the length of `mu`.</span>
+<span class="sd">    mu : np.ndarray or List[float], optional</span>
+<span class="sd">        Mean function values at the time points in `t_mu`.</span>
+<span class="sd">    t_cov : np.ndarray or List[float], optional</span>
+<span class="sd">        Time points for the covariance function. If provided, must match the dimensions of `cov`.</span>
+<span class="sd">    cov : np.ndarray or List[List[float]], optional</span>
+<span class="sd">        Covariance function values at the time points in `t_cov`.</span>
+<span class="sd">    sigma2 : float, optional</span>
+<span class="sd">        Variance of the measurement error.</span>
+<span class="sd">    rho : float, optional</span>
+<span class="sd">        The user-defined measurement truncation threshold used for conditional expectations estimation on the principal component scores.</span>
+<span class="sd">        If provided, must be a non-negative scalar.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">t_mu</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">mu</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">t_cov</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">cov</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sigma2</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rho</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate shapes/types for optional user-specified artifacts.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        t_mu, mu : array-like, optional</span>
+<span class="sd">            1D arrays with equal length if provided; both must be given together.</span>
+<span class="sd">        t_cov : array-like, optional</span>
+<span class="sd">            1D array of grid points for covariance; must match `cov` dimensions.</span>
+<span class="sd">        cov : array-like, optional</span>
+<span class="sd">            2D array of covariance values with square shape compatible with `t_cov`.</span>
+<span class="sd">        sigma2 : float, optional</span>
+<span class="sd">            Non-negative measurement error variance.</span>
+<span class="sd">        rho : float, optional</span>
+<span class="sd">            Non-negative rho used for CE scoring if provided.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If only one of (t_mu, mu) is provided, or only one of (t_cov, cov) is</span>
+<span class="sd">            provided, or if shapes/types are inconsistent, or if sigma2/rho are invalid.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">t_mu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">mu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t_mu</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">mu</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;t_mu and mu must have the same length.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">t_mu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">mu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Both t_mu and mu must be provided together.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">t_cov</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cov</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t_cov</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cov</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">t_cov</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cov</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;t_cov must match the dimensions of cov.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">t_cov</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">cov</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Both t_cov and cov must be provided together.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">sigma2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sigma2</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">))</span> <span class="ow">or</span> <span class="n">sigma2</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Variance sigma2 must be a non-negative scalar.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">rho</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rho</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">))</span> <span class="ow">or</span> <span class="n">rho</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Correlation rho must be a non-negative scalar.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">t_mu</span> <span class="o">=</span> <span class="n">t_mu</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">=</span> <span class="n">mu</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">t_cov</span> <span class="o">=</span> <span class="n">t_cov</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cov</span> <span class="o">=</span> <span class="n">cov</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma2</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sigma2</span><span class="p">)</span> <span class="k">if</span> <span class="n">sigma2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rho</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">rho</span><span class="p">)</span> <span class="k">if</span> <span class="n">rho</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a compact string representation of user-defined parameters.&quot;&quot;&quot;</span>
+        <span class="n">cov_repr</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cov</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">))))</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cov</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;None&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;FunctionalPCAUserDefinedParams(t_mu=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">t_mu</span><span class="si">!r}</span><span class="s2">, mu=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="si">!r}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;t_cov=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">t_cov</span><span class="si">!r}</span><span class="s2">, cov=</span><span class="si">{</span><span class="n">cov_repr</span><span class="si">}</span><span class="s2">, sigma2=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma2</span><span class="si">}</span><span class="s2">, rho=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rho</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="FunctionalPCA">
+<a class="viewcode-back" href="../../../reference/generated/pflm.fpca.FunctionalPCA.html#pflm.fpca.FunctionalPCA">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FunctionalPCA</span><span class="p">(</span><span class="n">BaseEstimator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Functional Principal Component Analysis (FPCA) for functional data.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    assume_measurement_error : bool, default=True</span>
+<span class="sd">        Whether to estimate and account for measurement error.</span>
+<span class="sd">    num_points_reg_grid : int, default=51</span>
+<span class="sd">        Number of points in the internal regular grid used for regression/interpolation.</span>
+<span class="sd">    mu_cov_params : FunctionalPCAMuCovParams, default=FunctionalPCAMuCovParams()</span>
+<span class="sd">        Smoothing and bandwidth selection settings.</span>
+<span class="sd">    user_params : FunctionalPCAUserDefinedParams, default=FunctionalPCAUserDefinedParams()</span>
+<span class="sd">        Optional user-specified mean/covariance/sigma2/rho to override parts of the pipeline.</span>
+<span class="sd">    verbose : bool, default=False</span>
+<span class="sd">        If True, record and expose timing diagnostics in `elapsed_time_`.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    y_ : List[np.ndarray]</span>
+<span class="sd">        Functional observations (per-sample vectors).</span>
+<span class="sd">    t_ : List[np.ndarray]</span>
+<span class="sd">        Time grids corresponding to `y_` (per-sample vectors).</span>
+<span class="sd">    flatten_func_data_ : FlattenFunctionalData</span>
+<span class="sd">        Flattened/validated dataset with fields: y, t, w, tid, unique_tid, inverse_tid_idx, sid, unique_sid, sid_cnt.</span>
+<span class="sd">    raw_cov_ : np.ndarray of shape (M, 5)</span>
+<span class="sd">        Raw covariance entries: (sid, t1, t2, w, cov).</span>
+<span class="sd">    smoothed_model_result_obs_ : SmoothedModelResult</span>
+<span class="sd">        Smoothed mean/covariance on the observation grid.</span>
+<span class="sd">    smoothed_model_result_reg_ : SmoothedModelResult</span>
+<span class="sd">        Smoothed mean/covariance on the regular grid.</span>
+<span class="sd">    fpca_model_params_ : FpcaModelParams</span>
+<span class="sd">        FPCA artifacts: eigen decomposition, selected phi/lambda, fitted covariances, rho, eigenvalue fit, etc.</span>
+<span class="sd">    num_pcs_ : int</span>
+<span class="sd">        Number of principal components.</span>
+<span class="sd">    xi_ : np.ndarray of shape (n_samples, k)</span>
+<span class="sd">        Estimated principal component scores.</span>
+<span class="sd">    xi_var_ : np.ndarray or List[np.ndarray]</span>
+<span class="sd">        Estimated per-sample score variances or covariance summaries (method-dependent).</span>
+<span class="sd">    fitted_y_mat_ : np.ndarray of shape (nt_obs, n_samples)</span>
+<span class="sd">        Fitted values on the observation grid (columns are samples).</span>
+<span class="sd">    fitted_y_ : List[np.ndarray]</span>
+<span class="sd">        Fitted values at observed time points per subject.</span>
+<span class="sd">    elapsed_time_ : Dict[str, float]</span>
+<span class="sd">        Timings (seconds) per pipeline stage.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    FunctionalPCAMuCovParams</span>
+<span class="sd">    FunctionalPCAUserDefinedParams</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">assume_measurement_error</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">num_points_reg_grid</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">51</span><span class="p">,</span>
+        <span class="n">mu_cov_params</span><span class="p">:</span> <span class="n">FunctionalPCAMuCovParams</span> <span class="o">=</span> <span class="n">FunctionalPCAMuCovParams</span><span class="p">(),</span>
+        <span class="n">user_params</span><span class="p">:</span> <span class="n">FunctionalPCAUserDefinedParams</span> <span class="o">=</span> <span class="n">FunctionalPCAUserDefinedParams</span><span class="p">(),</span>
+        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize estimator and validate top-level configuration.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        assume_measurement_error : bool, default=True</span>
+<span class="sd">            If True, estimate sigma2 (unless user provides).</span>
+<span class="sd">        num_points_reg_grid : int, default=51</span>
+<span class="sd">            Size of the internal regular grid used for smoothing/interpolation.</span>
+<span class="sd">        mu_cov_params : FunctionalPCAMuCovParams</span>
+<span class="sd">            Smoothing hyperparameters and selection policies.</span>
+<span class="sd">        user_params : FunctionalPCAUserDefinedParams</span>
+<span class="sd">            Optional user-specified mean/cov/sigma2/rho inputs.</span>
+<span class="sd">        verbose : bool, default=False</span>
+<span class="sd">            If True, enable timing diagnostics.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If any parameter violates expected type/range consistency.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Initialize parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assume_measurement_error</span> <span class="o">=</span> <span class="n">assume_measurement_error</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_points_reg_grid</span> <span class="o">=</span> <span class="n">num_points_reg_grid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span> <span class="o">=</span> <span class="n">mu_cov_params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">user_params</span> <span class="o">=</span> <span class="n">user_params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+
+        <span class="c1"># Validate user-defined sigma2 and rho</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">assume_measurement_error</span> <span class="ow">and</span> <span class="n">user_params</span><span class="o">.</span><span class="n">sigma2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">user_params</span><span class="o">.</span><span class="n">sigma2</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Measurement error is assumed to be false, but user-defined sigma2 is provided and greater than 0. &quot;</span>
+                <span class="o">+</span> <span class="s2">&quot;Please set assume_measurement_error to True or set sigma2 to None or 0.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">assume_measurement_error</span> <span class="ow">and</span> <span class="n">user_params</span><span class="o">.</span><span class="n">rho</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">user_params</span><span class="o">.</span><span class="n">rho</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Measurement error is assumed to be false, but user-defined rho is provided and greater than 0. &quot;</span>
+                <span class="o">+</span> <span class="s2">&quot;Please set assume_measurement_error to True or set rho to None or 0.&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__check_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">y</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]],</span>
+        <span class="n">t</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]],</span>
+        <span class="n">w</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validate and normalize input series (y, t, optional w) and resolve output dtype.</span>
+
+<span class="sd">        This helper:</span>
+<span class="sd">        - Optionally warns when the number of samples is small (&lt;= 3).</span>
+<span class="sd">        - Checks list lengths (len(y) == len(t)).</span>
+<span class="sd">        - Resolves the output dtype either from `dtype` or from the inputs using</span>
+<span class="sd">          sklearn&#39;s supported float dtypes.</span>
+<span class="sd">        - Validates each (ti, yi) pair:</span>
+<span class="sd">          * Both must be 1D arrays.</span>
+<span class="sd">          * Their lengths must match.</span>
+<span class="sd">          * All entries must be finite.</span>
+<span class="sd">          * Arrays are converted to the resolved dtype.</span>
+<span class="sd">        - Optionally validates/normalizes `w` when provided.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        y : list of array-like</span>
+<span class="sd">            Observations per sample; each element must be a 1D array of shape (n_i,).</span>
+<span class="sd">        t : list of array-like</span>
+<span class="sd">            Time vectors per sample; each element must be a 1D array of shape (n_i,).</span>
+<span class="sd">        w : list or array-like, optional</span>
+<span class="sd">            Optional weights (shape policy follows the downstream flatten utility).</span>
+<span class="sd">            If provided, validated and cast to the resolved dtype.</span>
+<span class="sd">        dtype : str or np.dtype, optional</span>
+<span class="sd">            If given, forces the output dtype; otherwise determined from inputs.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        output_dtype : np.dtype</span>
+<span class="sd">            The resolved dtype used to cast inputs.</span>
+<span class="sd">        y_ : list of np.ndarray</span>
+<span class="sd">            Normalized 1D arrays for observations, per sample.</span>
+<span class="sd">        t_ : list of np.ndarray</span>
+<span class="sd">            Normalized 1D arrays for time grids, per sample.</span>
+<span class="sd">        w_ : np.ndarray or None</span>
+<span class="sd">            Normalized weights if provided, else None.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If `y` and `t` lengths differ; if any (ti, yi) is not 1D or any (ti, yi) is not finite;</span>
+<span class="sd">            If `w` is provided and not 1D or has incompatible length;</span>
+<span class="sd">            if lengths within a pair differ; or if non-finite values are found.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        The dtype resolution uses `sklearn.utils._array_api.get_namespace_and_device`</span>
+<span class="sd">        and `supported_float_dtypes` to select a compatible floating dtype.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;The number of samples is less than or equal to 3. This may lead to unreliable results in functional PCA.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;y and t must have the same length.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">y_p</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">get_namespace_and_device</span><span class="p">([</span><span class="n">yi</span><span class="o">.</span><span class="n">dtype</span> <span class="k">for</span> <span class="n">yi</span> <span class="ow">in</span> <span class="n">y</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">ti</span><span class="o">.</span><span class="n">dtype</span> <span class="k">for</span> <span class="n">ti</span> <span class="ow">in</span> <span class="n">t</span><span class="p">])</span>
+            <span class="n">supported_dtype</span> <span class="o">=</span> <span class="n">supported_float_dtypes</span><span class="p">(</span><span class="n">y_p</span><span class="p">)</span>
+            <span class="n">output_dtype</span> <span class="o">=</span> <span class="n">check_array</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ensure_2d</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">supported_dtype</span><span class="p">)</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">output_dtype</span> <span class="o">=</span> <span class="n">check_array</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ensure_2d</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">dtype</span>
+
+        <span class="n">y_</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">t_</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">ti</span><span class="p">,</span> <span class="n">yi</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+            <span class="n">ti</span> <span class="o">=</span> <span class="n">check_array</span><span class="p">(</span><span class="n">ti</span><span class="p">,</span> <span class="n">ensure_2d</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">output_dtype</span><span class="p">)</span>
+            <span class="n">yi</span> <span class="o">=</span> <span class="n">check_array</span><span class="p">(</span><span class="n">yi</span><span class="p">,</span> <span class="n">ensure_2d</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">output_dtype</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">ti</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">yi</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Each element of t and y must be a 1D array.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">yi</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">ti</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Each element of t and y must have more than one observation.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ti</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">yi</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Each element of t and y must have the same length.&quot;</span><span class="p">)</span>
+            <span class="n">y_</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">yi</span><span class="p">)</span>
+            <span class="n">t_</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ti</span><span class="p">)</span>
+
+        <span class="n">w_</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">w</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">w_</span> <span class="o">=</span> <span class="n">check_array</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">ensure_2d</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">output_dtype</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">w_</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The length of w must be the same as the number of samples.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">w_</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;w must be a 1D array.&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">output_dtype</span><span class="p">,</span> <span class="n">y_</span><span class="p">,</span> <span class="n">t_</span><span class="p">,</span> <span class="n">w_</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__check_fit_params</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">method_pcs</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;IN&quot;</span><span class="p">,</span> <span class="s2">&quot;CE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;CE&quot;</span><span class="p">,</span>
+        <span class="n">method_select_num_pcs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;FVE&quot;</span><span class="p">,</span> <span class="s2">&quot;AIC&quot;</span><span class="p">,</span> <span class="s2">&quot;BIC&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="s2">&quot;FVE&quot;</span><span class="p">,</span>
+        <span class="n">method_rho</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;truncated&quot;</span><span class="p">,</span> <span class="s2">&quot;ridge&quot;</span><span class="p">,</span> <span class="s2">&quot;vanilla&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;vanilla&quot;</span><span class="p">,</span>
+        <span class="n">max_num_pcs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">if_impute_scores</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">if_shrinkage</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">if_fit_eigen_values</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">fve_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.99</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate scoring and selection hyperparameters before computation.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        method_pcs : {&quot;IN&quot;, &quot;CE&quot;}, default=&quot;CE&quot;</span>
+<span class="sd">            Score computation method (In-sample or Conditional Expectation).</span>
+<span class="sd">        method_select_num_pcs : int or {&quot;FVE&quot;, &quot;AIC&quot;, &quot;BIC&quot;}, default=&quot;FVE&quot;</span>
+<span class="sd">            Strategy to select the number of components or a fixed integer.</span>
+<span class="sd">        method_rho : {&quot;truncated&quot;, &quot;ridge&quot;, &quot;vanilla&quot;}, default=&quot;vanilla&quot;</span>
+<span class="sd">            Rho strategy for CE scoring (&quot;truncated&quot; = truncate sigma2, &quot;ridge&quot; = ridge parameter).</span>
+<span class="sd">        max_num_pcs : int, optional</span>
+<span class="sd">            Upper bound for PCs; inferred if None.</span>
+<span class="sd">        if_impute_scores : bool, default=True</span>
+<span class="sd">            Whether to compute and impute scores during fit.</span>
+<span class="sd">        if_shrinkage : bool, default=False</span>
+<span class="sd">            Whether to apply shrinkage for IN scores.</span>
+<span class="sd">        if_fit_eigen_values : bool, default=False</span>
+<span class="sd">            Whether to compute a regression fit for eigenvalues.</span>
+<span class="sd">        fve_threshold : float, default=0.99</span>
+<span class="sd">            FVE threshold in (0, 1].</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If any parameter violates expected type/range or allowed choices.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">method_pcs</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;IN&quot;</span><span class="p">,</span> <span class="s2">&quot;CE&quot;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;method_pcs must be either &#39;IN&#39; (Numerical Integration) or &#39;CE&#39; (Conditional Expectation).&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">method_select_num_pcs</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;method_select_num_pcs must be either a positive integer or one of &#39;FVE&#39;, &#39;AIC&#39;, &#39;BIC&#39;.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">method_select_num_pcs</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="n">method_select_num_pcs</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;If method_select_num_pcs is an integer, it must be a positive integer.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">method_select_num_pcs</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">method_select_num_pcs</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;FVE&quot;</span><span class="p">,</span> <span class="s2">&quot;AIC&quot;</span><span class="p">,</span> <span class="s2">&quot;BIC&quot;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;method_select_num_pcs must be one of &#39;FVE&#39;, &#39;AIC&#39;, &#39;BIC&#39; or a positive integer.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">method_rho</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;truncated&quot;</span><span class="p">,</span> <span class="s2">&quot;ridge&quot;</span><span class="p">,</span> <span class="s2">&quot;vanilla&quot;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;method_rho must be one of &#39;truncated&#39;, &#39;ridge&#39;, &#39;vanilla&#39;.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_num_pcs</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="n">max_num_pcs</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;max_num_pcs must be a positive integer.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fve_threshold</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">or</span> <span class="n">fve_threshold</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">fve_threshold</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;fve_threshold must be a float between 0 and 1.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">if_impute_scores</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;if_impute_scores must be a boolean value.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">if_shrinkage</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;if_shrinkage must be a boolean value.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">if_fit_eigen_values</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;if_fit_eigen_values must be a boolean value.&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="FunctionalPCA.fit">
+<a class="viewcode-back" href="../../../reference/generated/pflm.fpca.FunctionalPCA.html#pflm.fpca.FunctionalPCA.fit">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">t</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]],</span>
+        <span class="n">y</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]],</span>
+        <span class="n">w</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">method_pcs</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;IN&quot;</span><span class="p">,</span> <span class="s2">&quot;CE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;CE&quot;</span><span class="p">,</span>
+        <span class="n">method_select_num_pcs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;FVE&quot;</span><span class="p">,</span> <span class="s2">&quot;AIC&quot;</span><span class="p">,</span> <span class="s2">&quot;BIC&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="s2">&quot;FVE&quot;</span><span class="p">,</span>
+        <span class="n">method_rho</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;truncated&quot;</span><span class="p">,</span> <span class="s2">&quot;ridge&quot;</span><span class="p">,</span> <span class="s2">&quot;vanilla&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;vanilla&quot;</span><span class="p">,</span>
+        <span class="n">max_num_pcs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">if_impute_scores</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">if_shrinkage</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">if_fit_eigen_values</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">fve_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.99</span><span class="p">,</span>
+        <span class="n">reg_grid</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;FunctionalPCA&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fit the FPCA model: mean, covariance, eigenstructure, and scores.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        t : list of array-like</span>
+<span class="sd">            Time vectors per sample; each is 1D with shape (n_i,).</span>
+<span class="sd">        y : list of array-like</span>
+<span class="sd">            Observations per sample; each is 1D with shape (n_i,).</span>
+<span class="sd">        w : list of array-like, optional</span>
+<span class="sd">            Per-sample weights; each is 1D with shape (n_i,) or sample-level weights</span>
+<span class="sd">            compatible with the flattening utility.</span>
+<span class="sd">        method_pcs : {&quot;IN&quot;, &quot;CE&quot;}, default=&quot;CE&quot;</span>
+<span class="sd">            Score computation method (In-sample or Conditional Expectation).</span>
+<span class="sd">        method_select_num_pcs : int or {&quot;FVE&quot;, &quot;AIC&quot;, &quot;BIC&quot;}, default=&quot;FVE&quot;</span>
+<span class="sd">            Number of PCs selection strategy or fixed integer.</span>
+<span class="sd">        method_rho : {&quot;truncated&quot;, &quot;ridge&quot;, &quot;vanilla&quot;}, default=&quot;vanilla&quot;</span>
+<span class="sd">            Rho strategy for CE (ignored for IN).</span>
+<span class="sd">        max_num_pcs : int, optional</span>
+<span class="sd">            Upper bound for PCs; inferred if None.</span>
+<span class="sd">        if_impute_scores : bool, default=True</span>
+<span class="sd">            Whether to compute scores during fit.</span>
+<span class="sd">        if_shrinkage : bool, default=False</span>
+<span class="sd">            Apply shrinkage for IN scores.</span>
+<span class="sd">        if_fit_eigen_values : bool, default=False</span>
+<span class="sd">            Fit eigenvalues by projection regression.</span>
+<span class="sd">        fve_threshold : float, default=0.99</span>
+<span class="sd">            FVE threshold used when method_select_num_pcs=&quot;FVE&quot;.</span>
+<span class="sd">        reg_grid : array-like, optional</span>
+<span class="sd">            Regular grid for smoothing; if None, created uniformly over observed range.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        FunctionalPCA</span>
+<span class="sd">            The fitted estimator with smoothed artifacts and scores.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - Requires at least two observations per sample to form covariance pairs.</span>
+<span class="sd">        - Timing diagnostics are recorded in `elapsed_time_` when `verbose=True`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">init_start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">max_num_pcs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">max_num_pcs</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_points_reg_grid</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__check_fit_params</span><span class="p">(</span>
+            <span class="n">method_pcs</span><span class="o">=</span><span class="n">method_pcs</span><span class="p">,</span>
+            <span class="n">method_select_num_pcs</span><span class="o">=</span><span class="n">method_select_num_pcs</span><span class="p">,</span>
+            <span class="n">method_rho</span><span class="o">=</span><span class="n">method_rho</span><span class="p">,</span>
+            <span class="n">max_num_pcs</span><span class="o">=</span><span class="n">max_num_pcs</span><span class="p">,</span>
+            <span class="n">if_impute_scores</span><span class="o">=</span><span class="n">if_impute_scores</span><span class="p">,</span>
+            <span class="n">if_shrinkage</span><span class="o">=</span><span class="n">if_shrinkage</span><span class="p">,</span>
+            <span class="n">if_fit_eigen_values</span><span class="o">=</span><span class="n">if_fit_eigen_values</span><span class="p">,</span>
+            <span class="n">fve_threshold</span><span class="o">=</span><span class="n">fve_threshold</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># check data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_input_dtype</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">t_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">w_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__check_data</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+
+        <span class="c1"># Flatten and sort the data matrices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span> <span class="o">=</span> <span class="n">flatten_and_sort_data_matrices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">t_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_input_dtype</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">w_</span><span class="p">)</span>
+        <span class="n">obs_grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="o">.</span><span class="n">unique_tid</span>
+        <span class="n">t_min</span><span class="p">,</span> <span class="n">t_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="o">.</span><span class="n">unique_tid</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="o">.</span><span class="n">unique_tid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># create reg_grid_</span>
+        <span class="k">if</span> <span class="n">reg_grid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Use custom grid</span>
+            <span class="n">reg_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">check_array</span><span class="p">(</span><span class="n">reg_grid</span><span class="p">,</span> <span class="n">ensure_2d</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_input_dtype</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">reg_grid</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;reg_grid must be a 1D array&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">reg_grid</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;reg_grid must have at least 2 points&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Create uniform grid within the range of input X</span>
+            <span class="n">reg_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">t_min</span><span class="p">,</span> <span class="n">t_max</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_points_reg_grid</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_input_dtype</span><span class="p">)</span>
+
+        <span class="c1"># Check if grid is within the range of input X</span>
+        <span class="k">if</span> <span class="n">reg_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">t_min</span> <span class="ow">or</span> <span class="n">reg_grid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">t_max</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;reg_grid must start at </span><span class="si">{</span><span class="n">t_min</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2"> and end at </span><span class="si">{</span><span class="n">t_max</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="n">init_time</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span> <span class="o">-</span> <span class="n">init_start_time</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1e9</span>
+
+        <span class="c1"># calculate the mean function</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_params</span><span class="o">.</span><span class="n">t_mu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_params</span><span class="o">.</span><span class="n">mu</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t_mu</span> <span class="o">=</span> <span class="n">check_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">user_params</span><span class="o">.</span><span class="n">t_mu</span><span class="p">,</span> <span class="n">ensure_2d</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_input_dtype</span><span class="p">)</span>
+            <span class="n">mu</span> <span class="o">=</span> <span class="n">check_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">user_params</span><span class="o">.</span><span class="n">mu</span><span class="p">,</span> <span class="n">ensure_2d</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_input_dtype</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">t_mu</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">mu</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;t_mu and mu must be 1D arrays.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">t_mu</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">mu</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;t_mu and mu must have the same length.&quot;</span><span class="p">)</span>
+            <span class="n">mu_reg</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">t_mu</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">reg_grid</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;spline&quot;</span><span class="p">)</span>
+            <span class="n">mu_obs</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">t_mu</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">obs_grid</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;spline&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">estimate_method</span> <span class="o">==</span> <span class="s2">&quot;smooth&quot;</span><span class="p">:</span>
+            <span class="n">mean_func_model</span> <span class="o">=</span> <span class="n">Polyfit1DModel</span><span class="p">(</span>
+                <span class="n">kernel_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">kernel_type</span><span class="p">,</span> <span class="n">interp_kind</span><span class="o">=</span><span class="s2">&quot;spline&quot;</span><span class="p">,</span> <span class="n">random_seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">random_seed</span>
+            <span class="p">)</span>
+            <span class="n">mean_func_model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="o">.</span><span class="n">t</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="o">.</span><span class="n">w</span><span class="p">,</span>
+                <span class="n">bandwidth</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">bw_mu</span><span class="p">,</span>
+                <span class="n">reg_grid</span><span class="o">=</span><span class="n">reg_grid</span><span class="p">,</span>
+                <span class="n">bandwidth_selection_method</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">method_select_mu_bw</span><span class="p">,</span>
+                <span class="n">cv_folds</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">cv_folds_mu</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">mu_reg</span> <span class="o">=</span> <span class="n">mean_func_model</span><span class="o">.</span><span class="n">fitted_values</span><span class="p">()</span>
+            <span class="n">mu_obs</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">reg_grid</span><span class="p">,</span> <span class="n">mu_reg</span><span class="p">,</span> <span class="n">obs_grid</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;spline&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">estimate_method</span> <span class="o">==</span> <span class="s2">&quot;cross-sectional&quot;</span><span class="p">:</span>
+            <span class="n">mu_obs</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="o">.</span><span class="n">tid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="o">.</span><span class="n">y</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="o">.</span><span class="n">tid</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_input_dtype</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+            <span class="n">mu_reg</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">obs_grid</span><span class="p">,</span> <span class="n">mu_obs</span><span class="p">,</span> <span class="n">reg_grid</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;spline&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Check if mu_reg and mu_obs are all finite</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">mu_reg</span><span class="p">))</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">mu_obs</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;mu_reg and mu_obs must be finite.&quot;</span><span class="p">)</span>
+
+        <span class="n">mu_time</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1e9</span>
+
+        <span class="c1"># calculate the covariance function</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+        <span class="n">cov_obs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">cov_reg</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">use_user_cov</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raw_cov_</span> <span class="o">=</span> <span class="n">get_raw_cov</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="p">,</span> <span class="n">mu_obs</span><span class="p">)</span>
+
+        <span class="c1"># Check if raw_cov is all finite</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_cov_</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;raw_cov contains non-finite values. Please check the input data.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># calculate the covariance function</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_params</span><span class="o">.</span><span class="n">t_cov</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_params</span><span class="o">.</span><span class="n">cov</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t_cov</span> <span class="o">=</span> <span class="n">check_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">user_params</span><span class="o">.</span><span class="n">t_cov</span><span class="p">,</span> <span class="n">ensure_2d</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_input_dtype</span><span class="p">)</span>
+            <span class="n">cov</span> <span class="o">=</span> <span class="n">check_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">user_params</span><span class="o">.</span><span class="n">cov</span><span class="p">,</span> <span class="n">ensure_2d</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_input_dtype</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">t_cov</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">cov</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;t_cov must be a 1D array and cov must be a 2D array.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">t_cov</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">cov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">or</span> <span class="n">t_cov</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="n">cov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;t_cov must match the dimensions of cov.&quot;</span><span class="p">)</span>
+            <span class="n">use_user_cov</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">cov_obs</span> <span class="o">=</span> <span class="n">interp2d</span><span class="p">(</span><span class="n">t_cov</span><span class="p">,</span> <span class="n">t_cov</span><span class="p">,</span> <span class="n">cov</span><span class="p">,</span> <span class="n">obs_grid</span><span class="p">,</span> <span class="n">obs_grid</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;spline&quot;</span><span class="p">)</span>
+            <span class="n">cov_reg</span> <span class="o">=</span> <span class="n">interp2d</span><span class="p">(</span><span class="n">t_cov</span><span class="p">,</span> <span class="n">t_cov</span><span class="p">,</span> <span class="n">cov</span><span class="p">,</span> <span class="n">reg_grid</span><span class="p">,</span> <span class="n">reg_grid</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;spline&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">estimate_method</span> <span class="o">==</span> <span class="s2">&quot;smooth&quot;</span><span class="p">:</span>
+            <span class="n">cov_func_model</span> <span class="o">=</span> <span class="n">Polyfit2DModel</span><span class="p">(</span>
+                <span class="n">kernel_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">kernel_type</span><span class="p">,</span> <span class="n">interp_kind</span><span class="o">=</span><span class="s2">&quot;spline&quot;</span><span class="p">,</span> <span class="n">random_seed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">random_seed</span>
+            <span class="p">)</span>
+            <span class="n">cov_func_model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">raw_cov_</span><span class="p">[:,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">raw_cov_</span><span class="p">[:,</span> <span class="mi">4</span><span class="p">],</span>
+                <span class="n">sample_weight</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_cov_</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">],</span>
+                <span class="n">bandwidth1</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">bw_cov</span><span class="p">,</span>
+                <span class="n">bandwidth2</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">bw_cov</span><span class="p">,</span>
+                <span class="n">reg_grid1</span><span class="o">=</span><span class="n">obs_grid</span><span class="p">,</span>
+                <span class="n">reg_grid2</span><span class="o">=</span><span class="n">obs_grid</span><span class="p">,</span>
+                <span class="n">bandwidth_selection_method</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">method_select_cov_bw</span><span class="p">,</span>
+                <span class="n">cv_folds</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">cv_folds_cov</span><span class="p">,</span>
+                <span class="n">same_bandwidth_for_2dim</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">cov_obs</span> <span class="o">=</span> <span class="n">cov_func_model</span><span class="o">.</span><span class="n">fitted_values</span><span class="p">()</span>
+            <span class="n">cov_reg</span> <span class="o">=</span> <span class="n">interp2d</span><span class="p">(</span><span class="n">obs_grid</span><span class="p">,</span> <span class="n">obs_grid</span><span class="p">,</span> <span class="n">cov_obs</span><span class="p">,</span> <span class="n">reg_grid</span><span class="p">,</span> <span class="n">reg_grid</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;spline&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">estimate_method</span> <span class="o">==</span> <span class="s2">&quot;cross-sectional&quot;</span><span class="p">:</span>
+            <span class="n">cov_obs</span> <span class="o">=</span> <span class="n">get_covariance_matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_cov_</span><span class="p">,</span> <span class="n">obs_grid</span><span class="p">)</span>
+            <span class="n">cov_reg</span> <span class="o">=</span> <span class="n">interp2d</span><span class="p">(</span><span class="n">obs_grid</span><span class="p">,</span> <span class="n">obs_grid</span><span class="p">,</span> <span class="n">cov_obs</span><span class="p">,</span> <span class="n">reg_grid</span><span class="p">,</span> <span class="n">reg_grid</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;spline&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Check if cov_obs and cov_reg are all finite</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">cov_obs</span><span class="p">))</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">cov_reg</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;cov_obs and cov_reg must be finite.&quot;</span><span class="p">)</span>
+        <span class="n">cov_time</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1e9</span>
+
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+        <span class="n">sigma2</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">assume_measurement_error</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_params</span><span class="o">.</span><span class="n">sigma2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sigma2</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">user_params</span><span class="o">.</span><span class="n">sigma2</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">assume_measurement_error</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">estimate_method</span> <span class="o">==</span> <span class="s2">&quot;smooth&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">use_user_cov</span><span class="p">:</span>
+                <span class="n">diag_obs_var</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diagonal</span><span class="p">(</span><span class="n">get_covariance_matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_cov_</span><span class="p">,</span> <span class="n">obs_grid</span><span class="p">))</span>
+                <span class="n">diag_reg_var</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">obs_grid</span><span class="p">,</span> <span class="n">diag_obs_var</span><span class="p">,</span> <span class="n">reg_grid</span><span class="p">)</span>
+                <span class="n">sigma2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">diag_reg_var</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">diagonal</span><span class="p">(</span><span class="n">cov_reg</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sigma2</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">get_measurement_error_variance</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">raw_cov_</span><span class="p">,</span>
+                    <span class="n">reg_grid</span><span class="p">,</span>
+                    <span class="n">cov_func_model</span><span class="o">.</span><span class="n">bandwidth1_</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">kernel_type</span><span class="p">,</span>
+                <span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">assume_measurement_error</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu_cov_params</span><span class="o">.</span><span class="n">estimate_method</span> <span class="o">==</span> <span class="s2">&quot;cross-sectional&quot;</span><span class="p">:</span>
+            <span class="c1"># Use user-defined covariance or cross-sectional method</span>
+            <span class="n">diff_mask</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="o">.</span><span class="n">tid</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="o">.</span><span class="n">tid</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="o">.</span><span class="n">sid</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="o">.</span><span class="n">sid</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>
+            <span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">diff_mask</span><span class="p">):</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;No valid second-order differences found.&quot;</span><span class="p">)</span>
+                <span class="n">sigma2</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">diff_2nd_order</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="o">.</span><span class="n">y</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>
+                <span class="c1"># Calculate sigma2 using the second-order difference method (6.0 = 4C2)</span>
+                <span class="n">sigma2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">diff_2nd_order</span><span class="p">[</span><span class="n">diff_mask</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mf">6.0</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">use_user_cov</span><span class="p">:</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">fill_diagonal</span><span class="p">(</span><span class="n">cov_obs</span><span class="p">,</span> <span class="n">cov_obs</span><span class="o">.</span><span class="n">diagonal</span><span class="p">()</span> <span class="o">-</span> <span class="n">sigma2</span><span class="p">)</span>
+
+        <span class="c1"># Check if sigma2 are greater than or equal to 0</span>
+        <span class="k">if</span> <span class="n">sigma2</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;sigma2 must be non-negative.&quot;</span><span class="p">)</span>
+        <span class="c1"># Check if sigma2 is finite</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">sigma2</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;sigma2 must be finite.&quot;</span><span class="p">)</span>
+
+        <span class="n">sigma2_time</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1e9</span>
+
+        <span class="c1"># Create / update smoothed result containers (phi / fitted_cov filled later in fit_score)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">smoothed_model_result_obs_</span> <span class="o">=</span> <span class="n">SmoothedModelResult</span><span class="p">(</span><span class="n">grid</span><span class="o">=</span><span class="n">obs_grid</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu_obs</span><span class="p">,</span> <span class="n">cov</span><span class="o">=</span><span class="n">cov_obs</span><span class="p">,</span> <span class="n">grid_type</span><span class="o">=</span><span class="s2">&quot;obs&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">smoothed_model_result_reg_</span> <span class="o">=</span> <span class="n">SmoothedModelResult</span><span class="p">(</span><span class="n">grid</span><span class="o">=</span><span class="n">reg_grid</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu_reg</span><span class="p">,</span> <span class="n">cov</span><span class="o">=</span><span class="n">cov_reg</span><span class="p">,</span> <span class="n">grid_type</span><span class="o">=</span><span class="s2">&quot;reg&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Create model parameters</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+        <span class="n">eig_lambda</span><span class="p">,</span> <span class="n">eig_vector</span> <span class="o">=</span> <span class="n">get_eigen_analysis_results</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">smoothed_model_result_reg_</span><span class="o">.</span><span class="n">cov</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span> <span class="o">=</span> <span class="n">FpcaModelParams</span><span class="p">(</span>
+            <span class="n">measurement_error_variance</span><span class="o">=</span><span class="n">sigma2</span><span class="p">,</span> <span class="n">eigen_results</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;eigenvalues&quot;</span><span class="p">:</span> <span class="n">eig_lambda</span><span class="p">,</span> <span class="s2">&quot;eigenvectors&quot;</span><span class="p">:</span> <span class="n">eig_vector</span><span class="p">}</span>
+        <span class="p">)</span>
+        <span class="n">eigen_time</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1e9</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">elapsed_time_</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;initialization&quot;</span><span class="p">:</span> <span class="n">init_time</span><span class="p">,</span>
+            <span class="s2">&quot;mu_estimation&quot;</span><span class="p">:</span> <span class="n">mu_time</span><span class="p">,</span>
+            <span class="s2">&quot;cov_estimation&quot;</span><span class="p">:</span> <span class="n">cov_time</span><span class="p">,</span>
+            <span class="s2">&quot;measurement_error_variance&quot;</span><span class="p">:</span> <span class="n">sigma2_time</span><span class="p">,</span>
+            <span class="s2">&quot;eigen_decomposition&quot;</span><span class="p">:</span> <span class="n">eigen_time</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xi_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xi_var_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitted_y_mat_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitted_y_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit_score</span><span class="p">(</span>
+            <span class="n">method_pcs</span><span class="p">,</span> <span class="n">method_select_num_pcs</span><span class="p">,</span> <span class="n">method_rho</span><span class="p">,</span> <span class="n">max_num_pcs</span><span class="p">,</span> <span class="n">if_impute_scores</span><span class="p">,</span> <span class="n">if_shrinkage</span><span class="p">,</span> <span class="n">if_fit_eigen_values</span><span class="p">,</span> <span class="n">fve_threshold</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">elapsed_time_</span><span class="p">[</span><span class="s2">&quot;fit_total_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span> <span class="o">-</span> <span class="n">init_start_time</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1e9</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="FunctionalPCA.fit_score">
+<a class="viewcode-back" href="../../../reference/generated/pflm.fpca.FunctionalPCA.html#pflm.fpca.FunctionalPCA.fit_score">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit_score</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">method_pcs</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;IN&quot;</span><span class="p">,</span> <span class="s2">&quot;CE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;CE&quot;</span><span class="p">,</span>
+        <span class="n">method_select_num_pcs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;FVE&quot;</span><span class="p">,</span> <span class="s2">&quot;AIC&quot;</span><span class="p">,</span> <span class="s2">&quot;BIC&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="s2">&quot;FVE&quot;</span><span class="p">,</span>
+        <span class="n">method_rho</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;truntruncatedc&quot;</span><span class="p">,</span> <span class="s2">&quot;ridge&quot;</span><span class="p">,</span> <span class="s2">&quot;vanilla&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;vanilla&quot;</span><span class="p">,</span>
+        <span class="n">max_num_pcs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+        <span class="n">if_impute_scores</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">if_shrinkage</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">if_fit_eigen_values</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">fve_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.99</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute principal component scores given smoothed artifacts.</span>
+
+<span class="sd">        This method assumes `fit` has been called to produce smoothed mean/covariance</span>
+<span class="sd">        and eigenstructure. It then selects the number of components and computes</span>
+<span class="sd">        scores using the chosen method.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        method_pcs : {&quot;IN&quot;, &quot;CE&quot;}, default=&quot;CE&quot;</span>
+<span class="sd">            Score computation method. Numerical integration (IN) or Conditional Expectation (CE).</span>
+<span class="sd">        method_select_num_pcs : int or {&quot;FVE&quot;, &quot;AIC&quot;, &quot;BIC&quot;}, default=&quot;FVE&quot;</span>
+<span class="sd">            Selection strategy for number of components or fixed integer.</span>
+<span class="sd">        method_rho : {&quot;truncated&quot;, &quot;ridge&quot;, &quot;vanilla&quot;}, default=&quot;vanilla&quot;</span>
+<span class="sd">            Rho strategy for CE (ignored for IN).</span>
+<span class="sd">        max_num_pcs : int</span>
+<span class="sd">            Upper bound for PCs.</span>
+<span class="sd">        if_impute_scores : bool, default=True</span>
+<span class="sd">            Whether to compute scores.</span>
+<span class="sd">        if_shrinkage : bool, default=False</span>
+<span class="sd">            Apply shrinkage for IN scores.</span>
+<span class="sd">        if_fit_eigen_values : bool, default=False</span>
+<span class="sd">            Fit eigenvalues by projection regression.</span>
+<span class="sd">        fve_threshold : float, default=0.99</span>
+<span class="sd">            FVE threshold used when method_select_num_pcs=&quot;FVE&quot;.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        xi : np.ndarray of shape (n_samples, k)</span>
+<span class="sd">            Principal component scores.</span>
+<span class="sd">        xi_var : np.ndarray or List[np.ndarray]</span>
+<span class="sd">            Score variance summaries (method-dependent).</span>
+<span class="sd">        fitted_y_mat : np.ndarray of shape (nt_obs, n_samples)</span>
+<span class="sd">            Fitted values on the observation grid.</span>
+<span class="sd">        fitted_y : List[np.ndarray]</span>
+<span class="sd">            Fitted values at observed time points per subject.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        sklearn.exceptions.NotFittedError</span>
+<span class="sd">            If called before `fit`.</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If selection/scoring arguments are invalid.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - CE scoring may estimate `rho` depending on `method_rho`.</span>
+<span class="sd">        - When `if_fit_eigen_values=True`, `eigenvalue_fit` is stored in `fpca_model_params_`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">check_is_fitted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;smoothed_model_result_obs_&quot;</span><span class="p">,</span> <span class="s2">&quot;smoothed_model_result_reg_&quot;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__check_fit_params</span><span class="p">(</span>
+            <span class="n">method_pcs</span><span class="o">=</span><span class="n">method_pcs</span><span class="p">,</span>
+            <span class="n">method_select_num_pcs</span><span class="o">=</span><span class="n">method_select_num_pcs</span><span class="p">,</span>
+            <span class="n">method_rho</span><span class="o">=</span><span class="n">method_rho</span><span class="p">,</span>
+            <span class="n">max_num_pcs</span><span class="o">=</span><span class="n">max_num_pcs</span><span class="p">,</span>
+            <span class="n">if_impute_scores</span><span class="o">=</span><span class="n">if_impute_scores</span><span class="p">,</span>
+            <span class="n">if_shrinkage</span><span class="o">=</span><span class="n">if_shrinkage</span><span class="p">,</span>
+            <span class="n">if_fit_eigen_values</span><span class="o">=</span><span class="n">if_fit_eigen_values</span><span class="p">,</span>
+            <span class="n">fve_threshold</span><span class="o">=</span><span class="n">fve_threshold</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">param_name_list</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;method_pcs&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;method_select_num_pcs&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;method_rho&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;max_num_pcs&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;if_shrinkage&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;if_fit_eigen_values&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;fve_threshold&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">param_name</span> <span class="ow">in</span> <span class="n">param_name_list</span><span class="p">:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="p">,</span> <span class="n">param_name</span><span class="p">,</span> <span class="nb">locals</span><span class="p">()[</span><span class="n">param_name</span><span class="p">])</span>
+
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+        <span class="n">num_pcs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">method_select_num_pcs</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">method_select_num_pcs</span> <span class="o">==</span> <span class="s2">&quot;FVE&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">select_num_pcs_criterion</span><span class="p">,</span> <span class="n">num_pcs</span> <span class="o">=</span> <span class="n">select_num_pcs_fve</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">eigen_results</span><span class="p">[</span><span class="s2">&quot;eigenvalues&quot;</span><span class="p">],</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">fve_threshold</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">max_num_pcs</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">method_select_num_pcs</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;AIC&quot;</span><span class="p">,</span> <span class="s2">&quot;BIC&quot;</span><span class="p">]:</span>
+                <span class="c1"># implement AIC/BIC-based function to choose number of principal components</span>
+                <span class="c1"># self.fpca_model_params_.select_num_pcs_criterion, num_pcs = select_num_pcs_ic(eig_lambda, method_select_num_pcs)</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;AIC/BIC-based selection method is not implemented yet.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">method_select_num_pcs</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">num_pcs</span> <span class="o">=</span> <span class="n">method_select_num_pcs</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid method_select_num_pcs. Must be one of [&#39;FVE&#39;, &#39;AIC&#39;, &#39;BIC&#39;] or an integer.&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_pcs_</span> <span class="o">=</span> <span class="n">num_pcs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">elapsed_time_</span><span class="p">[</span><span class="s2">&quot;num_pcs_selection&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1e9</span>
+
+        <span class="n">obs_grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">smoothed_model_result_obs_</span><span class="o">.</span><span class="n">grid</span>
+        <span class="n">reg_grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">smoothed_model_result_reg_</span><span class="o">.</span><span class="n">grid</span>
+
+        <span class="n">fpca_lambda</span><span class="p">,</span> <span class="n">fpca_phi_reg</span> <span class="o">=</span> <span class="n">get_fpca_phi</span><span class="p">(</span>
+            <span class="n">num_pcs</span><span class="p">,</span>
+            <span class="n">reg_grid</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">smoothed_model_result_reg_</span><span class="o">.</span><span class="n">mu</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">eigen_results</span><span class="p">[</span><span class="s2">&quot;eigenvalues&quot;</span><span class="p">],</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">eigen_results</span><span class="p">[</span><span class="s2">&quot;eigenvectors&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">fpca_phi_obs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">obs_grid</span><span class="p">),</span> <span class="n">num_pcs</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_input_dtype</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_pcs</span><span class="p">):</span>
+            <span class="n">fpca_phi_obs</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">interp1d</span><span class="p">(</span><span class="n">reg_grid</span><span class="p">,</span> <span class="n">fpca_phi_reg</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="n">obs_grid</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;spline&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">fpca_lambda</span> <span class="o">=</span> <span class="n">fpca_lambda</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">fpca_phi</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;obs&quot;</span><span class="p">:</span> <span class="n">fpca_phi_obs</span><span class="p">,</span> <span class="s2">&quot;reg&quot;</span><span class="p">:</span> <span class="n">fpca_phi_reg</span><span class="p">}</span>
+
+        <span class="n">fitted_cov_reg</span> <span class="o">=</span> <span class="n">fpca_phi_reg</span> <span class="o">@</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">fpca_lambda</span><span class="p">)</span> <span class="o">@</span> <span class="n">fpca_phi_reg</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">fitted_cov_obs</span> <span class="o">=</span> <span class="n">interp2d</span><span class="p">(</span><span class="n">reg_grid</span><span class="p">,</span> <span class="n">reg_grid</span><span class="p">,</span> <span class="n">fitted_cov_reg</span><span class="p">,</span> <span class="n">obs_grid</span><span class="p">,</span> <span class="n">obs_grid</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;spline&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">fitted_covariance</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;obs&quot;</span><span class="p">:</span> <span class="n">fitted_cov_obs</span><span class="p">,</span> <span class="s2">&quot;reg&quot;</span><span class="p">:</span> <span class="n">fitted_cov_reg</span><span class="p">}</span>
+
+        <span class="c1"># select rho and calculate the functional principal component score</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">elapsed_time_</span><span class="p">[</span><span class="s2">&quot;rho_estimate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">rho</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xi</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xi_var</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">if_impute_scores</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">method_pcs</span> <span class="o">==</span> <span class="s2">&quot;CE&quot;</span><span class="p">:</span>
+                <span class="n">rho_start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">method_rho</span> <span class="o">!=</span> <span class="s2">&quot;vanilla&quot;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_params</span><span class="o">.</span><span class="n">rho</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="n">rho</span> <span class="o">=</span> <span class="n">estimate_rho</span><span class="p">(</span>
+                            <span class="n">method_rho</span><span class="p">,</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="p">,</span>
+                            <span class="n">reg_grid</span><span class="p">,</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">smoothed_model_result_obs_</span><span class="o">.</span><span class="n">mu</span><span class="p">,</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">smoothed_model_result_reg_</span><span class="o">.</span><span class="n">mu</span><span class="p">,</span>
+                            <span class="n">fpca_lambda</span><span class="p">,</span>
+                            <span class="n">fpca_phi_obs</span><span class="p">,</span>
+                            <span class="n">fpca_phi_reg</span><span class="p">,</span>
+                            <span class="n">fitted_cov_obs</span><span class="p">,</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">measurement_error_variance</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">rho</span> <span class="o">=</span> <span class="mf">0.5</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">rho</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_params</span><span class="o">.</span><span class="n">rho</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">elapsed_time_</span><span class="p">[</span><span class="s2">&quot;rho_estimate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span> <span class="o">-</span> <span class="n">rho_start_time</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1e9</span>
+
+                <span class="n">sigma2</span> <span class="o">=</span> <span class="n">rho</span> <span class="k">if</span> <span class="n">rho</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">measurement_error_variance</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">xi_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xi_var_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitted_y_mat_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitted_y_</span> <span class="o">=</span> <span class="n">get_fpca_ce_score</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">smoothed_model_result_obs_</span><span class="o">.</span><span class="n">mu</span><span class="p">,</span> <span class="n">num_pcs</span><span class="p">,</span> <span class="n">fpca_lambda</span><span class="p">,</span> <span class="n">fpca_phi_obs</span><span class="p">,</span> <span class="n">fitted_cov_obs</span><span class="p">,</span> <span class="n">sigma2</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="n">method_pcs</span> <span class="o">==</span> <span class="s2">&quot;IN&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">xi_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xi_var_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitted_y_mat_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitted_y_</span> <span class="o">=</span> <span class="n">get_fpca_in_score</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">flatten_func_data_</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">smoothed_model_result_obs_</span><span class="o">.</span><span class="n">mu</span><span class="p">,</span>
+                    <span class="n">num_pcs</span><span class="p">,</span>
+                    <span class="n">fpca_lambda</span><span class="p">,</span>
+                    <span class="n">fpca_phi_obs</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">measurement_error_variance</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">if_shrinkage</span><span class="p">,</span>
+                <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">elapsed_time_</span><span class="p">[</span><span class="s2">&quot;score_computation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1e9</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">elapsed_time_</span><span class="p">[</span><span class="s2">&quot;rho_estimate&quot;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">if_fit_eigen_values</span><span class="p">:</span>
+            <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">eigenvalue_fit</span> <span class="o">=</span> <span class="n">get_eigenvalue_fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw_cov_</span><span class="p">,</span> <span class="n">obs_grid</span><span class="p">,</span> <span class="n">fpca_phi_obs</span><span class="p">,</span> <span class="n">num_pcs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">elapsed_time_</span><span class="p">[</span><span class="s2">&quot;eigenvalue_fit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1e9</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">xi_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">xi_var_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitted_y_mat_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitted_y_</span></div>
+
+
+<div class="viewcode-block" id="FunctionalPCA.fitted_values">
+<a class="viewcode-back" href="../../../reference/generated/pflm.fpca.FunctionalPCA.html#pflm.fpca.FunctionalPCA.fitted_values">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fitted_values</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return fitted functional values on grids.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        fitted_y_mat : np.ndarray of shape (nt_obs, n_samples)</span>
+<span class="sd">            Fitted values on the observation grid.</span>
+<span class="sd">        fitted_y : List[np.ndarray]</span>
+<span class="sd">            Fitted values at actually observed time points per subject.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        sklearn.exceptions.NotFittedError</span>
+<span class="sd">            If called before fitting.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">check_is_fitted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;fpca_model_params_&quot;</span><span class="p">,</span> <span class="s2">&quot;fitted_y_&quot;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitted_y_mat_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitted_y_</span></div>
+
+
+<div class="viewcode-block" id="FunctionalPCA.predict">
+<a class="viewcode-back" href="../../../reference/generated/pflm.fpca.FunctionalPCA.html#pflm.fpca.FunctionalPCA.predict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">y</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]],</span>
+        <span class="n">t</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]],</span>
+        <span class="n">w</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">num_pcs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Predict scores and fitted curves for new observations.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        y : list of array-like</span>
+<span class="sd">            New observations per sample; each is 1D with shape (n_i,).</span>
+<span class="sd">        t : list of array-like</span>
+<span class="sd">            Matching time vectors per sample; each is 1D with shape (n_i,).</span>
+<span class="sd">        w : list of array-like, optional</span>
+<span class="sd">            Optional weights compatible with the flattening utility.</span>
+<span class="sd">        num_pcs : int, optional</span>
+<span class="sd">            Number of PCs to use; if None, uses the number selected during `fit`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        new_xi : np.ndarray of shape (n_samples, k)</span>
+<span class="sd">            Predicted FPCA scores.</span>
+<span class="sd">        new_xi_var : np.ndarray or List[np.ndarray]</span>
+<span class="sd">            Predicted score variance summaries (method-dependent).</span>
+<span class="sd">        new_fitted_y_mat : np.ndarray of shape (nt_obs, n_samples)</span>
+<span class="sd">            Predicted values on the observation grid.</span>
+<span class="sd">        new_fitted_y : List[np.ndarray]</span>
+<span class="sd">            Predicted values at actually observed time points per subject.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        - The method of scoring follows the fitted configuration (`method_pcs`).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">check_is_fitted</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;fpca_model_params_&quot;</span><span class="p">,</span> <span class="s2">&quot;fitted_y_&quot;</span><span class="p">])</span>
+        <span class="n">num_pcs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_pcs_</span> <span class="k">if</span> <span class="n">num_pcs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">num_pcs</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">y_</span><span class="p">,</span> <span class="n">t_</span><span class="p">,</span> <span class="n">w_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__check_data</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_input_dtype</span><span class="p">)</span>
+        <span class="n">new_flatten_func_data</span> <span class="o">=</span> <span class="n">flatten_and_sort_data_matrices</span><span class="p">(</span><span class="n">y_</span><span class="p">,</span> <span class="n">t_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_input_dtype</span><span class="p">,</span> <span class="n">w_</span><span class="p">)</span>
+
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">new_xi_</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">new_xi_var_</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">new_fitted_y_mat_</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">new_fitted_y_</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">method_pcs</span> <span class="o">==</span> <span class="s2">&quot;CE&quot;</span><span class="p">:</span>
+            <span class="n">sigma2</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">rho</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">rho</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">measurement_error_variance</span>
+            <span class="p">)</span>
+            <span class="n">new_xi_</span><span class="p">,</span> <span class="n">new_xi_var_</span><span class="p">,</span> <span class="n">new_fitted_y_mat_</span><span class="p">,</span> <span class="n">new_fitted_y_</span> <span class="o">=</span> <span class="n">get_fpca_ce_score</span><span class="p">(</span>
+                <span class="n">new_flatten_func_data</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">smoothed_model_result_obs_</span><span class="o">.</span><span class="n">mu</span><span class="p">,</span>
+                <span class="n">num_pcs</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">fpca_lambda</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">fpca_phi</span><span class="p">[</span><span class="s2">&quot;obs&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">fitted_covariance</span><span class="p">[</span><span class="s2">&quot;obs&quot;</span><span class="p">],</span>
+                <span class="n">sigma2</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">method_pcs</span> <span class="o">==</span> <span class="s2">&quot;IN&quot;</span><span class="p">:</span>
+            <span class="n">new_xi_</span><span class="p">,</span> <span class="n">new_xi_var_</span><span class="p">,</span> <span class="n">new_fitted_y_mat_</span><span class="p">,</span> <span class="n">new_fitted_y_</span> <span class="o">=</span> <span class="n">get_fpca_in_score</span><span class="p">(</span>
+                <span class="n">new_flatten_func_data</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">smoothed_model_result_obs_</span><span class="o">.</span><span class="n">mu</span><span class="p">,</span>
+                <span class="n">num_pcs</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">fpca_lambda</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">fpca_phi</span><span class="p">[</span><span class="s2">&quot;obs&quot;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">measurement_error_variance</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fpca_model_params_</span><span class="o">.</span><span class="n">if_shrinkage</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">elapsed_time_</span><span class="p">[</span><span class="s2">&quot;prediction&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
+        <span class="k">return</span> <span class="n">new_xi_</span><span class="p">,</span> <span class="n">new_xi_var_</span><span class="p">,</span> <span class="n">new_fitted_y_mat_</span><span class="p">,</span> <span class="n">new_fitted_y_</span></div>
+</div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, Ching-Chuan Chen.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

@@ -1,0 +1,552 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pflm.fpca.utils.fpca_base_func_utils &#8212; pflm 0.1.0.dev0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../../_static/documentation_options.js?v=965fac30"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../../_static/copybutton.js?v=f281be69"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/pflm/fpca/utils/fpca_base_func_utils';</script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.1.dev0" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">pflm</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+    User guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/ChingChuan-Chen/pflm">
+    GitHub
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../user_guide/index.html">
+    User guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../examples/index.html">
+    Examples
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../reference/index.html">
+    API reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://github.com/ChingChuan-Chen/pflm">
+    GitHub
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">pflm.fpca.utils.fpca_base_func_utils</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for pflm.fpca.utils.fpca_base_func_utils</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Utility functions used for FPCA&quot;&quot;&quot;</span>
+
+<span class="c1"># Authors: Ching-Chuan Chen</span>
+<span class="c1"># SPDX-License-Identifier: MIT</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pflm.utils.blas_helper</span><span class="w"> </span><span class="kn">import</span> <span class="n">BLAS_Jobz</span><span class="p">,</span> <span class="n">BLAS_Uplo</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pflm.utils.lapack_helper</span><span class="w"> </span><span class="kn">import</span> <span class="n">_syevd_memview_f32</span><span class="p">,</span> <span class="n">_syevd_memview_f64</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pflm.utils.utility</span><span class="w"> </span><span class="kn">import</span> <span class="n">trapz</span>
+
+
+<div class="viewcode-block" id="get_eigen_analysis_results">
+<a class="viewcode-back" href="../../../../reference/generated/pflm.fpca.utils.get_eigen_analysis_results.html#pflm.fpca.utils.get_eigen_analysis_results">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_eigen_analysis_results</span><span class="p">(</span><span class="n">reg_cov</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">is_upper_triangular</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute eigenvalues and eigenvectors of a covariance matrix.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    reg_cov : np.ndarray of shape (nt, nt)</span>
+<span class="sd">        Regularized covariance matrix. Dtype determines the LAPACK routine</span>
+<span class="sd">        (float64 -&gt; f64 backend; otherwise f32).</span>
+<span class="sd">    is_upper_triangular : bool, default=False</span>
+<span class="sd">        Whether `reg_cov` contains only the upper triangular part (packed in a</span>
+<span class="sd">        full matrix). If True, the routine will treat the lower part as</span>
+<span class="sd">        unspecified.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    eig_lambda : np.ndarray of shape (k,)</span>
+<span class="sd">        Sorted eigenvalues (descending) filtered to positive and finite values.</span>
+<span class="sd">    eig_vector : np.ndarray of shape (nt, k)</span>
+<span class="sd">        Corresponding eigenvectors (columns) aligned with `eig_lambda`.</span>
+
+<span class="sd">    Warns</span>
+<span class="sd">    -----</span>
+<span class="sd">    UserWarning</span>
+<span class="sd">        If the LAPACK routine fails (`info != 0`) or eigenvalues contain NaN or</span>
+<span class="sd">        negative values.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - Very small eigenvalues (&lt;= 10 * eps) are discarded.</span>
+<span class="sd">    - On failure, the function returns (None, None).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># initialize eigenvalues and eigenvectors</span>
+    <span class="n">nt</span> <span class="o">=</span> <span class="n">reg_cov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">eig_lambda</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nt</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">reg_cov</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">eig_vector</span> <span class="o">=</span> <span class="n">reg_cov</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># compute eigenvalues and eigenvectors</span>
+    <span class="n">eig_func</span> <span class="o">=</span> <span class="n">_syevd_memview_f64</span> <span class="k">if</span> <span class="n">reg_cov</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span> <span class="k">else</span> <span class="n">_syevd_memview_f32</span>
+    <span class="n">uplo</span> <span class="o">=</span> <span class="n">BLAS_Uplo</span><span class="o">.</span><span class="n">Upper</span> <span class="k">if</span> <span class="n">is_upper_triangular</span> <span class="k">else</span> <span class="n">BLAS_Uplo</span><span class="o">.</span><span class="n">Lower</span>
+    <span class="n">info</span> <span class="o">=</span> <span class="n">eig_func</span><span class="p">(</span><span class="n">BLAS_Jobz</span><span class="o">.</span><span class="n">Vec</span><span class="p">,</span> <span class="n">uplo</span><span class="p">,</span> <span class="n">eig_vector</span><span class="p">,</span> <span class="n">eig_lambda</span><span class="p">,</span> <span class="n">nt</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">info</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LAPACK syevd failed with info=</span><span class="si">{</span><span class="n">info</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">eig_lambda</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">eig_lambda</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Eigenvalues contain NaN or negative values. The covariance function may not be positive semi-definite.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># sort eigen values and corresponding eigen vectors</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">eig_lambda</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">eig_lambda</span> <span class="o">&gt;</span> <span class="mf">10.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">eig_lambda</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">eps</span><span class="p">)</span>  <span class="c1"># only leave significant eigenvalues</span>
+    <span class="n">ord_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">eig_lambda</span><span class="p">[</span><span class="n">mask</span><span class="p">])[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">eig_lambda</span><span class="p">[</span><span class="n">mask</span><span class="p">][</span><span class="n">ord_idx</span><span class="p">],</span> <span class="n">eig_vector</span><span class="p">[:,</span> <span class="n">mask</span><span class="p">][:,</span> <span class="n">ord_idx</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="select_num_pcs_fve">
+<a class="viewcode-back" href="../../../../reference/generated/pflm.fpca.utils.select_num_pcs_fve.html#pflm.fpca.utils.select_num_pcs_fve">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">select_num_pcs_fve</span><span class="p">(</span><span class="n">eig_lambda</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">fve_threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">max_components</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Select the number of principal components based on cumulative explained variance.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    eig_lambda : np.ndarray of shape (k,)</span>
+<span class="sd">        Non-negative eigenvalues.</span>
+<span class="sd">    fve_threshold : float</span>
+<span class="sd">        Target fraction of variance explained (typically in (0, 1]).</span>
+<span class="sd">    max_components : int, default=20</span>
+<span class="sd">        Upper bound on the number of components considered.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    cumulative_fve : np.ndarray of shape (k,)</span>
+<span class="sd">        Cumulative explained variance curve.</span>
+<span class="sd">    num_pcs : int</span>
+<span class="sd">        Number of components needed to reach the threshold, clipped by `max_components`.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Assumes `eig_lambda` sums to a positive value; otherwise the result is undefined.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cumulative_fve</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">eig_lambda</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">eig_lambda</span><span class="p">)</span>
+    <span class="n">num_pcs</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">cumulative_fve</span><span class="p">,</span> <span class="n">fve_threshold</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">max_components</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cumulative_fve</span><span class="p">,</span> <span class="n">num_pcs</span></div>
+
+
+
+<div class="viewcode-block" id="get_fpca_phi">
+<a class="viewcode-back" href="../../../../reference/generated/pflm.fpca.utils.get_fpca_phi.html#pflm.fpca.utils.get_fpca_phi">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_fpca_phi</span><span class="p">(</span><span class="n">num_pcs</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">reg_grid</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">reg_mu</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">eig_lambda</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">eig_vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Build FPCA eigenvalues/eigenfunctions normalized on the grid.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    num_pcs : int</span>
+<span class="sd">        Number of components to return (first `num_pcs`).</span>
+<span class="sd">    reg_grid : np.ndarray of shape (nt,)</span>
+<span class="sd">        Grid points where eigenfunctions are sampled (monotonic).</span>
+<span class="sd">    reg_mu : np.ndarray of shape (nt,)</span>
+<span class="sd">        Mean values on `reg_grid`, used for sign alignment.</span>
+<span class="sd">    eig_lambda : np.ndarray of shape (k,)</span>
+<span class="sd">        Raw eigenvalues from the covariance decomposition.</span>
+<span class="sd">    eig_vector : np.ndarray of shape (nt, k)</span>
+<span class="sd">        Raw eigenvectors (columns) from the covariance decomposition.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    fpca_lambda : np.ndarray of shape (num_pcs,)</span>
+<span class="sd">        Grid-scaled eigenvalues (Riemann approximation).</span>
+<span class="sd">    fpca_phi : np.ndarray of shape (nt, num_pcs)</span>
+<span class="sd">        Grid-normalized eigenfunctions with sign aligned to `reg_mu`.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - Eigenvalues are scaled by the grid spacing; eigenvectors are normalized</span>
+<span class="sd">      to unit L2 norm on `reg_grid`.</span>
+<span class="sd">    - Signs are chosen so that &lt;phi_j, reg_mu&gt; &gt;= 0 for each component.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">grid_size</span> <span class="o">=</span> <span class="n">reg_grid</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">reg_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># Scale eigenvalues by grid spacing (Riemann approximation)</span>
+    <span class="n">fpca_lambda</span> <span class="o">=</span> <span class="n">eig_lambda</span><span class="p">[:</span><span class="n">num_pcs</span><span class="p">]</span> <span class="o">*</span> <span class="n">grid_size</span>
+
+    <span class="c1"># Scale eigenvectors: columns correspond to eigenfunctions sampled on reg_grid</span>
+    <span class="n">eig_vector_temp</span> <span class="o">=</span> <span class="n">eig_vector</span><span class="p">[:,</span> <span class="p">:</span><span class="n">num_pcs</span><span class="p">]</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">grid_size</span><span class="p">)</span>
+
+    <span class="c1"># Normalize each eigenfunction to unit L2 norm: trapz expects shape (n_samples, n_points)</span>
+    <span class="c1"># so pass transposed array (num_pcs, nt)</span>
+    <span class="n">energy</span> <span class="o">=</span> <span class="n">trapz</span><span class="p">((</span><span class="n">eig_vector_temp</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">reg_grid</span><span class="p">)</span>  <span class="c1"># shape (num_pcs,)</span>
+    <span class="c1"># Avoid division by zero (should not happen for positive eigenvalues, but be safe)</span>
+    <span class="c1"># energy[energy == 0] = 1.0</span>
+    <span class="n">scaled_eig_vector</span> <span class="o">=</span> <span class="n">eig_vector_temp</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">energy</span><span class="p">)</span>
+
+    <span class="c1"># Align signs so that inner product with mean function is non-negative</span>
+    <span class="n">signs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">scaled_eig_vector</span> <span class="o">*</span> <span class="n">reg_mu</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+    <span class="n">signs</span><span class="p">[</span><span class="n">signs</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="n">fpca_phi</span> <span class="o">=</span> <span class="n">scaled_eig_vector</span> <span class="o">*</span> <span class="n">signs</span>
+    <span class="k">return</span> <span class="n">fpca_lambda</span><span class="p">,</span> <span class="n">fpca_phi</span></div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, Ching-Chuan Chen.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
