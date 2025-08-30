@@ -73,7 +73,7 @@ def get_fpca_ce_score(
     input_dtype = flatten_func_data.y.dtype
     sigma_y = fitted_cov.astype(input_dtype, copy=True)
     if sigma2 > 0.0:
-        np.fill_diagonal(sigma_y, np.diagonal(sigma_y) + sigma2, 1e-6)
+        np.fill_diagonal(sigma_y, np.diagonal(sigma_y) + sigma2)
     fpca_ce_score_func = fpca_ce_score_f64 if input_dtype == np.float64 else fpca_ce_score_f32
     xi, xi_var, fitted_y_mat, fitted_y = fpca_ce_score_func(
         flatten_func_data.y,
@@ -135,14 +135,14 @@ def estimate_rho(
     Notes
     -----
     Values of `method_rho` other than "ridge" are treated as "truncated".
+    When using float32, the results may not be the same with float64 because of the lower precision in calculations.
     """
     num_pcs = fpca_lambda.size
     obs_grid = flatten_func_data.unique_tid
     total_fpca_lambda = np.sum(fpca_lambda)
     if method_rho == "ridge":
-        min_rho_power = -13 if fpca_lambda.dtype == np.float64 else -9
         r = np.sqrt((trapz(mu_obs**2, obs_grid) + total_fpca_lambda) / (obs_grid[-1] - obs_grid[0]))
-        rho_candidates = np.exp(np.linspace(min_rho_power, -1.5, 50)) * r
+        rho_candidates = np.exp(np.linspace(-13, -1.5, 50)) * r
     else:
         order = "F" if fpca_phi_reg.flags.f_contiguous else "C"
         idx_vec = np.zeros(flatten_func_data.y.shape[0], dtype=np.int64)
