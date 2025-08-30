@@ -136,9 +136,7 @@ def trapz_f64(
     cdef np.float64_t[:, :] y_view = y
     cdef np.float64_t[:] x_view = x
     cdef np.float64_t[:] out_view = out
-
-    with nogil:
-        trapz(order, y_rows, y_cols, &y_view[0, 0], x_size, &x_view[0], out_size, &out_view[0], 1)
+    trapz(order, y_rows, y_cols, &y_view[0, 0], x_size, &x_view[0], out_size, &out_view[0], 1)
 
     if not np.isfinite(out).all():
         raise ValueError("Non-finite values encountered in the integration result.")
@@ -159,9 +157,7 @@ def trapz_f32(
     cdef np.float32_t[:, :] y_view = y
     cdef np.float32_t[:] x_view = x
     cdef np.float32_t[:] out_view = out
-
-    with nogil:
-        trapz(order, y_rows, y_cols, &y_view[0, 0], x_size, &x_view[0], out_size, &out_view[0], 1)
+    trapz(order, y_rows, y_cols, &y_view[0, 0], x_size, &x_view[0], out_size, &out_view[0], 1)
 
     if not np.isfinite(out).all():
         raise ValueError("Non-finite values encountered in the integration result.")

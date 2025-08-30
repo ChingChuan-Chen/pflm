@@ -891,7 +891,7 @@ class FunctionalPCA(BaseEstimator):
                             fitted_cov_obs,
                             self.fpca_model_params_.measurement_error_variance,
                         )
-                        self.fpca_model_params_.rho = rho
+                        self.fpca_model_params_.rho = 0.5
                     else:
                         rho = self.user_params.rho
                 self.elapsed_time_["rho_estimate"] = (time.time_ns() - rho_start_time) / 1e9

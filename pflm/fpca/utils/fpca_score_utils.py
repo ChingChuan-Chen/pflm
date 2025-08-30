@@ -144,10 +144,15 @@ def estimate_rho(
         r = np.sqrt((trapz(mu_obs**2, obs_grid) + total_fpca_lambda) / (obs_grid[-1] - obs_grid[0]))
         rho_candidates = np.exp(np.linspace(min_rho_power, -1.5, 50)) * r
     else:
+        order = "F" if fpca_phi_reg.flags.f_contiguous else "C"
+        idx_vec = np.zeros(flatten_func_data.y.shape[0], dtype=np.int64)
+        if order == "C":
+            idx_vec = flatten_func_data.tid * flatten_func_data.unique_tid.size + flatten_func_data.sid
+        elif order == "F":
+            idx_vec = flatten_func_data.sid * flatten_func_data.unique_tid.size + flatten_func_data.tid
         for _ in range(2):
             _, _, fitted_y_mat, _ = get_fpca_ce_score(flatten_func_data, mu_obs, num_pcs, fpca_lambda, fpca_phi_obs, fitted_cov, sigma2)
-            idx = flatten_func_data.tid * flatten_func_data.unique_tid.size + flatten_func_data.sid
-            squared_residuals = (fitted_y_mat.ravel(order="C")[idx] - flatten_func_data.y) ** 2
+            squared_residuals = (fitted_y_mat.ravel(order=order)[idx_vec] - flatten_func_data.y) ** 2
             sigma2 = np.mean(np.bincount(flatten_func_data.sid, weights=squared_residuals) / flatten_func_data.sid_cnt)
         rho_candidates = np.linspace(1, 10, 50) * sigma2
 

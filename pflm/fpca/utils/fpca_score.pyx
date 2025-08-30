@@ -3,10 +3,10 @@ cimport numpy as np
 from cython cimport floating
 from cython.parallel import prange
 from libc.stdint cimport int64_t, uint64_t
-from libcpp.vector cimport vector
 from libc.math cimport NAN
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
+from libcpp.vector cimport vector
 from pflm.utils.blas_helper cimport BLAS_Order, ColMajor, RowMajor, NoTrans, Trans, Lower, _gemv, _gemm
 from pflm.utils.lapack_helper cimport _sysv
 from pflm.utils.trapz cimport trapz
@@ -17,33 +17,34 @@ cdef void get_fitted_y_mat(
     uint64_t nt,
     uint64_t num_unique_sid,
     uint64_t num_pcs,
-    floating* fitted_y,   # shape: (nt, num_unique_sid)
-    floating* mu,         # shape: (nt, )
-    floating* xi,         # shape: (num_unique_sid, num_pcs)
-    floating* fpca_phi    # shape: (nt, num_pcs)
+    floating* fitted_y_mat,   # shape: (nt, num_unique_sid)
+    floating* mu,             # shape: (nt, )
+    floating* xi,             # shape: (num_unique_sid, num_pcs)
+    floating* fpca_phi        # shape: (nt, num_pcs)
 ) noexcept nogil:
     # perform fitted_y = mu + xi @ fpca_phi.T
-    cdef uint64_t phi_lda = nt if order == ColMajor else num_pcs
-    cdef uint64_t xi_lda = num_unique_sid if order == ColMajor else num_pcs
+    cdef uint64_t phi_ld = nt if order == ColMajor else num_pcs
+    cdef uint64_t xi_ld = num_unique_sid if order == ColMajor else num_pcs
+    cdef uint64_t fitted_y_ld = nt if order == ColMajor else num_unique_sid
     _gemm(
         order, NoTrans, Trans,
         <int> nt, <int> num_unique_sid, <int> num_pcs, # m, n, k
         1.0, # alpha
-        fpca_phi, <int> phi_lda, # A, lda
-        xi, <int> xi_lda, # B, ldb
+        fpca_phi, <int> phi_ld, # A, lda
+        xi, <int> xi_ld, # B, ldb
         0.0, # beta
-        fitted_y, <int> nt # C, ldc
+        fitted_y_mat, <int> fitted_y_ld # C, ldc
     )
 
     cdef int64_t i, j
     if order == ColMajor:
-        for j in range(<int64_t> num_unique_sid):
-            for i in prange(<int64_t> nt, nogil=True):
-                fitted_y[j * nt + i] += mu[i]
+        for j in prange(<int64_t> num_unique_sid, nogil=True):
+            for i in range(<int64_t> nt):
+                fitted_y_mat[j * nt + i] += mu[i]
     elif order == RowMajor:
-        for i in range(<int64_t> nt):
-            for j in prange(<int64_t> num_unique_sid, nogil=True):
-                fitted_y[i * num_unique_sid + j] += mu[i]
+        for i in prange(<int64_t> nt, nogil=True):
+            for j in range(<int64_t> num_unique_sid):
+                fitted_y_mat[i * num_unique_sid + j] += mu[i]
 
 
 cdef void fpca_ce_score_helper(
@@ -66,6 +67,11 @@ cdef void fpca_ce_score_helper(
     cdef floating* sub_sigma_lambda_phi = <floating*> malloc(num_pcs * data_cnt * sizeof(floating))  # shape: (data_cnt, num_pcs) col-major for _sysv
     cdef floating* sub_sigma_y = <floating*> malloc(data_cnt * data_cnt * sizeof(floating))          # shape: (data_cnt, data_cnt) col-major upper-triangular for _sysv
     cdef floating* sub_y_minus_mu = <floating*> malloc(data_cnt * sizeof(floating))                  # shape: (data_cnt, )
+    if (not sub_lambda_phi) or (not sub_sigma_lambda_phi) or (not sub_sigma_y) or (not sub_y_minus_mu):
+        free(sub_lambda_phi); free(sub_sigma_lambda_phi); free(sub_sigma_y); free(sub_y_minus_mu)
+        for j in range(<int64_t> num_pcs):
+            xi[j] = NAN
+        return
     for i in range(<int64_t> data_cnt):
         sub_y_minus_mu[i] = yy[i] - mu[tid[i]]
         for j in range(i, <int64_t> data_cnt):
@@ -85,11 +91,18 @@ cdef void fpca_ce_score_helper(
     # perform A = inv(sub_sigma_y) * sub_lambda_phi
     cdef int info = 0
     cdef int *ipiv = <int*> malloc(data_cnt * sizeof(int))
-    _sysv(ColMajor, Lower, <int> data_cnt, <int> num_pcs, sub_sigma_y, <int> data_cnt, ipiv, sub_sigma_lambda_phi, <int> data_cnt, &info)
-    if info != 0:
+    if not ipiv:
+        free(sub_lambda_phi); free(sub_sigma_lambda_phi); free(sub_sigma_y); free(sub_y_minus_mu)
         for j in range(<int64_t> num_pcs):
             xi[j] = NAN
-    free(ipiv)
+        return
+
+    # _sysv(ColMajor, Lower, <int> data_cnt, <int> num_pcs, sub_sigma_y, <int> data_cnt, ipiv, sub_sigma_lambda_phi, <int> data_cnt, &info)
+    if info != 0:
+        free(sub_lambda_phi); free(sub_sigma_lambda_phi); free(sub_sigma_y); free(sub_y_minus_mu); free(ipiv)
+        for j in range(<int64_t> num_pcs):
+            xi[j] = NAN
+        return
 
     # perform xi = A * (y - mu) with _gemv: y = alpha * A^T * x + beta * y
     cdef int64_t inc_xi = num_unique_sid if order == ColMajor else 1
@@ -113,6 +126,8 @@ cdef void fpca_ce_score_helper(
         1.0, # beta
         xi_var, <int> num_pcs # C, ldc
     )
+
+    free(ipiv)
     free(sub_lambda_phi)
     free(sub_sigma_lambda_phi)
     free(sub_sigma_y)
@@ -172,13 +187,12 @@ def fpca_ce_score_f64(
         )
 
     cdef np.ndarray[np.float64_t, ndim=2] fitted_y_mat = np.zeros((nt, num_unique_sid), order=order_char, dtype=np.float64)
-    with nogil:
-        get_fitted_y_mat(
-            order, nt, num_unique_sid, num_pcs,
-            &fitted_y_mat[0, 0], &mu_view[0], &xi_view[0, 0], &fpca_phi_view[0, 0]
-        )
-
     cdef np.float64_t[:, :] fitted_y_mat_view = fitted_y_mat
+    get_fitted_y_mat(
+        order, nt, num_unique_sid, num_pcs,
+        &fitted_y_mat_view[0, 0], &mu_view[0], &xi_view[0, 0], &fpca_phi_view[0, 0]
+    )
+
     cdef list fitted_y = []
     cdef np.ndarray[np.float64_t] temp_fitted_y
     for i in range(<int64_t> num_unique_sid):
@@ -244,13 +258,12 @@ def fpca_ce_score_f32(
         )
 
     cdef np.ndarray[np.float32_t, ndim=2] fitted_y_mat = np.zeros((nt, num_unique_sid), order=order_char, dtype=np.float32)
-    with nogil:
-        get_fitted_y_mat(
-            order, nt, num_unique_sid, num_pcs,
-            &fitted_y_mat[0, 0], &mu_view[0], &xi_view[0, 0], &fpca_phi_view[0, 0]
-        )
-
     cdef np.float32_t[:, :] fitted_y_mat_view = fitted_y_mat
+    get_fitted_y_mat(
+        order, nt, num_unique_sid, num_pcs,
+        &fitted_y_mat_view[0, 0], &mu_view[0], &xi_view[0, 0], &fpca_phi_view[0, 0]
+    )
+
     cdef list fitted_y = []
     cdef np.ndarray[np.float32_t] temp_fitted_y
     for i in range(<int64_t> num_unique_sid):
@@ -284,6 +297,11 @@ cdef void fpca_in_score_helper(
     cdef floating* temp = <floating*> malloc(num_pcs * data_cnt * sizeof(floating))       # shape: (num_pcs, data_cnt) fixed to use ColMajor
     cdef floating* sub_y_minus_mu = <floating*> malloc(data_cnt * sizeof(floating))       # shape: (data_cnt, )
     cdef floating* sub_t = <floating*> malloc(data_cnt * sizeof(floating))                # shape: (data_cnt, )
+    if (not temp) or (not sub_y_minus_mu) or (not sub_t):
+        free(temp); free(sub_y_minus_mu); free(sub_t)
+        for j in range(<int64_t> num_pcs):
+            xi[j] = NAN
+        return
 
     for i in range(<int64_t> data_cnt):
         sub_y_minus_mu[i] = yy[i] - mu[tid[i]]
@@ -356,13 +374,12 @@ def fpca_in_score_f64(
         )
 
     cdef np.ndarray[np.float64_t, ndim=2] fitted_y_mat = np.zeros((nt, num_unique_sid), order=order_char, dtype=np.float64)
-    with nogil:
-        get_fitted_y_mat(
-            order, nt, num_unique_sid, num_pcs,
-            &fitted_y_mat[0, 0], &mu_view[0], &xi_view[0, 0], &fpca_phi_view[0, 0]
-        )
-
     cdef np.float64_t[:, :] fitted_y_mat_view = fitted_y_mat
+    get_fitted_y_mat(
+        order, nt, num_unique_sid, num_pcs,
+        &fitted_y_mat_view[0, 0], &mu_view[0], &xi_view[0, 0], &fpca_phi_view[0, 0]
+    )
+
     cdef list fitted_y = []
     cdef np.ndarray[np.float64_t] temp_fitted_y
     for i in range(<int64_t> num_unique_sid):
@@ -417,13 +434,12 @@ def fpca_in_score_f32(
         )
 
     cdef np.ndarray[np.float32_t, ndim=2] fitted_y_mat = np.zeros((nt, num_unique_sid), order=order_char, dtype=np.float32)
-    with nogil:
-        get_fitted_y_mat(
-            order, nt, num_unique_sid, num_pcs,
-            &fitted_y_mat[0, 0], &mu_view[0], &xi_view[0, 0], &fpca_phi_view[0, 0]
-        )
-
     cdef np.float32_t[:, :] fitted_y_mat_view = fitted_y_mat
+    get_fitted_y_mat(
+        order, nt, num_unique_sid, num_pcs,
+        &fitted_y_mat_view[0, 0], &mu_view[0], &xi_view[0, 0], &fpca_phi_view[0, 0]
+    )
+
     cdef list fitted_y = []
     cdef np.ndarray[np.float32_t] temp_fitted_y
     for i in range(<int64_t> num_unique_sid):

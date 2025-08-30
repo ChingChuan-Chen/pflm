@@ -98,6 +98,11 @@ cdef void rotate_polyfit2d_helper(
     cdef int64_t j
     cdef floating *lx = <floating*> malloc(n_rows * 3 * sizeof(floating))
     cdef floating *ly = <floating*> malloc(n_rows * sizeof(floating))
+    if (not lx) or (not ly):
+        free(lx); free(ly)
+        mu[0] = NAN
+        return
+
     cdef floating x1j_minus_center1, x2j_minus_center2, u1, u2, sqrt_wj
     for i in range(<int64_t> n_rows):
         j = idx[i]
