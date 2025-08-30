@@ -324,8 +324,8 @@ cdef void interp2d_spline(
         return
 
     # Step 2: transpose, temp_trans will be column-major matrix with shape (x_size, y_new_size)
-    for i in range(x_size):
-        for j in range(y_new_size):
+    for i in prange(<int64_t> x_size, nogil=True):
+        for j in range(<int64_t> y_new_size):
             temp_trans[j * x_size + i] = temp[i * y_new_size + j]
 
     # Step 3: for each y_new[j], spline along x from temp[:, j] -> v_new[:, j]

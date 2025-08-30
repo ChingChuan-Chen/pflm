@@ -32,7 +32,7 @@ def get_phi_cov(ffd, mu):
 
 @pytest.mark.parametrize("flatten_data, dtype", [(np.float32, np.float32), (np.float64, np.float64)], indirect=["flatten_data"])
 @pytest.mark.parametrize("order", ["C", "F"])
-@pytest.mark.parametrize("sigma2_val", [0.1, 0.3, 1.0, 2.0])
+@pytest.mark.parametrize("sigma2_val", [0.0, 0.1, 0.3, 1.0, 2.0])
 def test_fpca_ce_score_happy_path(flatten_data, dtype, order, sigma2_val):
     ffd, mu = flatten_data
     num_samples = ffd.sid_cnt.size
@@ -47,13 +47,19 @@ def test_fpca_ce_score_happy_path(flatten_data, dtype, order, sigma2_val):
     if sigma2 > 0.0:
         np.fill_diagonal(sigma_y, np.diagonal(sigma_y) + sigma2)
 
+    x, _, _, _ = scipy.linalg.lstsq(sigma_y, ffd.y[:3] - mu)
+    print((fpca_phi @ lambda_mat).T @ x)
+
     xi_expected = np.zeros((ffd.unique_sid.size, num_pcs), dtype=dtype)
     xi_var_expected = []
     for i, sid_val in enumerate(ffd.unique_sid):
         mask = ffd.sid == sid_val
         tid_i = ffd.tid[mask]
-        lambda_phi_i = (fpca_phi @ lambda_mat)[tid_i, :]
-        inv_sigma_lambda_phi = scipy.linalg.solve(sigma_y[np.ix_(tid_i, tid_i)], lambda_phi_i, assume_a="sym")
+        lambda_phi_i = fpca_phi[tid_i, :] @ lambda_mat
+        if num_pcs >= len(tid_i):
+            inv_sigma_lambda_phi = scipy.linalg.solve(sigma_y[np.ix_(tid_i, tid_i)], lambda_phi_i, assume_a="sym")
+        else:
+            inv_sigma_lambda_phi = scipy.linalg.pinv(sigma_y[np.ix_(tid_i, tid_i)]) @ lambda_phi_i
         xi_expected[i] = inv_sigma_lambda_phi.T @ (ffd.y[mask] - mu[tid_i])
         xi_var_expected.append(lambda_mat - lambda_phi_i.T @ inv_sigma_lambda_phi)
 
