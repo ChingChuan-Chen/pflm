@@ -24,6 +24,7 @@ from pflm.fpca.utils import (
     get_measurement_error_variance,
     get_raw_cov,
     select_num_pcs_fve,
+    select_num_pcs_ic,
 )
 from pflm.interp import interp1d, interp2d
 from pflm.smooth import KernelType, Polyfit1DModel, Polyfit2DModel
@@ -821,9 +822,20 @@ class FunctionalPCA(BaseEstimator):
                     self.fpca_model_params_.max_num_pcs,
                 )
             elif method_select_num_pcs in ["AIC", "BIC"]:
-                # implement AIC/BIC-based function to choose number of principal components
-                # self.fpca_model_params_.select_num_pcs_criterion, num_pcs = select_num_pcs_ic(eig_lambda, method_select_num_pcs)
-                raise NotImplementedError("AIC/BIC-based selection method is not implemented yet.")
+                self.fpca_model_params_.select_num_pcs_criterion, num_pcs = select_num_pcs_ic(
+                    method_select_num_pcs,
+                    self.y_,
+                    self.t_,
+                    self.smoothed_model_result_obs_.grid,
+                    self.smoothed_model_result_reg_.grid,
+                    self.smoothed_model_result_reg_.mu,
+                    self.smoothed_model_result_obs_.mu,
+                    self.fpca_model_params_.eigen_results["eigenvalues"],
+                    self.fpca_model_params_.eigen_results["eigenvectors"],
+                    max_components=self.fpca_model_params_.max_num_pcs,
+                    measurement_error_variance=self.fpca_model_params_.measurement_error_variance,
+                    rho=self.fpca_model_params_.rho,
+                )
         elif isinstance(method_select_num_pcs, int):
             num_pcs = method_select_num_pcs
         else:

@@ -3,10 +3,12 @@
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 import warnings
-from typing import Tuple
+from typing import List, Literal, Optional, Tuple
 
 import numpy as np
 
+from pflm.interp import interp1d
+from pflm.fpca.utils.log_lik import get_log_likelihood_f32, get_log_likelihood_f64
 from pflm.utils.blas_helper import BLAS_Jobz, BLAS_Uplo
 from pflm.utils.lapack_helper import _syevd_memview_f32, _syevd_memview_f64
 from pflm.utils.utility import trapz
@@ -92,6 +94,93 @@ def select_num_pcs_fve(eig_lambda: np.ndarray, fve_threshold: float, max_compone
     cumulative_fve = np.cumsum(eig_lambda) / np.sum(eig_lambda)
     num_pcs = min(np.searchsorted(cumulative_fve, fve_threshold) + 1, max_components)
     return cumulative_fve, num_pcs
+
+
+def select_num_pcs_ic(
+    criterion: Literal["AIC", "BIC"],
+    y: List[np.ndarray],
+    t: List[np.ndarray],
+    obs_grid: np.ndarray,
+    reg_grid: np.ndarray,
+    reg_mu: np.ndarray,
+    mu_obs: np.ndarray,
+    eig_lambda: np.ndarray,
+    eig_vector: np.ndarray,
+    max_components: int = 20,
+    measurement_error_variance: float = 0.0,
+    rho: Optional[float] = None,
+) -> Tuple[np.ndarray, int]:
+    """Select number of PCs via AIC/BIC with fdapace-style early stopping."""
+    if criterion not in ["AIC", "BIC"]:
+        raise ValueError("criterion must be either 'AIC' or 'BIC'.")
+
+    max_candidates = min(int(max_components), int(eig_lambda.size))
+    if max_candidates < 1:
+        raise ValueError("No available principal components for IC-based selection.")
+
+    input_dtype = np.result_type(y[0].dtype, t[0].dtype)
+
+    sigma2 = float(measurement_error_variance)
+    if rho is not None and sigma2 <= float(rho):
+        sigma2 = float(rho)
+    if sigma2 < 0.0:
+        sigma2 = 0.0
+    if sigma2 == 0.0:
+        y_all = np.concatenate(y)
+        sigma2 = max(float(np.var(y_all)) * 1e-8, float(np.finfo(input_dtype).eps) * 10.0)
+
+    cy_loglik_func = get_log_likelihood_f64 if input_dtype == np.float64 else get_log_likelihood_f32
+
+    # Build flattened subject-wise arrays once; per-k updates only rebuild basis/covariance.
+    sid_cnt = np.asarray([len(y_i) for y_i in y], dtype=np.int64)
+    unique_sid = np.arange(len(y), dtype=np.int64)
+    yy = np.ascontiguousarray(np.concatenate(y), dtype=input_dtype)
+    tt = np.ascontiguousarray(np.concatenate(t), dtype=input_dtype)
+    tid = np.ascontiguousarray(np.concatenate([np.searchsorted(obs_grid, t_i) for t_i in t]), dtype=np.int64)
+    mu_obs_cast = np.ascontiguousarray(mu_obs, dtype=input_dtype)
+
+    penalty = 2.0 if criterion == "AIC" else float(np.log(len(y)))
+    ic_values = []
+    selected_k = max_candidates
+
+    for k in range(1, max_candidates + 1):
+        fpca_lambda, fpca_phi_reg = get_fpca_phi(k, reg_grid, reg_mu, eig_lambda, eig_vector)
+        fpca_lambda = np.ascontiguousarray(fpca_lambda, dtype=input_dtype)
+
+        fpca_phi_obs = np.zeros((len(obs_grid), k), dtype=input_dtype)
+        for i in range(k):
+            fpca_phi_obs[:, i] = interp1d(reg_grid, fpca_phi_reg[:, i], obs_grid, method="spline")
+        fpca_phi_obs = np.ascontiguousarray(fpca_phi_obs, dtype=input_dtype)
+
+        sigma_y = fpca_phi_obs @ np.diag(fpca_lambda) @ fpca_phi_obs.T
+        sigma_y = np.ascontiguousarray(sigma_y, dtype=input_dtype)
+        if sigma2 > 0.0:
+            sigma_y = sigma_y.copy()
+            np.fill_diagonal(sigma_y, np.diagonal(sigma_y) + sigma2)
+
+        lambda_phi = np.ascontiguousarray(fpca_phi_obs * fpca_lambda.reshape((1, -1)), dtype=input_dtype)
+
+        loglik_k = cy_loglik_func(
+            yy,
+            tt,
+            tid,
+            mu_obs_cast,
+            sigma_y,
+            fpca_lambda,
+            lambda_phi,
+            unique_sid,
+            sid_cnt,
+        )
+        ic_k = float(loglik_k + penalty * k)
+        ic_values.append(ic_k)
+
+        if k > 1 and ic_values[-1] > ic_values[-2]:
+            selected_k = k - 1
+            break
+        if k == max_candidates:
+            selected_k = k
+
+    return np.asarray(ic_values, dtype=input_dtype), int(selected_k)
 
 
 def get_fpca_phi(num_pcs: int, reg_grid: np.ndarray, reg_mu: np.ndarray, eig_lambda: np.ndarray, eig_vector: np.ndarray):

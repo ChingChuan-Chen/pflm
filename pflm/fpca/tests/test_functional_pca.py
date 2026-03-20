@@ -62,7 +62,7 @@ def _make_toy(n_subj=4, lens=(5, 6, 7, 8), dtype=np.float64):
 @pytest.mark.filterwarnings("ignore")
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("estimate_method", ["smooth", "cross-sectional"])
-@pytest.mark.parametrize("selector", ["FVE"])  # TODO: ADD "AIC", "BIC"
+@pytest.mark.parametrize("selector", ["FVE", "AIC", "BIC"])
 def test_fit_covers_estimation_and_selectors(dtype, estimate_method, selector):
     """Cover mean/cov estimation branches and num_pcs selectors."""
     y, t = _make_toy(dtype=dtype)
@@ -74,6 +74,29 @@ def test_fit_covers_estimation_and_selectors(dtype, estimate_method, selector):
     assert fpca.fitted_y_mat_.shape[1] == len(y)
     assert fpca.num_pcs_ is not None
     assert fpca.fpca_model_params_ is not None
+
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("selector", ["AIC", "BIC"])
+def test_fit_score_with_ic_selector_runs_and_records_criterion(basic_func_data, selector):
+    """IC-based selector should produce finite criterion values and a valid selected K."""
+    y, t, _ = basic_func_data
+    fpca = FunctionalPCA(
+        assume_measurement_error=True,
+        mu_cov_params=FunctionalPCAMuCovParams(kernel_type=KernelType.EPANECHNIKOV),
+    )
+    fpca.fit(
+        y,
+        t,
+        method_pcs="CE",
+        method_select_num_pcs=selector,
+    )
+
+    criterion = np.asarray(fpca.fpca_model_params_.select_num_pcs_criterion)
+    assert criterion.ndim == 1
+    assert criterion.size >= fpca.num_pcs_
+    assert np.all(np.isfinite(criterion))
+    assert 1 <= fpca.num_pcs_ <= min(fpca.fpca_model_params_.max_num_pcs, fpca.fpca_model_params_.eigen_results["eigenvalues"].size)
 
 
 def test_fit_with_user_defined_mu_and_cov_paths():

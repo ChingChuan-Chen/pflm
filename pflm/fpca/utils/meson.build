@@ -21,6 +21,12 @@ utils_extension_metadata = {
             cython_gen_cpp.process('fpca_score.pyx'),
         ],
         'dependencies': [np_dep, openmp_dep],
+    },
+    'log_lik': {
+        'sources': [
+            cython_gen_cpp.process('log_lik.pyx'),
+        ],
+        'dependencies': [np_dep],
     }
 }
 
