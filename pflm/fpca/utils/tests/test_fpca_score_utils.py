@@ -77,6 +77,42 @@ def test_fpca_ce_score_happy_path(flatten_data, dtype, order, sigma2_val):
 
 
 @pytest.mark.parametrize("flatten_data", [np.float64], indirect=True)
+@pytest.mark.parametrize("order", ["C", "F"])
+@pytest.mark.parametrize("score_method", ["CE", "IN"])
+def test_fitted_y_list_matches_fitted_y_mat(flatten_data, order, score_method):
+    ffd, mu = flatten_data
+    num_pcs, fpca_lambda, fpca_phi, fitted_cov = get_phi_cov(ffd, mu)
+    fpca_phi = np.ascontiguousarray(fpca_phi) if order == "C" else np.asfortranarray(fpca_phi)
+
+    if score_method == "CE":
+        fitted_cov = np.ascontiguousarray(fitted_cov) if order == "C" else np.asfortranarray(fitted_cov)
+        _, _, yhat_mat, yhat = get_fpca_ce_score(
+            ffd,
+            mu,
+            num_pcs,
+            fpca_lambda,
+            fpca_phi,
+            fitted_cov,
+            np.float64(0.3),
+        )
+    else:
+        _, _, yhat_mat, yhat = get_fpca_in_score(
+            ffd,
+            mu,
+            num_pcs,
+            fpca_lambda,
+            fpca_phi,
+            np.float64(0.3),
+            False,
+        )
+
+    for sid_idx, sid_val in enumerate(ffd.unique_sid):
+        tid_i = ffd.tid[ffd.sid == sid_val]
+        expected = yhat_mat[tid_i, sid_idx]
+        assert_allclose(yhat[sid_idx], expected, rtol=1e-8, atol=1e-8)
+
+
+@pytest.mark.parametrize("flatten_data", [np.float64], indirect=True)
 def test_get_fpca_ce_score_too_many_num_pcs(flatten_data):
     ffd, mu = flatten_data
     fitted_cov = np.eye(ffd.unique_tid.size, dtype=np.float64)  # dummy covariance

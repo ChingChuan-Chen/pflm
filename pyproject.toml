@@ -168,6 +168,9 @@ ignore = [
     'W504',
 ]
 
+[tool.esbonio.sphinx]
+buildArguments = ["sphinx-build", "-M", "html", "docs", "${defaultBuildDir}", "--nitpicky", "--verbose"]
+
 [tool.check-sdist]
 # These settings should match .gitattributes
 sdist-only = []

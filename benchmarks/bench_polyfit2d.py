@@ -1,9 +1,12 @@
-import sys
+import argparse
 import gc
-import time
 import pprint
+import sys
+import time
+
 import numpy as np
-from pflm.smooth import Polyfit2DModel, KernelType
+
+from pflm.smooth import KernelType, Polyfit2DModel
 
 
 def _make_data_2d(rng, n_side: int):
@@ -20,10 +23,6 @@ def _make_data_2d(rng, n_side: int):
 
 
 def benchmark_polyfit2d(
-    rng,
-    n_side: int,
-    x1: np.ndarray,
-    x2: np.ndarray,
     X: np.ndarray,
     y: np.ndarray,
     w: np.ndarray,
@@ -31,11 +30,11 @@ def benchmark_polyfit2d(
     x2_new: np.ndarray,
     bandwidth1: float,
     bandwidth2: float,
-    kernel_type: KernelType = KernelType.GAUSSIAN,
+    kernel_type: KernelType,
 ) -> int:
     """Return elapsed time in ns for one fit+predict run."""
     gc.collect()
-    start = time.time_ns()
+    start_time = time.time_ns()
     model = Polyfit2DModel(kernel_type=kernel_type, degree=1, interp_kind="linear")
     # Use fixed bandwidths for consistent benchmarking; avoid CV overhead
     model.fit(
@@ -48,57 +47,73 @@ def benchmark_polyfit2d(
         reg_grid2=x2_new,
     )
     _ = model.predict(x1_new, x2_new, use_model_interp=True)
-    elapsed = time.time_ns() - start
-    return elapsed
+    elapsed_ns = time.time_ns() - start_time
+    return elapsed_ns
 
 
-if __name__ == "__main__":
+def summarize_times(label: str, times_ns):
+    times_ns = np.asarray(times_ns, dtype=np.int64)
+    if times_ns.size > 2:
+        times_trimmed = np.sort(times_ns)[1:-1]
+    else:
+        times_trimmed = times_ns
+    print(
+        f"Average time (remove fastest and slowest) for {times_ns.size} replications on {label}: "
+        f"{np.mean(times_trimmed) / 1e9:.6f} seconds"
+    )
+    print(f"Standard deviation of run times: {np.std(times_trimmed) / 1e9:.6f} seconds")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Benchmark Polyfit2D in Python (pflm)")
+    parser.add_argument("--n-side", type=int, default=100, help="Grid side length (n = n_side^2)")
+    parser.add_argument("--num-replications", type=int, default=30, help="Number of benchmark replications")
+    parser.add_argument("--bandwidth1", type=float, default=0.1, help="Bandwidth for first dimension")
+    parser.add_argument("--bandwidth2", type=float, default=0.1, help="Bandwidth for second dimension")
+    args = parser.parse_args()
+
     rng = np.random.default_rng(42)
 
-    # Training grid side length (n = n_side^2 to mirror 1D's n≈1e4)
-    n_side = 100               # 100 x 100 => 10,000 samples
-    x1, x2, X, y, w = _make_data_2d(rng, n_side)
+    x1, x2, X, y, w = _make_data_2d(rng, args.n_side)
 
     # Prediction grid (can be made denser to increase load, e.g., 150 or 200)
     x1_new = x1
     x2_new = x2
 
-    # Bandwidths (tune as needed)
-    bw1 = 0.1
-    bw2 = 0.1
-
-    kernel_types = [KernelType.GAUSSIAN, KernelType.EPANECHNIKOV]
-
     print("Python Information:\n", sys.version)
     np.show_config()
+    print(
+        f"n_side={args.n_side}, num_replications={args.num_replications}, "
+        f"bandwidth1={args.bandwidth1}, bandwidth2={args.bandwidth2}"
+    )
 
-    num_replications = 30
-    run_times = {k: [] for k in kernel_types}
-
-    for kernel in kernel_types:
-        for _ in range(num_replications):
-            t_ns = benchmark_polyfit2d(
-                rng,
-                n_side,
-                x1, x2, X, y, w,
-                x1_new, x2_new,
-                bandwidth1=bw1,
-                bandwidth2=bw2,
-                kernel_type=kernel,
+    run_times = {"GAUSSIAN": [], "EPANECHNIKOV": []}
+    kernel_map = {
+        "GAUSSIAN": KernelType.GAUSSIAN,
+        "EPANECHNIKOV": KernelType.EPANECHNIKOV,
+    }
+    for kernel_name, kernel_type in kernel_map.items():
+        for _ in range(args.num_replications):
+            run_times[kernel_name].append(
+                benchmark_polyfit2d(
+                    X,
+                    y,
+                    w,
+                    x1_new,
+                    x2_new,
+                    args.bandwidth1,
+                    args.bandwidth2,
+                    kernel_type,
+                )
             )
-            run_times[kernel].append(t_ns)
 
-    for kernel in kernel_types:
-        arr = np.array(run_times[kernel], dtype=np.int64)
-        arr_sorted = np.sort(arr)
-        trimmed = arr_sorted[1:-1]  # drop fastest/slowest
-        print(
-            f"Average time (remove fastest and slowest) for {num_replications} replications "
-            f"with grid {n_side}x{n_side} on Polyfit2DModel with {kernel} kernel runs: "
-            f"{np.mean(trimmed) / 1e9:.6f} seconds"
-        )
-        print(f"Standard deviation of run times: {np.std(trimmed) / 1e9:.6f} seconds")
+    summarize_times("Polyfit2DModel (GAUSSIAN)", run_times["GAUSSIAN"])
+    summarize_times("Polyfit2DModel (EPANECHNIKOV)", run_times["EPANECHNIKOV"])
 
-    for kernel, times in run_times.items():
-        print(f"kernel - {kernel}, run_time (s):")
-        pprint.pprint(np.array(times) / 1e9)
+    for kernel_name, times_ns in run_times.items():
+        print(f"kernel - {kernel_name}, run_time (seconds):")
+        pprint.pprint(np.asarray(times_ns, dtype=np.float64) / 1e9)
+
+
+if __name__ == "__main__":
+    main()

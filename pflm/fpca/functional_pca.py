@@ -495,7 +495,7 @@ class FunctionalPCA(BaseEstimator):
         fve_threshold: float = 0.99,
         reg_grid: Union[np.ndarray, List[float]] = None,
     ) -> "FunctionalPCA":
-        """Fit the FPCA model: mean, covariance, eigenstructure, and scores.
+        """Fit the FPCA model: mean, covariance, eigen-structure, and scores.
 
         Parameters
         ----------
@@ -732,7 +732,7 @@ class FunctionalPCA(BaseEstimator):
         self,
         method_pcs: Literal["IN", "CE"] = "CE",
         method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
-        method_rho: Literal["truntruncatedc", "ridge", "vanilla"] = "vanilla",
+        method_rho: Literal["truncated", "ridge", "vanilla"] = "vanilla",
         max_num_pcs: int = 20,
         if_impute_scores: bool = True,
         if_shrinkage: bool = False,
@@ -742,7 +742,7 @@ class FunctionalPCA(BaseEstimator):
         """Compute principal component scores given smoothed artifacts.
 
         This method assumes `fit` has been called to produce smoothed mean/covariance
-        and eigenstructure. It then selects the number of components and computes
+        and eigen-structure. It then selects the number of components and computes
         scores using the chosen method.
 
         Parameters
@@ -855,8 +855,6 @@ class FunctionalPCA(BaseEstimator):
         start_time = time.time_ns()
         self.elapsed_time_["rho_estimate"] = 0.0
         rho = None
-        self.xi = None
-        self.xi_var = None
         if if_impute_scores:
             if method_pcs == "CE":
                 rho_start_time = time.time_ns()
@@ -874,9 +872,12 @@ class FunctionalPCA(BaseEstimator):
                             fitted_cov_obs,
                             self.fpca_model_params_.measurement_error_variance,
                         )
-                        self.fpca_model_params_.rho = 0.5
+                        self.fpca_model_params_.rho = rho
                     else:
                         rho = self.user_params.rho
+                        self.fpca_model_params_.rho = rho
+                else:
+                    self.fpca_model_params_.rho = None
                 self.elapsed_time_["rho_estimate"] = (time.time_ns() - rho_start_time) / 1e9
 
                 sigma2 = rho if rho is not None else self.fpca_model_params_.measurement_error_variance
@@ -957,6 +958,10 @@ class FunctionalPCA(BaseEstimator):
         """
         check_is_fitted(self, ["fpca_model_params_", "fitted_y_"])
         num_pcs = self.num_pcs_ if num_pcs is None else num_pcs
+        if not isinstance(num_pcs, (int, np.integer)) or num_pcs <= 0:
+            raise ValueError("num_pcs must be a positive integer.")
+        if num_pcs > self.num_pcs_:
+            raise ValueError(f"num_pcs ({num_pcs}) exceeds the number of components fitted ({self.num_pcs_}).")
         _, y_, t_, w_ = self.__check_data(y, t, w, self._input_dtype)
         new_flatten_func_data = flatten_and_sort_data_matrices(y_, t_, self._input_dtype, w_)
 
@@ -973,8 +978,8 @@ class FunctionalPCA(BaseEstimator):
                 new_flatten_func_data,
                 self.smoothed_model_result_obs_.mu,
                 num_pcs,
-                self.fpca_model_params_.fpca_lambda,
-                self.fpca_model_params_.fpca_phi["obs"],
+                self.fpca_model_params_.fpca_lambda[:num_pcs],
+                self.fpca_model_params_.fpca_phi["obs"][:, :num_pcs],
                 self.fpca_model_params_.fitted_covariance["obs"],
                 sigma2,
             )
@@ -983,8 +988,8 @@ class FunctionalPCA(BaseEstimator):
                 new_flatten_func_data,
                 self.smoothed_model_result_obs_.mu,
                 num_pcs,
-                self.fpca_model_params_.fpca_lambda,
-                self.fpca_model_params_.fpca_phi["obs"],
+                self.fpca_model_params_.fpca_lambda[:num_pcs],
+                self.fpca_model_params_.fpca_phi["obs"][:, :num_pcs],
                 self.fpca_model_params_.measurement_error_variance,
                 self.fpca_model_params_.if_shrinkage,
             )

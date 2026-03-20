@@ -72,13 +72,13 @@ cdef void trapz(
     """
     cdef int64_t i
     if (y_cols != x_size) and (y_rows != x_size):
-        for i in prange(<int64_t> out_size - 1, nogil=True):
+        for i in prange(<int64_t> out_size, nogil=True):
             out[i] = NAN
         return
 
     cdef floating *dx = <floating*> malloc((x_size - 1) * sizeof(floating))
     if dx is NULL:
-        for i in prange(<int64_t> out_size - 1, nogil=True):
+        for i in prange(<int64_t> out_size, nogil=True):
             out[i] = NAN
         return
 

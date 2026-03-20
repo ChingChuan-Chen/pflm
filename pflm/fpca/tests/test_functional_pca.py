@@ -177,8 +177,62 @@ def test_fit_with_fixed_num_pcs(selector):
 
 
 @pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("method_pcs", ["CE", "IN"])
+@pytest.mark.parametrize("fve_threshold", [0.8, 0.95])
+def test_fit_score_with_fve_for_ce_and_in(basic_func_data, method_pcs, fve_threshold):
+    """FVE-based K selection should drive score output dimensions for both CE/IN paths."""
+    y, t, _ = basic_func_data
+    fpca = FunctionalPCA(
+        assume_measurement_error=True,
+        mu_cov_params=FunctionalPCAMuCovParams(kernel_type=KernelType.EPANECHNIKOV),
+    )
+    fpca.fit(
+        y,
+        t,
+        method_pcs=method_pcs,
+        method_select_num_pcs="FVE",
+        fve_threshold=float(fve_threshold),
+    )
+
+    eigenvalues = fpca.fpca_model_params_.eigen_results["eigenvalues"]
+    cum_fve = np.cumsum(eigenvalues) / np.sum(eigenvalues)
+    expected_k = int(np.searchsorted(cum_fve, fve_threshold, side="left") + 1)
+
+    assert fpca.num_pcs_ == expected_k
+    assert fpca.fpca_model_params_.method_pcs == method_pcs
+    assert fpca.fpca_model_params_.method_select_num_pcs == "FVE"
+    criterion = np.asarray(fpca.fpca_model_params_.select_num_pcs_criterion)
+    assert criterion.size >= expected_k
+    assert criterion[expected_k - 1] >= fve_threshold
+    assert fpca.xi_.shape == (len(y), fpca.num_pcs_)
+    assert fpca.fitted_y_mat_.shape == (fpca.smoothed_model_result_obs_.grid.size, len(y))
+    assert len(fpca.fitted_y_) == len(y)
+    assert all(cnt == len(fi) for cnt, fi in zip(fpca.flatten_func_data_.sid_cnt, fpca.fitted_y_))
+
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("method_pcs, expected_k", [("CE", 2), ("IN", 2)])
+def test_fit_score_fve_k_matches_r_reference(basic_func_data, method_pcs, expected_k):
+    """Regression test: fixed data + fixed FVE threshold should match fdapace K reference."""
+    y, t, _ = basic_func_data
+    fpca = FunctionalPCA(
+        assume_measurement_error=True,
+        mu_cov_params=FunctionalPCAMuCovParams(kernel_type=KernelType.EPANECHNIKOV),
+    )
+
+    fpca.fit(
+        y,
+        t,
+        method_pcs=method_pcs,
+        method_select_num_pcs="FVE",
+        fve_threshold=0.95,
+    )
+
+    assert fpca.num_pcs_ == expected_k
+
+
+@pytest.mark.filterwarnings("ignore")
 def test_init_assume_error_with_user_sigma2():
-    y, t = _make_toy()
     user = FunctionalPCAUserDefinedParams(sigma2=0.02)
     with pytest.raises(ValueError, match="Measurement error is assumed to be false"):
         FunctionalPCA(assume_measurement_error=False, user_params=user)
@@ -186,7 +240,6 @@ def test_init_assume_error_with_user_sigma2():
 
 @pytest.mark.filterwarnings("ignore")
 def test_init_assume_error_with_user_rho():
-    y, t = _make_toy()
     user = FunctionalPCAUserDefinedParams(rho=0.1)
     with pytest.raises(ValueError, match="Measurement error is assumed to be false"):
         FunctionalPCA(assume_measurement_error=False, user_params=user)
@@ -282,3 +335,85 @@ def test_check_data_dtype_override():
     assert dtype_out == np.float32
     assert y_[0].dtype == np.float32 and t_[0].dtype == np.float32
     assert w_ is None
+
+
+@pytest.mark.filterwarnings("ignore")
+def test_fit_score_persists_estimated_rho(monkeypatch):
+    """Estimated rho should be stored on the fitted model params, not discarded."""
+    y, t = _make_toy()
+    fpca = FunctionalPCA()
+
+    expected_rho = 0.123
+
+    def fake_estimate_rho(*args, **kwargs):
+        return expected_rho
+
+    monkeypatch.setattr("pflm.fpca.functional_pca.estimate_rho", fake_estimate_rho)
+
+    fpca.fit(t, y, method_pcs="CE", method_rho="ridge")
+
+    assert fpca.fpca_model_params_.rho == pytest.approx(expected_rho)
+
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("method_pcs", ["CE", "IN"])
+def test_predict_respects_requested_num_pcs(monkeypatch, method_pcs):
+    """predict(num_pcs=...) should pass truncated FPCA artifacts to the scoring helper."""
+    y, t = _make_toy()
+    fpca = FunctionalPCA()
+    fpca.fit(t, y, method_pcs=method_pcs, method_select_num_pcs=3)
+
+    requested_num_pcs = 1
+    captured = {}
+
+    def fake_score(flatten_func_data, mu, num_pcs, fpca_lambda, fpca_phi, *args, **kwargs):
+        captured["num_pcs"] = num_pcs
+        captured["fpca_lambda_size"] = fpca_lambda.shape[0]
+        captured["fpca_phi_cols"] = fpca_phi.shape[1]
+        n_samples = flatten_func_data.unique_sid.size
+        nt = flatten_func_data.unique_tid.size
+        xi = np.zeros((n_samples, num_pcs), dtype=mu.dtype)
+        xi_var = [np.zeros((num_pcs, num_pcs), dtype=mu.dtype) for _ in range(n_samples)]
+        fitted_y_mat = np.zeros((nt, n_samples), dtype=mu.dtype)
+        fitted_y = [np.zeros(cnt, dtype=mu.dtype) for cnt in flatten_func_data.sid_cnt]
+        return xi, xi_var, fitted_y_mat, fitted_y
+
+    target = "pflm.fpca.functional_pca.get_fpca_ce_score" if method_pcs == "CE" else "pflm.fpca.functional_pca.get_fpca_in_score"
+    monkeypatch.setattr(target, fake_score)
+
+    fpca.predict(y, t, num_pcs=requested_num_pcs)
+
+    assert captured["num_pcs"] == requested_num_pcs
+    assert captured["fpca_lambda_size"] == requested_num_pcs
+    assert captured["fpca_phi_cols"] == requested_num_pcs
+
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("method_pcs", ["CE", "IN"])
+@pytest.mark.parametrize(
+    "bad_num_pcs, match",
+    [
+        (0, "num_pcs must be a positive integer"),
+        (-1, "num_pcs must be a positive integer"),
+        (1.5, "num_pcs must be a positive integer"),
+        ("2", "num_pcs must be a positive integer"),
+    ],
+)
+def test_predict_invalid_num_pcs_type_or_value(method_pcs, bad_num_pcs, match):
+    """predict() should raise ValueError for non-positive or non-integer num_pcs."""
+    y, t = _make_toy()
+    fpca = FunctionalPCA()
+    fpca.fit(t, y, method_pcs=method_pcs, method_select_num_pcs=3)
+    with pytest.raises(ValueError, match=match):
+        fpca.predict(y, t, num_pcs=bad_num_pcs)
+
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("method_pcs", ["CE", "IN"])
+def test_predict_num_pcs_exceeds_fitted(method_pcs):
+    """predict() should raise ValueError when num_pcs exceeds the fitted number of components."""
+    y, t = _make_toy()
+    fpca = FunctionalPCA()
+    fpca.fit(t, y, method_pcs=method_pcs, method_select_num_pcs=2)
+    with pytest.raises(ValueError, match="exceeds the number of components fitted"):
+        fpca.predict(y, t, num_pcs=fpca.num_pcs_ + 1)

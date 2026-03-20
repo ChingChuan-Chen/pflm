@@ -60,9 +60,9 @@ cdef void get_fitted_y_list(
     cdef uint64_t i
     for i in range(data_cnt):
         if order == ColMajor:
-            fitted_y[i] = fitted_y_mat[sid * num_unique_sid + tid[i]]
+              fitted_y[i] = fitted_y_mat[tid[i] + sid * nt]
         elif order == RowMajor:
-            fitted_y[i] = fitted_y_mat[tid[i] * nt + sid]
+              fitted_y[i] = fitted_y_mat[tid[i] * num_unique_sid + sid]
 
 
 cdef void fpca_ce_score_helper(

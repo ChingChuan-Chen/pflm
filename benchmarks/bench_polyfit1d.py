@@ -1,54 +1,74 @@
-import sys
+import argparse
 import gc
-import time
 import pprint
+import sys
+import time
+
 import numpy as np
-from pflm.smooth import Polyfit1DModel, KernelType
+
+from pflm.smooth import KernelType, Polyfit1DModel
 
 
-def benchmark_polyfit1d(rng, n, x, w, x_new, bandwidth, kernel_type=KernelType.GAUSSIAN):
-    """Benchmark the polyfit1d function."""
-    gc.collect()  # Clear garbage collector to avoid interference
-    y = x ** 2 - 3.0 * x + 1.0 + 0.5 * rng.standard_normal(n)
+def benchmark_polyfit1d(rng, n: int, x: np.ndarray, w: np.ndarray, x_new: np.ndarray, bandwidth: float, kernel_type: KernelType) -> int:
+    """Return elapsed time (ns) for one Polyfit1D fit+predict run."""
+    gc.collect()
+    y = x**2 - 3.0 * x + 1.0 + 0.5 * rng.standard_normal(n)
     start_time = time.time_ns()
-    polyfit1d_model = Polyfit1DModel(kernel_type=kernel_type)
-    polyfit1d_model.fit(x, y, w, bandwidth=bandwidth)
-    y_new = polyfit1d_model.predict(x_new)
-    elapsed_time = time.time_ns() - start_time
-    del y, y_new  # Free memory
-    return elapsed_time
+    model = Polyfit1DModel(kernel_type=kernel_type)
+    model.fit(x, y, w, bandwidth=bandwidth)
+    y_new = model.predict(x_new)
+    elapsed_ns = time.time_ns() - start_time
+    del y, y_new
+    return elapsed_ns
 
 
-if __name__ == "__main__":
-    n = int(1e4)
-    x = np.linspace(0.0, 1.0, n, dtype=np.float64)
-    w = np.ones_like(x)
-    x_new = np.linspace(0.0, 1.0, n * 2, dtype=np.float64)
-    bandwidth = 0.05
+def summarize_times(label: str, times_ns):
+    times_ns = np.asarray(times_ns, dtype=np.int64)
+    if times_ns.size > 2:
+        times_trimmed = np.sort(times_ns)[1:-1]
+    else:
+        times_trimmed = times_ns
+    print(
+        f"Average time (remove fastest and slowest) for {times_ns.size} replications on {label}: "
+        f"{np.mean(times_trimmed) / 1e9:.6f} seconds"
+    )
+    print(f"Standard deviation of run times: {np.std(times_trimmed) / 1e9:.6f} seconds")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Benchmark Polyfit1D in Python (pflm)")
+    parser.add_argument("--n", type=int, default=int(1e4), help="Number of training points")
+    parser.add_argument("--num-replications", type=int, default=30, help="Number of benchmark replications")
+    parser.add_argument("--bandwidth", type=float, default=0.05, help="Smoothing bandwidth")
+    args = parser.parse_args()
+
     rng = np.random.default_rng(42)
-    kernel_types = [KernelType.GAUSSIAN, KernelType.EPANECHNIKOV]
+    x = np.linspace(0.0, 1.0, args.n, dtype=np.float64)
+    w = np.ones_like(x)
+    x_new = np.linspace(0.0, 1.0, args.n * 2, dtype=np.float64)
 
     print("Python Information:\n", sys.version)
     np.show_config()
+    print(f"n={args.n}, num_replications={args.num_replications}, bandwidth={args.bandwidth}")
 
-    num_replications = 30
-    run_times = dict()
-    for kernel in kernel_types:
-        run_times[kernel] = []
-        for i in range(num_replications):
-            # Generate y with some noise each time to simulate different data
-            run_times[kernel].append(benchmark_polyfit1d(rng, n, x, w, x_new, bandwidth, kernel_type=kernel))
+    run_times = {"GAUSSIAN": [], "EPANECHNIKOV": []}
+    kernel_map = {
+        "GAUSSIAN": KernelType.GAUSSIAN,
+        "EPANECHNIKOV": KernelType.EPANECHNIKOV,
+    }
+    for kernel_name, kernel_type in kernel_map.items():
+        for _ in range(args.num_replications):
+            run_times[kernel_name].append(
+                benchmark_polyfit1d(rng, args.n, x, w, x_new, args.bandwidth, kernel_type)
+            )
 
-    for kernel in kernel_types:
-        # remove fastest and slowest
-        run_times_remove = np.sort(run_times[kernel])[1:-1]
+    summarize_times("Polyfit1DModel (GAUSSIAN)", run_times["GAUSSIAN"])
+    summarize_times("Polyfit1DModel (EPANECHNIKOV)", run_times["EPANECHNIKOV"])
 
-        print(
-            f"Average time (remove fastest and slowest) for {num_replications} replications with sample size {n} on " +
-            f"Polyfit1DModel with {kernel} kernel runs: {np.mean(run_times_remove) / 1e9:.6f} seconds"
-        )
-        print(f"Standard deviation of run times: {np.std(run_times_remove) / 1e9:.6f} seconds")
+    for kernel_name, times_ns in run_times.items():
+        print(f"kernel - {kernel_name}, run_time (seconds):")
+        pprint.pprint(np.asarray(times_ns, dtype=np.float64) / 1e9)
 
-    for kernel, run_time in run_times.items():
-        print(f"kernel - {kernel}, run_time:")
-        pprint.pprint(np.array(run_time) / 1e9)
+
+if __name__ == "__main__":
+    main()
