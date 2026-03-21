@@ -36,8 +36,8 @@ cdef void rotate_polyfit2d_helper(
     cdef vector[int64_t] idx = vector[int64_t]()
     cdef bint check_rank = 1, use_svd = 0
     if kernel_type >= 100:
-        lb1 = center1 - bw - epsilon
-        ub1 = center1 + bw + epsilon
+        lb1 = center1 - bw + epsilon
+        ub1 = center1 + bw - epsilon
         left_it = lower_bound(x1_start, x1_end, lb1)
         right_it = lower_bound(x1_start, x1_end, ub1)
         left = distance(x1_start, left_it)
@@ -46,8 +46,8 @@ cdef void rotate_polyfit2d_helper(
             mu[0] = NAN
             return
 
-        lb2 = center2 - bw - epsilon
-        ub2 = center2 + bw + epsilon
+        lb2 = center2 - bw + epsilon
+        ub2 = center2 + bw - epsilon
         for i in range(left, right):
             if x_grid[1, i] > lb2 and x_grid[1, i] < ub2:
                 idx.push_back(i)
@@ -89,15 +89,20 @@ cdef void rotate_polyfit2d_helper(
                 ky = <int64_t>(x_grid[1, idx[i]] * inv_tol - (<floating>0.5))
             unique_grid_points.insert(pair[int64_t, int64_t](kx, ky))
 
-        if unique_grid_points.size() <= num_lx_cols*2:
+        if unique_grid_points.size() < num_lx_cols:
+            mu[0] = NAN
+            return
+        elif unique_grid_points.size() <= num_lx_cols*2:
             use_svd = 1
         else:
             use_svd = 0
 
     cdef int total_deg, py, col_idx
     cdef int64_t j
+    # DGELSS requires ldb >= max(m, n); when n_rows < 3 the solution occupies 3 entries.
+    cdef int ly_ldb = <int> n_rows if <int> n_rows >= 3 else 3
     cdef floating *lx = <floating*> malloc(n_rows * 3 * sizeof(floating))
-    cdef floating *ly = <floating*> malloc(n_rows * sizeof(floating))
+    cdef floating *ly = <floating*> malloc(ly_ldb * sizeof(floating))
     if (not lx) or (not ly):
         free(lx); free(ly)
         mu[0] = NAN
@@ -124,7 +129,7 @@ cdef void rotate_polyfit2d_helper(
             ColMajor,
             <int> n_rows, 3, 1,
             lx, <int> n_rows,
-            ly, <int> n_rows,
+            ly, ly_ldb,
             &rcond, &rank, &info
         )
     else:

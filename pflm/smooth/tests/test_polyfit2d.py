@@ -787,7 +787,13 @@ def test_polyfit2d_custom_bw_candidates() -> None:
     with pytest.raises(ValueError, match="custom_bw_candidates must have exactly 2 features"):
         model.fit(X, y, sample_weight=w, custom_bw_candidates=custom_bw_1d.reshape(-1, 1), reg_grid1=x_new1, reg_grid2=x_new2)
 
-    # test non-finite cv scores
+
+def test_polyfit2d_custom_bw_candidates_with_nonfinite_scores() -> None:
+    """Test Polyfit2DModel with custom bandwidth candidates."""
+    X, y, w, x_new1, x_new2 = make_test_inputs_2d()
+    model = Polyfit2DModel(random_seed=100, kernel_type=KernelType.EPANECHNIKOV)
+
+    # # test non-finite cv scores
     with pytest.raises(ValueError, match="All CV scores are non-finite."):
         model.fit(
             X,
@@ -799,7 +805,7 @@ def test_polyfit2d_custom_bw_candidates() -> None:
             reg_grid2=x_new2,
         )
 
-    # test non-finite gcv scores
+    # # test non-finite gcv scores
     with pytest.raises(ValueError, match="All GCV scores are non-finite."):
         model.fit(X, y, sample_weight=w, custom_bw_candidates=np.array([[0.005, 0.005], [0.006, 0.006]]), reg_grid1=x_new1, reg_grid2=x_new2)
 
