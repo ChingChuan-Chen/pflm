@@ -47,7 +47,7 @@ def test_functional_pca_basic(basic_func_data, method_pcs, assume_measurement_er
     assert fpca.xi_ is not None
 
 
-def _make_toy(n_subj=4, lens=(5, 6, 7, 8), dtype=np.float64):
+def _make_toy(n_subj=4, lens=(7, 8, 9, 10), dtype=np.float64):
     """Generate small synthetic series with varying lengths."""
     rng = np.random.default_rng(0)
     y, t = [], []

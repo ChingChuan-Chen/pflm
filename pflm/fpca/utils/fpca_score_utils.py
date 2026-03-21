@@ -8,7 +8,7 @@ import numpy as np
 
 from pflm.fpca.utils.fpca_score import fpca_ce_score_f32, fpca_ce_score_f64, fpca_in_score_f32, fpca_in_score_f64
 from pflm.utils.blas_helper import BLAS_Trans
-from pflm.utils.lapack_helper import _gels_memview_f32, _gels_memview_f64
+from pflm.utils.lapack_helper import _gels_memview_f64
 from pflm.utils.utility import FlattenFunctionalData, trapz
 
 
@@ -283,6 +283,9 @@ def get_eigenvalue_fit(raw_cov: np.ndarray, obs_grid: np.ndarray, fpca_phi_obs: 
     ev_fit_x = np.sqrt(raw_cov[mask, 3]).reshape(-1, 1) * fpca_phi_obs[tid1, :num_pcs] * fpca_phi_obs[tid2, :num_pcs]  # shape (n_pairs, num_pcs)
     order_x = "F" if ev_fit_x.flags.f_contiguous else "C"
     ev_fit_y = (np.sqrt(raw_cov[mask, 3]) * raw_cov[mask, 4]).reshape(-1, 1).astype(dtype=ev_fit_x.dtype, order=order_x)
-    gles_func = _gels_memview_f64 if ev_fit_x.dtype == np.float64 else _gels_memview_f32
-    gles_func(BLAS_Trans.NoTrans, ev_fit_x, ev_fit_y, ev_fit_x.shape[0], ev_fit_x.shape[1], 1)
-    return ev_fit_y[:num_pcs].ravel(order=order_x)
+    orig_dtype = ev_fit_x.dtype
+    if orig_dtype != np.float64:
+        ev_fit_x = ev_fit_x.astype(np.float64, order=order_x)
+        ev_fit_y = ev_fit_y.astype(np.float64, order=order_x)
+    _gels_memview_f64(BLAS_Trans.NoTrans, ev_fit_x, ev_fit_y, ev_fit_x.shape[0], ev_fit_x.shape[1], 1)
+    return ev_fit_y[:num_pcs].ravel(order=order_x).astype(orig_dtype)
