@@ -261,8 +261,6 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
             self.deriv1,
             self.deriv2,
         )
-        if np.isnan(y_pred).any():
-            return np.inf
 
         # As in 1D, we compute the GCV score as follows:
         # GCV score = n * RSS / tr(I - S)^2, where RSS is the residual sum of squares
