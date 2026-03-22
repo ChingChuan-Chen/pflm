@@ -4,9 +4,9 @@ utils_cython_tree = [
 ]
 
 utils_extension_metadata = {
-    '_raw_cov': {
+    'raw_cov': {
         'sources': [
-            cython_gen_cpp.process('_raw_cov.pyx'),
+            cython_gen_cpp.process('raw_cov.pyx'),
         ],
         'dependencies': [np_dep, openmp_dep],
     },
