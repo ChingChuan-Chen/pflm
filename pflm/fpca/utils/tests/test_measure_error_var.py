@@ -27,9 +27,9 @@ def test_get_measurement_error_variance_happy_path(raw_cov):
             np.float64(1.304155079103),
         ),
         KernelType.RECTANGULAR: (
-            np.array([2.25, 1.25, 1.343253968571, 1.163194445, 1.311111112], dtype=np.float64),
+            np.array([2.25, 1.25, 1.343253968571, 0.78055556, 1.311111112], dtype=np.float64),
             np.array([-0.625936911938, 0.217592592778, 0.037037037778, -0.143518517222, -1.337724192199], dtype=np.float64),
-            np.float64(1.601930852077),
+            np.float64(1.5062711298266),
         ),
         KernelType.TRIANGULAR: (
             np.array([2.25, 1.25, 0.945707070909, 0.780555556, 1.311111112], dtype=np.float64),

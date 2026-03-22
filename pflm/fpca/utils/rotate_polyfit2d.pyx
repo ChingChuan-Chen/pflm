@@ -31,7 +31,8 @@ cdef void rotate_polyfit2d_helper(
     cdef floating *right_it
     cdef floating *x1_start = &x_grid[0, 0]
     cdef floating *x1_end = &x_grid[0, 0] + n
-    cdef floating lb1, ub1, lb2, ub2, epsilon = <floating> 1e-6
+    cdef floating epsilon = <floating> 1e-6 if floating is float else 1e-12
+    cdef floating lb1, ub1, lb2, ub2
     cdef uint64_t num_lx_cols = 3
     cdef vector[int64_t] idx = vector[int64_t]()
     cdef bint check_rank = 1, use_svd = 0
@@ -68,11 +69,7 @@ cdef void rotate_polyfit2d_helper(
 
     cdef uint64_t n_rows = idx.size()
     cdef set[pair[int64_t, int64_t]] unique_grid_points
-    cdef floating tolerance
-    if floating is float:
-        tolerance = 1e-6
-    else:
-        tolerance = 1e-12
+    cdef floating tolerance = 1e-6 if floating is float else 1e-12
     cdef floating inv_tol = (<floating>1.0) / tolerance
     cdef int64_t kx, ky
 
