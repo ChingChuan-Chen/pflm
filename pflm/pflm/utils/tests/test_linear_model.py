@@ -6,6 +6,7 @@ from sklearn.linear_model import LogisticRegression as SklearnLogisticRegression
 from sklearn.linear_model import PoissonRegressor as SklearnPoissonRegressor
 from sklearn.linear_model import GammaRegressor as SklearnGammaRegressor
 from sklearn.linear_model import TweedieRegressor as SklearnTweedieRegressor
+from sklearn.exceptions import NotFittedError
 
 from pflm.pflm.utils import LinearModelFamily, ElasticNet
 
@@ -376,10 +377,10 @@ def test_invalid_family_raises():
 
 
 def test_predict_before_fit_raises():
-    """Calling predict on an unfitted model should raise ValueError."""
+    """Calling predict on an unfitted model should raise NotFittedError."""
     x = np.array([[1.0, 2.0], [3.0, 4.0]])
     model = ElasticNet(family=LinearModelFamily.GAUSSIAN)
-    with pytest.raises(ValueError, match="not fitted"):
+    with pytest.raises(NotFittedError):
         model.predict(x)
 
 
@@ -449,3 +450,48 @@ def test_multinomial_y_negative_raises():
     model = ElasticNet(family=LinearModelFamily.MULTINOMIAL)
     with pytest.raises(ValueError, match="MULTINOMIAL.*non-negative integers"):
         model.fit(x, y)
+
+
+# ---------------------------------------------------------------------------
+# fitted_values tests
+# ---------------------------------------------------------------------------
+
+def test_fitted_values_before_fit_raises():
+    model = ElasticNet()
+    with pytest.raises(NotFittedError):
+        model.fitted_values()
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_fitted_values_gaussian_matches_sklearn(dtype):
+    """fitted_values() should equal sklearn predict(X_train) for Gaussian."""
+    model, sk_model, x = _fit_both_models(alpha=0.08, l1_ratio=0.7, fit_intercept=True, dtype=dtype)
+    assert_allclose(model.fitted_values(), sk_model.predict(x), rtol=2e-2, atol=5e-2)
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_fitted_values_equals_predict_on_train(dtype):
+    """fitted_values() must be identical to predict(X_) for all families."""
+    x, y = _make_regression_data(dtype=dtype, seed=42)
+    model = ElasticNet(alpha=0.08, l1_ratio=0.7, fit_intercept=True).fit(x, y)
+    assert_allclose(model.fitted_values(), model.predict(model.X_), rtol=0, atol=0)
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_fitted_values_binomial(dtype):
+    """fitted_values() for Binomial must equal predict(X_)."""
+    rng = np.random.default_rng(0)
+    x = rng.normal(size=(200, 4)).astype(dtype)
+    y = (x @ np.array([1, -1, 0.5, 0], dtype=dtype) > 0).astype(dtype)
+    model = ElasticNet(alpha=0.05, l1_ratio=0.5, family=LinearModelFamily.BINOMIAL).fit(x, y)
+    assert_allclose(model.fitted_values(), model.predict(model.X_), rtol=0, atol=0)
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_fitted_values_multinomial(dtype):
+    """fitted_values() for Multinomial must equal predict(X_)."""
+    rng = np.random.default_rng(1)
+    x = rng.normal(size=(200, 4)).astype(dtype)
+    y = (np.argmax(x[:, :3], axis=1)).astype(dtype)
+    model = ElasticNet(alpha=0.01, l1_ratio=0.5, family=LinearModelFamily.MULTINOMIAL).fit(x, y)
+    assert_allclose(model.fitted_values(), model.predict(model.X_), rtol=0, atol=0)

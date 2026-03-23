@@ -947,9 +947,8 @@ cdef int fit_multinomial_helper(
 
 def fit_multinomial_f64(
     np.ndarray[np.float64_t, ndim=2] x,
-    np.ndarray[np.float64_t] y,
+    np.ndarray[np.float64_t, ndim=2] y_onehot,
     np.ndarray[np.float64_t] sample_weight,
-    int n_classes,
     np.float64_t l1_reg = 0.0,
     np.float64_t l2_reg = 0.0,
     np.float64_t rho = 1.0,
@@ -960,17 +959,12 @@ def fit_multinomial_f64(
 ):
     """Float64 weighted multinomial logistic ElasticNet wrapper.
 
-    One-hot encodes y, prepends an intercept column to X, then delegates
-    to ``fit_multinomial_helper`` which incorporates ``sample_weight``
-    into the cross-entropy objective, gradient, and Hessian.
-
     Parameters
     ----------
-    x : ndarray of float64, shape (n, p). Design matrix (no intercept).
-    y : ndarray of float64, shape (n,). Integer class labels in [0, K).
+    x : ndarray of float64, shape (n, p). Design matrix (with intercept).
+    y_onehot : ndarray of float64, shape (n, K). One-hot encoded labels.
     sample_weight : ndarray of float64, shape (n,).
         Non-negative sample weights (normalised so that sum(w) = n).
-    n_classes : int. Number of classes K.
     l1_reg : float64, default=0.0. L1 penalty.
     l2_reg : float64, default=0.0. L2 penalty.
     rho : float64, default=1.0. ADMM augmented-Lagrangian parameter.
@@ -981,16 +975,12 @@ def fit_multinomial_f64(
 
     Returns
     -------
-    intercept : ndarray of float64, shape (K,). Fitted intercepts.
     coef : ndarray of float64, shape (K, p). Fitted coefficients.
     n_iter : int. Number of ADMM iterations performed.
     """
-    cdef int n = x.shape[0], p = x.shape[1], K = n_classes
+    cdef int n = x.shape[0], p = x.shape[1], K = y_onehot.shape[1]
     cdef np.ndarray[np.float64_t, ndim=2] x2 = np.ascontiguousarray(x, dtype=np.float64)
-    cdef np.ndarray[np.float64_t, ndim=2] y_oh = np.zeros((n, K), dtype=np.float64)
-    cdef int i
-    for i in range(n):
-        y_oh[i, <int> y[i]] = 1.0
+    cdef np.ndarray[np.float64_t, ndim=2] y_oh = np.ascontiguousarray(y_onehot, dtype=np.float64)
     cdef np.ndarray[np.float64_t] coef_flat = np.empty(K * p, order='C', dtype=np.float64)
     cdef int n_iter = fit_multinomial_helper(
         n, p, K, &x2[0, 0], &y_oh[0, 0], &sample_weight[0],
@@ -1002,9 +992,8 @@ def fit_multinomial_f64(
 
 def fit_multinomial_f32(
     np.ndarray[np.float32_t, ndim=2] x,
-    np.ndarray[np.float32_t] y,
+    np.ndarray[np.float32_t, ndim=2] y_onehot,
     np.ndarray[np.float32_t] sample_weight,
-    int n_classes,
     np.float32_t l1_reg = 0.0,
     np.float32_t l2_reg = 0.0,
     np.float32_t rho = 1.0,
@@ -1015,17 +1004,12 @@ def fit_multinomial_f32(
 ):
     """Float32 weighted multinomial logistic ElasticNet wrapper.
 
-    One-hot encodes y, prepends an intercept column to X, then delegates
-    to ``fit_multinomial_helper`` which incorporates ``sample_weight``
-    into the cross-entropy objective, gradient, and Hessian.
-
     Parameters
     ----------
-    x : ndarray of float32, shape (n, p). Design matrix (no intercept).
-    y : ndarray of float32, shape (n,). Integer class labels in [0, K).
+    x : ndarray of float32, shape (n, p). Design matrix (with intercept).
+    y_onehot : ndarray of float32, shape (n, K). One-hot encoded labels.
     sample_weight : ndarray of float32, shape (n,).
         Non-negative sample weights (normalised so that sum(w) = n).
-    n_classes : int. Number of classes K.
     l1_reg : float32, default=0.0. L1 penalty.
     l2_reg : float32, default=0.0. L2 penalty.
     rho : float32, default=1.0. ADMM augmented-Lagrangian parameter.
@@ -1036,16 +1020,12 @@ def fit_multinomial_f32(
 
     Returns
     -------
-    intercept : ndarray of float32, shape (K,). Fitted intercepts.
     coef : ndarray of float32, shape (K, p). Fitted coefficients.
     n_iter : int. Number of ADMM iterations performed.
     """
-    cdef int n = x.shape[0], p = x.shape[1], K = n_classes
+    cdef int n = x.shape[0], p = x.shape[1], K = y_onehot.shape[1]
     cdef np.ndarray[np.float32_t, ndim=2] x2 = np.ascontiguousarray(x, dtype=np.float32)
-    cdef np.ndarray[np.float32_t, ndim=2] y_oh = np.zeros((n, K), dtype=np.float32)
-    cdef int i
-    for i in range(n):
-        y_oh[i, <int> y[i]] = 1.0
+    cdef np.ndarray[np.float32_t, ndim=2] y_oh = np.ascontiguousarray(y_onehot, dtype=np.float32)
     cdef np.ndarray[np.float32_t] coef_flat = np.empty(K * p, order='C', dtype=np.float32)
     cdef int n_iter = fit_multinomial_helper(
         n, p, K, &x2[0, 0], &y_oh[0, 0], &sample_weight[0],

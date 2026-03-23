@@ -1,6 +1,8 @@
 import numpy as np
 from enum import Enum
-from sklearn.base import MultiOutputMixin, RegressorMixin
+from sklearn.base import BaseEstimator, MultiOutputMixin, RegressorMixin
+from sklearn.utils._array_api import get_namespace_and_device, supported_float_dtypes
+from sklearn.utils.validation import check_array, check_is_fitted
 from typing import Tuple, Dict, Optional
 from pflm.pflm.utils import (
     fit_gaussian_f32, fit_gaussian_f64,
@@ -18,7 +20,7 @@ class LinearModelFamily(Enum):
     GAUSSIAN = 99
 
 
-class ElasticNet(MultiOutputMixin, RegressorMixin):
+class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
     """ElasticNet linear model solved via ADMM.
 
     Supports Gaussian, Binomial, Poisson, Gamma, Tweedie and Multinomial
@@ -89,7 +91,6 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
     intercept_: float = 0.0
     coef_: Optional[np.ndarray] = None
     n_iter: Optional[int] = None
-    fitted: bool = False
 
     def __init__(
         self, alpha: float = 1.0, l1_ratio: float = 0.5, fit_intercept: bool = True, family: LinearModelFamily = LinearModelFamily.GAUSSIAN,
@@ -116,8 +117,7 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
 
     @staticmethod
     def preprocess_data(
-        X: np.ndarray, y: np.ndarray, family: LinearModelFamily, fit_intercept: bool,
-        sample_weight: Optional[np.ndarray] = None
+        X: np.ndarray, y: np.ndarray, weight: Optional[np.ndarray], family: LinearModelFamily, fit_intercept: bool
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Centre data for the Gaussian-with-intercept case.
 
@@ -131,12 +131,12 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
             Training data (modified in-place).
         y : np.ndarray of shape (n_samples,)
             Target values (modified in-place when centred).
+        weight : np.ndarray of shape (n_samples,)
+            Per-sample weights used to compute weighted means.
         family : LinearModelFamily
             Distribution family.
         fit_intercept : bool
             Whether the model includes an intercept.
-        sample_weight : np.ndarray of shape (n_samples,), optional
-            Per-sample weights used to compute weighted means.
 
         Returns
         -------
@@ -150,9 +150,20 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
         y_offset : np.ndarray of shape (1,)
             Mean subtracted from *y*.
         """
+        n = X.shape[0]
         n_features = X.shape[1]
+
+        # Validate and normalise sample weights (sum → n)
+        if weight.shape[0] != n:
+            raise ValueError('sample_weight must have the same length as y.')
+        if np.any(weight < 0):
+            raise ValueError('sample_weight cannot contain negative values.')
+        if np.sum(weight) == 0:
+            raise ValueError('At least one sample_weight must be positive.')
+        weight = weight * (n / weight.sum())
+
         if fit_intercept:
-            X_offset = np.average(X, weights=sample_weight, axis=0).astype(X.dtype)
+            X_offset = np.average(X, weights=weight, axis=0).astype(X.dtype)
             X -= X_offset
         else:
             X_offset = np.zeros(n_features, dtype=X.dtype)
@@ -161,11 +172,16 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
             X = np.concatenate([np.ones((X.shape[0], 1), dtype=X.dtype), X], axis=1)
 
         if family == LinearModelFamily.GAUSSIAN and fit_intercept:
-            y_offset = np.average(y, weights=sample_weight, axis=0).astype(X.dtype)
+            y_offset = np.average(y, weights=weight, axis=0).astype(X.dtype)
             y -= y_offset
         else:
             y_offset = np.zeros(1, dtype=X.dtype)
-        return X, y, sample_weight, X_offset, y_offset
+
+        if family == LinearModelFamily.MULTINOMIAL:
+            n_classes = int(y.max()) + 1
+            y_onehot = np.eye(n_classes, dtype=X.dtype)[y.astype(int)]
+            return X, y_onehot, weight, X_offset, y_offset
+        return X, y, weight, X_offset, y_offset
 
     def fit(self, X, y, sample_weight=None):
         """Fit the model with L1 and L2 regularization.
@@ -193,7 +209,11 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
             constraints of the chosen ``family``.
         """
 
-        # Store input dtype for later use
+        xp, *_ = get_namespace_and_device(X, y, sample_weight)
+        X = check_array(X, ensure_2d=True, dtype=supported_float_dtypes(xp))
+        y = check_array(y, ensure_2d=False, dtype=X.dtype)
+        sample_weight = check_array(sample_weight, ensure_2d=False, dtype=X.dtype) if sample_weight is not None else np.ones(X.shape[0], dtype=X.dtype)
+
         self._input_dtype = X.dtype
         n = X.shape[0]
 
@@ -224,23 +244,10 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
         self.weight_ = sample_weight
         self.n_features_in_ = X.shape[1]
 
-        # Validate and normalise sample weights (sum → n)
-        if sample_weight is not None:
-            sw = np.asarray(sample_weight, dtype=self._input_dtype).ravel()
-            if sw.shape[0] != n:
-                raise ValueError('sample_weight must have the same length as y.')
-            if np.any(sw < 0):
-                raise ValueError('sample_weight cannot contain negative values.')
-            if np.sum(sw) == 0:
-                raise ValueError('At least one sample_weight must be positive.')
-            sw = sw * (n / sw.sum())
-        else:
-            sw = np.ones(n, dtype=self._input_dtype)
-
         # Preprocess the data (center if fit_intercept is True and family is 'gaussian')
         self.preprocess_X_, self.preprocess_y_, self.preprocess_weight_, self.X_offset, self.y_offset = ElasticNet.preprocess_data(
             X.copy().astype(self._input_dtype), y.copy().astype(self._input_dtype),
-            self.family, self.fit_intercept, sample_weight=sw
+            weight=sample_weight, family=self.family, fit_intercept=self.fit_intercept
         )
 
         # Map sklearn-style (alpha, l1_ratio) → solver-level (l1_reg, l2_reg):
@@ -257,9 +264,8 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
             )
         elif self.family == LinearModelFamily.MULTINOMIAL:
             _fit = fit_multinomial_f32 if self._input_dtype == np.float32 else fit_multinomial_f64
-            n_classes = int(self.preprocess_y_.max()) + 1
             coef_out, self.n_iter = _fit(
-                self.preprocess_X_, self.preprocess_y_, self.preprocess_weight_, n_classes,
+                self.preprocess_X_, self.preprocess_y_, self.preprocess_weight_,
                 l1_reg, l2_reg, self.rho, self.max_iter, self.abs_tol, self.rel_tol, self.min_iter
             )
         else:
@@ -282,7 +288,6 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
             else:
                 self.intercept_ = self.coef_[0]  # Intercept is the first element of coef_ for non-Gaussian families
                 self.coef_ = self.coef_[1:]  # Remaining elements are the coefficients for features
-        self.fitted = True
         return self
 
     def predict(self, new_X: np.ndarray) -> np.ndarray:
@@ -306,12 +311,11 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
 
         Raises
         ------
-        ValueError
+        sklearn.exceptions.NotFittedError
             If the model has not been fitted yet.
         """
-        if not self.fitted:
-            raise ValueError('Model not fitted yet.')
-        Xf = new_X.astype(np.float64)
+        check_is_fitted(self, ["X_", "n_features_in_"])
+        Xf = check_array(new_X, ensure_2d=True, dtype=self._input_dtype)
         if self.family == LinearModelFamily.GAUSSIAN:
             return np.dot(Xf, self.coef_) + self.intercept_
         elif self.family == LinearModelFamily.BINOMIAL:
@@ -323,3 +327,19 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
             eta -= eta.max(axis=1, keepdims=True)
             e = np.exp(eta)
             return e / e.sum(axis=1, keepdims=True)
+
+    def fitted_values(self) -> np.ndarray:
+        """Return fitted values on the training data.
+
+        Returns
+        -------
+        np.ndarray of shape (n_samples,) or (n_samples, n_classes)
+            Predictions evaluated on the training data ``X_``.
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            If the model has not been fitted yet.
+        """
+        check_is_fitted(self, ["X_", "n_features_in_"])
+        return self.predict(self.X_)
