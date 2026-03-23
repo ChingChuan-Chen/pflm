@@ -228,8 +228,14 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
         else:
             sw = np.ones(n, dtype=self._input_dtype)
 
+        # Store fitted data
+        self.X_ = X
+        self.y_ = y
+        self.sample_weight_ = sample_weight
+        self.n_features_in_ = X.shape[1]
+
         # Preprocess the data (center if fit_intercept is True and family is 'gaussian')
-        X_, y_, X_offset, y_offset = ElasticNet.preprocess_data(
+        self.preprocess_X_, self.preprocess_y_, self.X_offset, self.y_offset = ElasticNet.preprocess_data(
             X.copy().astype(self._input_dtype), y.copy().astype(self._input_dtype),
             self.family, self.fit_intercept, sample_weight=sw
         )
@@ -242,25 +248,26 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
 
         if self.family == LinearModelFamily.GAUSSIAN:
             _fit = fit_gaussian_f32 if self._input_dtype == np.float32 else fit_gaussian_f64
-            coef_out, self.n_iter = _fit(X_, y_, sw, l1_reg, l2_reg, self.rho, self.max_iter, self.abs_tol, self.rel_tol, self.min_iter)
+            coef_out, self.n_iter = _fit(self.preprocess_X_, self.preprocess_y_, sw, l1_reg, l2_reg, self.rho, self.max_iter, self.abs_tol, self.rel_tol, self.min_iter)
         elif self.family == LinearModelFamily.MULTINOMIAL:
             _fit = fit_multinomial_f32 if self._input_dtype == np.float32 else fit_multinomial_f64
-            n_classes = int(y_.max()) + 1
+            n_classes = int(self.preprocess_y_.max()) + 1
             self.intercept_, coef_out, self.n_iter = _fit(
-                X_, y_, sw, n_classes, l1_reg, l2_reg, self.rho, self.max_iter, self.abs_tol, self.rel_tol, self.min_iter
+                self.preprocess_X_, self.preprocess_y_, sw, n_classes, l1_reg, l2_reg, self.rho, self.max_iter, self.abs_tol, self.rel_tol, self.min_iter
             )
         else:
             _fit = fit_nongaussian_f32 if self._input_dtype == np.float32 else fit_nongaussian_f64
             self.intercept_, coef_out, self.n_iter = _fit(
-                X_, y_, sw, self.family.value, self.power, l1_reg, l2_reg, self.rho, self.max_iter, self.abs_tol, self.rel_tol, self.min_iter
+                self.preprocess_X_, self.preprocess_y_, sw, self.family.value, self.power, l1_reg, l2_reg, self.rho,
+                self.max_iter, self.abs_tol, self.rel_tol, self.min_iter
             )
 
         self.coef_ = coef_out
         if self.family == LinearModelFamily.GAUSSIAN:
             if self.fit_intercept:
-                self.intercept_ = y_offset - np.dot(X_offset, self.coef_)
+                self.intercept_ = self.y_offset - np.dot(self.X_offset, self.coef_)
             else:
-                self.intercept_ = y_offset
+                self.intercept_ = self.y_offset
         self.fitted = True
         return self
 
