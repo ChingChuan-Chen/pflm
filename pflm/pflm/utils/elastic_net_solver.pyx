@@ -3,6 +3,7 @@ cimport numpy as np
 from cython cimport floating
 from libc.stdlib cimport malloc, free
 from libc.math cimport sqrt, exp, log, fabs as c_fabs
+from cython.parallel cimport prange
 from pflm.utils.blas_helper cimport BLAS_Order, RowMajor, BLAS_Trans, NoTrans, Trans, BLAS_Uplo, Upper, _gemv, _gemm
 from pflm.utils.lapack_helper cimport _posv
 
@@ -196,32 +197,31 @@ cdef int _precompute_gaussian_stats(
     cdef int info = 0
 
     # xw = X * sqrt(sw),  yw = y * sqrt(sw)
-    for i in range(n):
+    for i in prange(n):
         sw_sqrt = sqrt(sw[i])
         yw[i] = y[i] * sw_sqrt
         for j in range(p):
             xw[i * p + j] = x[i * p + j] * sw_sqrt
 
+    # xty = Xw^T @ yw / n   (p,)
+    _gemv(
+        RowMajor, Trans, n, p,
+        inv_n, xw, p, yw, 1,
+        <floating> 0.0, xty, 1
+    )
+
     # xtx = Xw^T @ Xw / n   (p x p, row-major)
-    _gemm(RowMajor, Trans, NoTrans, p, p, n,
-          inv_n, xw, p, xw, p,
-          <floating> 0.0, xtx, p)
+    _gemm(
+        RowMajor, Trans, NoTrans, p, p, n,
+        inv_n, xw, p, xw, p,
+        <floating> 0.0, xtx, p
+    )
 
     # xtx += rho * I
     for j in range(p):
         xtx[j * p + j] += rho
 
-    # xty = Xw^T @ yw / n   (p,)
-    _gemv(RowMajor, Trans, n, p,
-          inv_n, xw, p, yw, 1,
-          <floating> 0.0, xty, 1)
-
     # Invert xtx via _posv:  solve xtx @ X = I  =>  X = xtx^{-1}
-    # Set xtx_rho_inv = I (p x p identity, row-major)
-    for i in range(p):
-        for j in range(p):
-            xtx_rho_inv[i * p + j] = <floating> 1.0 if i == j else <floating> 0.0
-
     # _posv overwrites xtx with Cholesky factor, xtx_rho_inv with solution
     _posv(RowMajor, Upper, p, p, xtx, p, xtx_rho_inv, p, &info)
 
@@ -270,7 +270,7 @@ def fit_gaussian_f64(
     """
     cdef int n = x.shape[0], p = x.shape[1]
     cdef np.ndarray[np.float64_t, ndim=2] x_c = np.ascontiguousarray(x, dtype=np.float64)
-    cdef np.ndarray[np.float64_t, ndim=2] xtx_rho_inv = np.empty((p, p), order='C', dtype=np.float64)
+    cdef np.ndarray[np.float64_t, ndim=2] xtx_rho_inv = np.ascontiguousarray(np.identity(p, dtype=np.float64))
     cdef np.ndarray[np.float64_t] xty = np.empty(p, order='C', dtype=np.float64)
     cdef int info = _precompute_gaussian_stats[double](
         n, p, &x_c[0, 0], &y[0], &sample_weight[0], rho,
@@ -326,7 +326,7 @@ def fit_gaussian_f32(
     """
     cdef int n = x.shape[0], p = x.shape[1]
     cdef np.ndarray[np.float32_t, ndim=2] x_c = np.ascontiguousarray(x, dtype=np.float32)
-    cdef np.ndarray[np.float32_t, ndim=2] xtx_rho_inv = np.empty((p, p), order='C', dtype=np.float32)
+    cdef np.ndarray[np.float32_t, ndim=2] xtx_rho_inv = np.ascontiguousarray(np.identity(p, dtype=np.float32))
     cdef np.ndarray[np.float32_t] xty = np.empty(p, order='C', dtype=np.float32)
     cdef int info = _precompute_gaussian_stats[float](
         n, p, &x_c[0, 0], &y[0], &sample_weight[0], rho,
