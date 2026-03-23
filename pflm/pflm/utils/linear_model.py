@@ -88,9 +88,6 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
     >>> reg.coef_
     array([ 1.00401339, 1.9971606 ])
     """
-    intercept_: float = 0.0
-    coef_: Optional[np.ndarray] = None
-    n_iter: Optional[int] = None
 
     def __init__(
         self, alpha: float = 1.0, l1_ratio: float = 0.5, fit_intercept: bool = True, family: LinearModelFamily = LinearModelFamily.GAUSSIAN,
@@ -215,7 +212,6 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
         sample_weight = check_array(sample_weight, ensure_2d=False, dtype=X.dtype) if sample_weight is not None else np.ones(X.shape[0], dtype=X.dtype)
 
         self._input_dtype = X.dtype
-        n = X.shape[0]
 
         # ---------- Validate y for the chosen family ----------
         y_arr = np.asarray(y).ravel()
@@ -288,6 +284,7 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
             else:
                 self.intercept_ = self.coef_[0]  # Intercept is the first element of coef_ for non-Gaussian families
                 self.coef_ = self.coef_[1:]  # Remaining elements are the coefficients for features
+        self.fitted_values_ = self.predict(self.X_)
         return self
 
     def predict(self, new_X: np.ndarray) -> np.ndarray:
@@ -314,7 +311,7 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
         sklearn.exceptions.NotFittedError
             If the model has not been fitted yet.
         """
-        check_is_fitted(self, ["X_", "n_features_in_"])
+        check_is_fitted(self, ["coef_", "intercept_"])
         Xf = check_array(new_X, ensure_2d=True, dtype=self._input_dtype)
         if self.family == LinearModelFamily.GAUSSIAN:
             return np.dot(Xf, self.coef_) + self.intercept_
@@ -341,5 +338,5 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
         sklearn.exceptions.NotFittedError
             If the model has not been fitted yet.
         """
-        check_is_fitted(self, ["X_", "n_features_in_"])
-        return self.predict(self.X_)
+        check_is_fitted(self, ["coef_", "intercept_"])
+        return self.fitted_values_
