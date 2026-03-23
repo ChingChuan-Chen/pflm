@@ -20,29 +20,42 @@ cdef int fit_gaussian_helper(
     int min_iter,
     floating* coef,
 ) noexcept nogil:
-    """Core ADMM loop for Gaussian ElasticNet, operating on raw pointers.
+    """Core ADMM loop for weighted Gaussian ElasticNet, operating on raw pointers.
+
+    The caller (``fit_gaussian_f64``/``fit_gaussian_f32``) pre-weights the data
+    by multiplying X and y with ``sqrt(sample_weight)``, so the helper operates
+    on the already-weighted sufficient statistics.
 
     Solves:
-        min_w  1/(2n) ||y - Xw||_2^2 + l1_reg * ||w||_1 + (l2_reg / 2) * ||w||_2^2
+        min_w  1/(2n) sum_i w_i (y_i - x_i^T w)^2
+               + l1_reg * ||w||_1 + (l2_reg / 2) * ||w||_2^2
+
+    where w_i are sample weights (absorbed into xtx and xty by the wrapper).
 
     ADMM updates (with augmented-Lagrangian parameter rho):
-        z^{k+1}   = A^{-1} (X^T y / n + rho (w^k - tau^k))       [A = X^T X / n + rho I, precomputed]
+        z^{k+1}   = A^{-1} (Xw^T yw / n + rho (w^k - tau^k))
+                    [A = Xw^T Xw / n + rho I, precomputed]
         w^{k+1}   = S_{l1_reg/(rho+l2_reg)}( (z^{k+1} + tau^k) * rho / (rho + l2_reg) )
         tau^{k+1} = tau^k + z^{k+1} - w^{k+1}
 
-    where S_t(x) = sign(x) max(|x| - t, 0) is the soft-thresholding operator.
+    where Xw = X * sqrt(w), yw = y * sqrt(w), and
+    S_t(x) = sign(x) max(|x| - t, 0) is the soft-thresholding operator.
 
     Parameters
     ----------
     n : int. Number of samples (used only for convergence scaling).
     p : int. Number of features / length of coef.
     xtx_rho_inv : floating*, shape (p, p), row-major.
-        Precomputed (X^T X / n + rho I)^{-1}.
+        Precomputed (Xw^T Xw / n + rho I)^{-1}, where Xw = X * sqrt(w).
     xty : floating*, shape (p,).
-        Precomputed X^T y / n.
+        Precomputed Xw^T yw / n, where yw = y * sqrt(w).
     l1_reg : floating. L1 penalty (sparsity).
     l2_reg : floating. L2 penalty (ridge).
     rho : floating. ADMM augmented-Lagrangian parameter.
+    max_iter : int. Maximum number of ADMM iterations.
+    abs_tol : floating. Absolute convergence tolerance.
+    rel_tol : floating. Relative convergence tolerance.
+    min_iter : int. Minimum number of ADMM iterations.
     coef : floating*, shape (p,). Output coefficients (zero-initialised on entry).
 
     Returns
@@ -135,6 +148,89 @@ cdef int fit_gaussian_helper(
     return it
 
 
+cdef int _precompute_gaussian_stats(
+    int n, int p,
+    floating* x,
+    floating* y,
+    floating* sw,
+    floating rho,
+    floating* xtx_rho_inv,
+    floating* xty,
+) noexcept nogil:
+    """Pre-compute weighted sufficient statistics for the Gaussian ADMM solver.
+
+    Computes Xw = X * sqrt(w), yw = y * sqrt(w), then forms:
+        xtx_rho_inv = (Xw^T Xw / n + rho I)^{-1}   via _gemm + _posv
+        xty         = Xw^T yw / n                    via _gemv
+
+    Parameters
+    ----------
+    n : int. Number of samples.
+    p : int. Number of features.
+    x : floating*, shape (n, p), row-major. Design matrix.
+    y : floating*, shape (n,). Response vector.
+    sw : floating*, shape (n,).
+        Non-negative sample weights (normalised so that sum(sw) = n).
+    rho : floating. ADMM augmented-Lagrangian parameter.
+    xtx_rho_inv : floating*, shape (p, p), row-major.
+        Output: (Xw^T Xw / n + rho I)^{-1}.
+    xty : floating*, shape (p,).
+        Output: Xw^T yw / n.
+
+    Returns
+    -------
+    int : 0 on success, -1 on allocation failure, >0 on _posv failure.
+    """
+    cdef floating* xw = <floating*> malloc(n * p * sizeof(floating))
+    cdef floating* yw = <floating*> malloc(n * sizeof(floating))
+    cdef floating* xtx = <floating*> malloc(p * p * sizeof(floating))
+    if xw is NULL or yw is NULL or xtx is NULL:
+        if xw is not NULL: free(xw)
+        if yw is not NULL: free(yw)
+        if xtx is not NULL: free(xtx)
+        return -1
+
+    cdef int i, j
+    cdef floating sw_sqrt
+    cdef floating inv_n = <floating> 1.0 / <floating> n
+    cdef int info = 0
+
+    # xw = X * sqrt(sw),  yw = y * sqrt(sw)
+    for i in range(n):
+        sw_sqrt = sqrt(sw[i])
+        yw[i] = y[i] * sw_sqrt
+        for j in range(p):
+            xw[i * p + j] = x[i * p + j] * sw_sqrt
+
+    # xtx = Xw^T @ Xw / n   (p x p, row-major)
+    _gemm(RowMajor, Trans, NoTrans, p, p, n,
+          inv_n, xw, p, xw, p,
+          <floating> 0.0, xtx, p)
+
+    # xtx += rho * I
+    for j in range(p):
+        xtx[j * p + j] += rho
+
+    # xty = Xw^T @ yw / n   (p,)
+    _gemv(RowMajor, Trans, n, p,
+          inv_n, xw, p, yw, 1,
+          <floating> 0.0, xty, 1)
+
+    # Invert xtx via _posv:  solve xtx @ X = I  =>  X = xtx^{-1}
+    # Set xtx_rho_inv = I (p x p identity, row-major)
+    for i in range(p):
+        for j in range(p):
+            xtx_rho_inv[i * p + j] = <floating> 1.0 if i == j else <floating> 0.0
+
+    # _posv overwrites xtx with Cholesky factor, xtx_rho_inv with solution
+    _posv(RowMajor, Upper, p, p, xtx, p, xtx_rho_inv, p, &info)
+
+    free(xw)
+    free(yw)
+    free(xtx)
+    return info
+
+
 def fit_gaussian_f64(
     np.ndarray[np.float64_t, ndim=2] x,
     np.ndarray[np.float64_t] y,
@@ -147,22 +243,47 @@ def fit_gaussian_f64(
     np.float64_t rel_tol = 1e-4,
     int min_iter = 3
 ):
-    """Float64 wrapper — see ``fit_gaussian`` for full docstring."""
+    """Float64 weighted Gaussian ElasticNet wrapper.
+
+    Applies sample weights via ``_precompute_gaussian_stats`` (cdef, using
+    BLAS _gemm/_gemv and LAPACK _posv) to form the pre-weighted sufficient
+    statistics before delegating to ``fit_gaussian_helper``.
+
+    Parameters
+    ----------
+    x : ndarray of float64, shape (n, p). Design matrix.
+    y : ndarray of float64, shape (n,). Response vector.
+    sample_weight : ndarray of float64, shape (n,).
+        Non-negative sample weights (normalised so that sum(w) = n).
+    l1_reg : float64. L1 penalty.
+    l2_reg : float64. L2 penalty.
+    rho : float64, default=1.0. ADMM augmented-Lagrangian parameter.
+    max_iter : int, default=1000. Maximum ADMM iterations.
+    abs_tol : float64, default=1e-3. Absolute convergence tolerance.
+    rel_tol : float64, default=1e-4. Relative convergence tolerance.
+    min_iter : int, default=3. Minimum ADMM iterations.
+
+    Returns
+    -------
+    coef : ndarray of float64, shape (p,). Fitted coefficients.
+    n_iter : int. Number of ADMM iterations performed.
+    """
     cdef int n = x.shape[0], p = x.shape[1]
-    cdef np.ndarray[np.float64_t] sqrt_sw = np.sqrt(sample_weight)
-    cdef np.ndarray[np.float64_t, ndim=2] xw = np.ascontiguousarray(x * sqrt_sw[:, None])
-    cdef np.ndarray[np.float64_t] yw = np.ascontiguousarray(y * sqrt_sw)
-    cdef np.ndarray[np.float64_t, ndim=2] xtx = np.ascontiguousarray(np.matmul(xw.T, xw) / n)
-    cdef int j
-    for j in range(p):
-        xtx[j, j] += rho
-    cdef np.ndarray[np.float64_t, ndim=2] xtx_rho_inv = np.ascontiguousarray(np.linalg.inv(xtx))
-    cdef np.ndarray[np.float64_t] xty = np.ascontiguousarray(np.matmul(xw.T, yw) / n)
-    cdef np.ndarray[np.float64_t] coef = np.zeros(p, dtype=np.float64)
+    cdef np.ndarray[np.float64_t, ndim=2] x_c = np.ascontiguousarray(x, dtype=np.float64)
+    cdef np.ndarray[np.float64_t, ndim=2] xtx_rho_inv = np.empty((p, p), order='C', dtype=np.float64)
+    cdef np.ndarray[np.float64_t] xty = np.empty(p, order='C', dtype=np.float64)
+    cdef int info = _precompute_gaussian_stats[double](
+        n, p, &x_c[0, 0], &y[0], &sample_weight[0], rho,
+        &xtx_rho_inv[0, 0], &xty[0]
+    )
+    if info != 0:
+        raise RuntimeError(f"_precompute_gaussian_stats failed with info={info}")
+
+    cdef np.ndarray[np.float64_t] coef = np.empty(p, order='C', dtype=np.float64)
     cdef int n_iter = fit_gaussian_helper(
-        n, p, &xtx_rho_inv[0, 0], &xty[0],
-        l1_reg, l2_reg, rho, max_iter, abs_tol, rel_tol, min_iter,
-        &coef[0])
+        n, p, &xtx_rho_inv[0, 0], &xty[0], l1_reg, l2_reg,
+        rho, max_iter, abs_tol, rel_tol, min_iter, &coef[0]
+    )
     return coef, n_iter
 
 
@@ -178,22 +299,47 @@ def fit_gaussian_f32(
     np.float32_t rel_tol = 1e-4,
     int min_iter = 3
 ):
-    """Float32 wrapper — see ``fit_gaussian`` for full docstring."""
+    """Float32 weighted Gaussian ElasticNet wrapper.
+
+    Applies sample weights via ``_precompute_gaussian_stats`` (cdef, using
+    BLAS _gemm/_gemv and LAPACK _posv) to form the pre-weighted sufficient
+    statistics before delegating to ``fit_gaussian_helper``.
+
+    Parameters
+    ----------
+    x : ndarray of float32, shape (n, p). Design matrix.
+    y : ndarray of float32, shape (n,). Response vector.
+    sample_weight : ndarray of float32, shape (n,).
+        Non-negative sample weights (normalised so that sum(w) = n).
+    l1_reg : float32. L1 penalty.
+    l2_reg : float32. L2 penalty.
+    rho : float32, default=1.0. ADMM augmented-Lagrangian parameter.
+    max_iter : int, default=1000. Maximum ADMM iterations.
+    abs_tol : float32, default=1e-3. Absolute convergence tolerance.
+    rel_tol : float32, default=1e-4. Relative convergence tolerance.
+    min_iter : int, default=3. Minimum ADMM iterations.
+
+    Returns
+    -------
+    coef : ndarray of float32, shape (p,). Fitted coefficients.
+    n_iter : int. Number of ADMM iterations performed.
+    """
     cdef int n = x.shape[0], p = x.shape[1]
-    cdef np.ndarray[np.float32_t] sqrt_sw = np.sqrt(sample_weight).astype(np.float32)
-    cdef np.ndarray[np.float32_t, ndim=2] xw = np.ascontiguousarray((x * sqrt_sw[:, None]), dtype=np.float32)
-    cdef np.ndarray[np.float32_t] yw = np.ascontiguousarray((y * sqrt_sw), dtype=np.float32)
-    cdef np.ndarray[np.float32_t, ndim=2] xtx = np.ascontiguousarray(np.matmul(xw.T, xw) / n, dtype=np.float32)
-    cdef int j
-    for j in range(p):
-        xtx[j, j] += rho
-    cdef np.ndarray[np.float32_t, ndim=2] xtx_rho_inv = np.ascontiguousarray(np.linalg.inv(xtx), dtype=np.float32)
-    cdef np.ndarray[np.float32_t] xty = np.ascontiguousarray(np.matmul(xw.T, yw) / n, dtype=np.float32)
-    cdef np.ndarray[np.float32_t] coef = np.zeros(p, dtype=np.float32)
+    cdef np.ndarray[np.float32_t, ndim=2] x_c = np.ascontiguousarray(x, dtype=np.float32)
+    cdef np.ndarray[np.float32_t, ndim=2] xtx_rho_inv = np.empty((p, p), order='C', dtype=np.float32)
+    cdef np.ndarray[np.float32_t] xty = np.empty(p, order='C', dtype=np.float32)
+    cdef int info = _precompute_gaussian_stats[float](
+        n, p, &x_c[0, 0], &y[0], &sample_weight[0], rho,
+        &xtx_rho_inv[0, 0], &xty[0]
+    )
+    if info != 0:
+        raise RuntimeError(f"_precompute_gaussian_stats failed with info={info}")
+
+    cdef np.ndarray[np.float32_t] coef = np.empty(p, order='C', dtype=np.float32)
     cdef int n_iter = fit_gaussian_helper(
-        n, p, &xtx_rho_inv[0, 0], &xty[0],
-        l1_reg, l2_reg, rho, max_iter, abs_tol, rel_tol, min_iter,
-        &coef[0])
+        n, p, &xtx_rho_inv[0, 0], &xty[0], l1_reg, l2_reg,
+        rho, max_iter, abs_tol, rel_tol, min_iter, &coef[0]
+    )
     return coef, n_iter
 
 
@@ -213,44 +359,59 @@ cdef int fit_nongaussian_helper(
     int min_iter,
     floating* coef,
 ) noexcept nogil:
-    """Core ADMM loop for non-Gaussian ElasticNet.
+    """Core ADMM loop for weighted non-Gaussian ElasticNet.
 
     Supported families (family_code):
         1 = Binomial (logistic), 2 = Poisson (log link),
         3 = Gamma (log link), 5 = Tweedie (log link, power != 0,1,2).
 
-    The z-update uses Newton's method on the augmented-Lagrangian subproblem.
-    The w-update uses soft-thresholding (intercept coef[0] is NOT penalised).
+    Sample weights ``sw`` multiply each sample's contribution to the
+    negative log-likelihood, its gradient (d_eta), and its Hessian weight
+    used for the IRLS-style working weights in the Newton z-update.
+
+    The z-update uses Newton's method on the weighted augmented-Lagrangian
+    subproblem.  The w-update uses soft-threshold (intercept coef[0] is
+    NOT penalised).
 
     Parameters
     ----------
     n : int. Number of samples.
-    p : int. Number of original features (excluding intercept).
-    x : floating*, shape (n, p+1), row-major. Design matrix with intercept.
+    p : int. Number of features (including intercept).
+    x : floating*, shape (n, p), row-major. Design matrix with intercept.
     y : floating*, shape (n,). Response vector.
+    sw : floating*, shape (n,).
+        Non-negative sample weights (normalized so that sum(sw) = n).
+        Each weight scales the objective, gradient, and Hessian for that
+        sample.
     family_code : int.  1=binomial, 2=poisson, 3=gamma, 5=tweedie.
     power : floating. Tweedie variance power (unused for other families).
-    coef : floating*, shape (p+1,). Output coefficients.
+    l1_reg : floating. L1 penalty (sparsity).
+    l2_reg : floating. L2 penalty (ridge).
+    rho : floating. ADMM augmented-Lagrangian parameter.
+    max_iter : int. Maximum number of ADMM iterations.
+    abs_tol : floating. Absolute convergence tolerance.
+    rel_tol : floating. Relative convergence tolerance.
+    min_iter : int. Minimum number of ADMM iterations.
+    coef : floating*, shape (p,). Output coefficients.
 
     Returns
     -------
     int : number of ADMM iterations, or -1 on allocation failure.
     """
-    cdef int p1 = p + 1
     cdef floating THRESH_ = <floating> 30.0
     cdef floating MTHRESH_ = <floating> -30.0
 
     # Allocate ADMM buffers
-    cdef floating* z = <floating*> malloc(p1 * sizeof(floating))
-    cdef floating* z_new = <floating*> malloc(p1 * sizeof(floating))
-    cdef floating* tau = <floating*> malloc(p1 * sizeof(floating))
+    cdef floating* z = <floating*> malloc(p * sizeof(floating))
+    cdef floating* z_new = <floating*> malloc(p * sizeof(floating))
+    cdef floating* tau = <floating*> malloc(p * sizeof(floating))
     # Newton buffers
     cdef floating* eta = <floating*> malloc(n * sizeof(floating))
     cdef floating* pred = <floating*> malloc(n * sizeof(floating))
-    cdef floating* grad = <floating*> malloc(p1 * sizeof(floating))
-    cdef floating* hess = <floating*> malloc(p1 * p1 * sizeof(floating))
-    cdef floating* xw = <floating*> malloc(n * p1 * sizeof(floating))
-    cdef floating* z_newton = <floating*> malloc(p1 * sizeof(floating))
+    cdef floating* grad = <floating*> malloc(p * sizeof(floating))
+    cdef floating* hess = <floating*> malloc(p * p * sizeof(floating))
+    cdef floating* xw = <floating*> malloc(n * p * sizeof(floating))
+    cdef floating* z_newton = <floating*> malloc(p * sizeof(floating))
 
     if (z is NULL or z_new is NULL or tau is NULL or eta is NULL or
         pred is NULL or grad is NULL or hess is NULL or xw is NULL or
@@ -279,7 +440,7 @@ cdef int fit_nongaussian_helper(
     cdef bint converged = False
     cdef int info
 
-    for j in range(p1):
+    for j in range(p):
         coef[j] = <floating> 0.0
         z[j] = <floating> 0.0
         tau[j] = <floating> 0.0
@@ -288,7 +449,7 @@ cdef int fit_nongaussian_helper(
         it += 1
 
         # ===== z-update: Newton's method on augmented-Lagrangian subproblem =====
-        for j in range(p1):
+        for j in range(p):
             z_newton[j] = z[j]
 
         obj_old = <floating> 9999.0
@@ -297,8 +458,8 @@ cdef int fit_nongaussian_helper(
             newton_it += 1
 
             # eta = X @ z_newton
-            _gemv(RowMajor, NoTrans, n, p1,
-                  <floating> 1.0, x, p1, z_newton, 1,
+            _gemv(RowMajor, NoTrans, n, p,
+                  <floating> 1.0, x, p, z_newton, 1,
                   <floating> 0.0, eta, 1)
 
             # Compute mu (pred), objective, xw (Hessian weights), then d_eta (overwrite pred)
@@ -313,8 +474,8 @@ cdef int fit_nongaussian_helper(
                     pred[i] = <floating> 1.0 / (<floating> 1.0 + exp(-eta_val))
                     obj += sw[i] * (-y[i] * eta[i] - log(<floating> 1.0 - pred[i]))
                     sqrt_w = sqrt(sw[i] * pred[i] * (<floating> 1.0 - pred[i]))
-                    for j in range(p1):
-                        xw[i * p1 + j] = x[i * p1 + j] * sqrt_w
+                    for j in range(p):
+                        xw[i * p + j] = x[i * p + j] * sqrt_w
                     pred[i] = sw[i] * (pred[i] - y[i])  # weighted d_eta
             elif family_code == 2:  # Poisson (log link)
                 for i in range(n):
@@ -324,8 +485,8 @@ cdef int fit_nongaussian_helper(
                     pred[i] = exp(eta_val)
                     obj += sw[i] * (-y[i] * eta[i] + pred[i])
                     sqrt_w = sqrt(sw[i] * pred[i])
-                    for j in range(p1):
-                        xw[i * p1 + j] = x[i * p1 + j] * sqrt_w
+                    for j in range(p):
+                        xw[i * p + j] = x[i * p + j] * sqrt_w
                     pred[i] = sw[i] * (pred[i] - y[i])  # weighted d_eta
             elif family_code == 3:  # Gamma (log link, Fisher scoring weight=1)
                 for i in range(n):
@@ -337,8 +498,8 @@ cdef int fit_nongaussian_helper(
                     mu_val = exp(eta_val)
                     obj += sw[i] * (y[i] / mu_val + eta_val)
                     sqrt_w = sqrt(sw[i])
-                    for j in range(p1):
-                        xw[i * p1 + j] = x[i * p1 + j] * sqrt_w
+                    for j in range(p):
+                        xw[i * p + j] = x[i * p + j] * sqrt_w
                     pred[i] = sw[i] * (<floating> 1.0 - y[i] / mu_val)  # weighted d_eta
             elif family_code == 5:  # Tweedie (log link, power != 0,1,2)
                 for i in range(n):
@@ -352,38 +513,38 @@ cdef int fit_nongaussian_helper(
                     sqrt_w = exp(two_mp * eta_val) # mu^(2-p)
                     obj += sw[i] * (-y[i] * val / one_mp + sqrt_w / two_mp)
                     sqrt_w = sqrt(sw[i] * sqrt_w)  # sqrt(w_i * mu^(2-p))
-                    for j in range(p1):
-                        xw[i * p1 + j] = x[i * p1 + j] * sqrt_w
+                    for j in range(p):
+                        xw[i * p + j] = x[i * p + j] * sqrt_w
                     pred[i] = sw[i] * val * (mu_val - y[i])  # weighted d_eta
 
             # Augmented Lagrangian: + rho/2 * ||z_newton - coef + tau||^2
-            for j in range(p1):
+            for j in range(p):
                 val = z_newton[j] - coef[j] + tau[j]
                 obj += rho / <floating> 2.0 * val * val
 
             # grad = X.T @ d_eta + rho*(z_newton - coef + tau)
-            _gemv(RowMajor, Trans, n, p1,
-                  <floating> 1.0, x, p1, pred, 1,
+            _gemv(RowMajor, Trans, n, p,
+                  <floating> 1.0, x, p, pred, 1,
                   <floating> 0.0, grad, 1)
-            for j in range(p1):
+            for j in range(p):
                 grad[j] += rho * (z_newton[j] - coef[j] + tau[j])
 
             # hess = xw.T @ xw + rho*I
-            _gemm(RowMajor, Trans, NoTrans, p1, p1, n,
-                  <floating> 1.0, xw, p1, xw, p1,
-                  <floating> 0.0, hess, p1)
-            for j in range(p1):
-                hess[j * p1 + j] += rho
+            _gemm(RowMajor, Trans, NoTrans, p, p, n,
+                  <floating> 1.0, xw, p, xw, p,
+                  <floating> 0.0, hess, p)
+            for j in range(p):
+                hess[j * p + j] += rho
 
             # Solve hess @ delta = grad via Cholesky (hess is SPD)
             # _posv overwrites hess with factorisation and grad with solution delta
             info = 0
-            _posv(RowMajor, Upper, p1, 1, hess, p1, grad, 1, &info)
+            _posv(RowMajor, Upper, p, 1, hess, p, grad, 1, &info)
             if info != 0:
                 break
 
             # z_newton -= delta  (delta is now stored in grad)
-            for j in range(p1):
+            for j in range(p):
                 z_newton[j] -= grad[j]
 
             # Newton convergence check (matches original: abs(obj-obj_old)/obj)
@@ -392,12 +553,12 @@ cdef int fit_nongaussian_helper(
             obj_old = obj
 
         # z_new = Newton result
-        for j in range(p1):
+        for j in range(p):
             z_new[j] = z_newton[j]
 
         # ===== w-update: soft-thresholding (intercept coef[0] NOT penalised) =====
         coef[0] = z_new[0]
-        for j in range(1, p1):
+        for j in range(1, p):
             val = (z_new[j] + tau[j]) * scale
             if val > threshold:
                 coef[j] = val - threshold
@@ -407,7 +568,7 @@ cdef int fit_nongaussian_helper(
                 coef[j] = <floating> 0.0
 
         # tau update
-        for j in range(p1):
+        for j in range(p):
             tau[j] += z_new[j] - coef[j]
 
         # Convergence check
@@ -416,7 +577,7 @@ cdef int fit_nongaussian_helper(
         norm_tau = <floating> 0.0
         norm_primal = <floating> 0.0
         norm_dual = <floating> 0.0
-        for j in range(p1):
+        for j in range(p):
             norm_coef += coef[j] * coef[j]
             norm_z_new += z_new[j] * z_new[j]
             norm_tau += tau[j] * tau[j]
@@ -432,7 +593,7 @@ cdef int fit_nongaussian_helper(
         eps_dual_val = sqrt_n * abs_tol + rel_tol * rho * norm_tau
         converged = (norm_primal < eps_pri) and (norm_dual < eps_dual_val)
 
-        for j in range(p1):
+        for j in range(p):
             z[j] = z_new[j]
 
     free(z)
@@ -461,17 +622,42 @@ def fit_nongaussian_f64(
     np.float64_t rel_tol = 1e-4,
     int min_iter = 3
 ):
-    """Float64 wrapper — see ``fit_nongaussian`` for full docstring."""
+    """Float64 weighted non-Gaussian ElasticNet wrapper.
+
+    Prepends an intercept column to X, then delegates to
+    ``fit_nongaussian_helper`` which incorporates ``sample_weight``
+    into the objective, gradient, and Hessian.
+
+    Parameters
+    ----------
+    x : ndarray of float64, shape (n, p). Design matrix (with intercept).
+    y : ndarray of float64, shape (n,). Response vector.
+    sample_weight : ndarray of float64, shape (n,).
+        Non-negative sample weights (normalised so that sum(w) = n).
+    family_code : int. 1=binomial, 2=poisson, 3=gamma, 5=tweedie.
+    power : float64, default=1.5. Tweedie variance power.
+    l1_reg : float64, default=0.0. L1 penalty.
+    l2_reg : float64, default=0.0. L2 penalty.
+    rho : float64, default=1.0. ADMM augmented-Lagrangian parameter.
+    max_iter : int, default=1000. Maximum ADMM iterations.
+    abs_tol : float64, default=1e-3. Absolute convergence tolerance.
+    rel_tol : float64, default=1e-4. Relative convergence tolerance.
+    min_iter : int, default=3. Minimum ADMM iterations.
+
+    Returns
+    -------
+    coef : ndarray of float64, shape (p,). Fitted coefficients, including intercept.
+    n_iter : int. Number of ADMM iterations performed.
+    """
     cdef int n = x.shape[0], p = x.shape[1]
-    cdef np.ndarray[np.float64_t, ndim=2] x2 = np.ascontiguousarray(
-        np.concatenate([np.ones((n, 1), dtype=np.float64), x], axis=1), dtype=np.float64)
+    cdef np.ndarray[np.float64_t, ndim=2] x2 = np.ascontiguousarray(x, dtype=np.float64)
     cdef np.ndarray[np.float64_t] y_arr = np.ascontiguousarray(y, dtype=np.float64)
-    cdef np.ndarray[np.float64_t] sw_arr = np.ascontiguousarray(sample_weight, dtype=np.float64)
-    cdef np.ndarray[np.float64_t] coef = np.zeros(p + 1, dtype=np.float64)
+    cdef np.ndarray[np.float64_t] coef = np.empty(p, order='C', dtype=np.float64)
     cdef int n_iter = fit_nongaussian_helper(
-        n, p, &x2[0, 0], &y_arr[0], &sw_arr[0], family_code, power,
-        l1_reg, l2_reg, rho, max_iter, abs_tol, rel_tol, min_iter, &coef[0])
-    return coef[0], coef[1:].copy(), n_iter
+        n, p, &x2[0, 0], &y_arr[0], &sample_weight[0], family_code, power,
+        l1_reg, l2_reg, rho, max_iter, abs_tol, rel_tol, min_iter, &coef[0]
+    )
+    return coef, n_iter
 
 
 def fit_nongaussian_f32(
@@ -488,17 +674,42 @@ def fit_nongaussian_f32(
     np.float32_t rel_tol = 1e-4,
     int min_iter = 3
 ):
-    """Float32 wrapper — see ``fit_nongaussian`` for full docstring."""
+    """Float32 weighted non-Gaussian ElasticNet wrapper.
+
+    Prepends an intercept column to X, then delegates to
+    ``fit_nongaussian_helper`` which incorporates ``sample_weight``
+    into the objective, gradient, and Hessian.
+
+    Parameters
+    ----------
+    x : ndarray of float32, shape (n, p). Design matrix (with intercept).
+    y : ndarray of float32, shape (n,). Response vector.
+    sample_weight : ndarray of float32, shape (n,).
+        Non-negative sample weights (normalised so that sum(w) = n).
+    family_code : int. 1=binomial, 2=poisson, 3=gamma, 5=tweedie.
+    power : float32, default=1.5. Tweedie variance power.
+    l1_reg : float32, default=0.0. L1 penalty.
+    l2_reg : float32, default=0.0. L2 penalty.
+    rho : float32, default=1.0. ADMM augmented-Lagrangian parameter.
+    max_iter : int, default=1000. Maximum ADMM iterations.
+    abs_tol : float32, default=1e-3. Absolute convergence tolerance.
+    rel_tol : float32, default=1e-4. Relative convergence tolerance.
+    min_iter : int, default=3. Minimum ADMM iterations.
+
+    Returns
+    -------
+    coef : ndarray of float32, shape (p,). Fitted coefficients, including intercept.
+    n_iter : int. Number of ADMM iterations performed.
+    """
     cdef int n = x.shape[0], p = x.shape[1]
-    cdef np.ndarray[np.float32_t, ndim=2] x2 = np.ascontiguousarray(
-        np.concatenate([np.ones((n, 1), dtype=np.float32), x], axis=1), dtype=np.float32)
+    cdef np.ndarray[np.float32_t, ndim=2] x2 = np.ascontiguousarray(x, dtype=np.float32)
     cdef np.ndarray[np.float32_t] y_arr = np.ascontiguousarray(y, dtype=np.float32)
-    cdef np.ndarray[np.float32_t] sw_arr = np.ascontiguousarray(sample_weight, dtype=np.float32)
-    cdef np.ndarray[np.float32_t] coef = np.zeros(p + 1, dtype=np.float32)
+    cdef np.ndarray[np.float32_t] coef = np.empty(p, order='C', dtype=np.float32)
     cdef int n_iter = fit_nongaussian_helper(
-        n, p, &x2[0, 0], &y_arr[0], &sw_arr[0], family_code, power,
-        l1_reg, l2_reg, rho, max_iter, abs_tol, rel_tol, min_iter, &coef[0])
-    return coef[0], coef[1:].copy(), n_iter
+        n, p, &x2[0, 0], &y_arr[0], &sample_weight[0], family_code, power,
+        l1_reg, l2_reg, rho, max_iter, abs_tol, rel_tol, min_iter, &coef[0]
+    )
+    return coef, n_iter
 
 
 # ===========================================================================
@@ -519,38 +730,52 @@ cdef int fit_multinomial_helper(
     int min_iter,
     floating* coef,
 ) noexcept nogil:
-    """ADMM loop for multinomial logistic ElasticNet.
+    """ADMM loop for weighted multinomial logistic ElasticNet.
 
     Uses block-diagonal Hessian approximation (independent Newton per class).
+    Sample weights ``sw`` multiply each sample's contribution to the
+    cross-entropy objective, gradient (d_eta), and Hessian weight
+    ``sqrt(sw[i] * p_k * (1 - p_k))`` used for the working-weights
+    matrix in the Newton z-update.
 
     Parameters
     ----------
-    n, p : int.  n samples, p original features (design has p+1 cols with intercept).
-    K : int.  Number of classes.
-    x : floating*, (n, p+1) row-major. Design matrix with intercept column.
+    n : int. Number of samples.
+    p : int. Number of features (including intercept).
+    K : int. Number of classes.
+    x : floating*, (n, p) row-major. Design matrix with intercept column.
     y_onehot : floating*, (n, K) row-major. One-hot encoded labels.
-    coef : floating*, (K, p+1) row-major. Output coefficients.
+    sw : floating*, shape (n,).
+        Non-negative sample weights (normalised so that sum(sw) = n).
+        Each weight scales the cross-entropy loss, gradient, and Hessian
+        for that sample.
+    l1_reg : floating. L1 penalty (sparsity, not applied to intercept).
+    l2_reg : floating. L2 penalty (ridge).
+    rho : floating. ADMM augmented-Lagrangian parameter.
+    max_iter : int. Maximum number of ADMM iterations.
+    abs_tol : floating. Absolute convergence tolerance.
+    rel_tol : floating. Relative convergence tolerance.
+    min_iter : int. Minimum number of ADMM iterations.
+    coef : floating*, (K, p) row-major. Output coefficients.
 
     Returns
     -------
     int : number of ADMM iterations, or -1 on allocation failure.
     """
-    cdef int p1 = p + 1
-    cdef int Kp1 = K * p1
     cdef floating THRESH_ = <floating> 30.0
 
     # ADMM buffers
-    cdef floating* z = <floating*> malloc(Kp1 * sizeof(floating))
-    cdef floating* z_new = <floating*> malloc(Kp1 * sizeof(floating))
-    cdef floating* tau = <floating*> malloc(Kp1 * sizeof(floating))
+    cdef floating* z = <floating*> malloc(K * p * sizeof(floating))
+    cdef floating* z_new = <floating*> malloc(K * p * sizeof(floating))
+    cdef floating* tau = <floating*> malloc(K * p * sizeof(floating))
     # Newton buffers
     cdef floating* eta = <floating*> malloc(n * K * sizeof(floating))
     cdef floating* prob = <floating*> malloc(n * K * sizeof(floating))
-    cdef floating* z_newton = <floating*> malloc(Kp1 * sizeof(floating))
+    cdef floating* z_newton = <floating*> malloc(K * p * sizeof(floating))
     cdef floating* d_eta_k = <floating*> malloc(n * sizeof(floating))
-    cdef floating* grad = <floating*> malloc(p1 * sizeof(floating))
-    cdef floating* hess = <floating*> malloc(p1 * p1 * sizeof(floating))
-    cdef floating* xw = <floating*> malloc(n * p1 * sizeof(floating))
+    cdef floating* grad = <floating*> malloc(p * sizeof(floating))
+    cdef floating* hess = <floating*> malloc(p * p * sizeof(floating))
+    cdef floating* xw = <floating*> malloc(n * p * sizeof(floating))
 
     if (z is NULL or z_new is NULL or tau is NULL or eta is NULL or
         prob is NULL or z_newton is NULL or d_eta_k is NULL or
@@ -578,7 +803,7 @@ cdef int fit_multinomial_helper(
     cdef bint converged = False
     cdef int info
 
-    for j in range(Kp1):
+    for j in range(K * p):
         coef[j] = <floating> 0.0
         z[j] = <floating> 0.0
         tau[j] = <floating> 0.0
@@ -587,7 +812,7 @@ cdef int fit_multinomial_helper(
         it += 1
 
         # ===== z-update: block-diagonal Newton =====
-        for j in range(Kp1):
+        for j in range(K * p):
             z_newton[j] = z[j]
 
         obj_old = <floating> 9999.0
@@ -596,8 +821,8 @@ cdef int fit_multinomial_helper(
             newton_it += 1
 
             # eta = X @ Z^T :  (n, K)  stored row-major
-            _gemm(RowMajor, NoTrans, Trans, n, K, p1,
-                  <floating> 1.0, x, p1, z_newton, p1,
+            _gemm(RowMajor, NoTrans, Trans, n, K, p,
+                  <floating> 1.0, x, p, z_newton, p,
                   <floating> 0.0, eta, K)
 
             # softmax  +  objective
@@ -622,7 +847,7 @@ cdef int fit_multinomial_helper(
                     obj += sw[i] * (-y_onehot[i * K + k] * log(pk))
 
             # augmented Lagrangian
-            for j in range(Kp1):
+            for j in range(K * p):
                 val = z_newton[j] - coef[j] + tau[j]
                 obj += rho / <floating> 2.0 * val * val
 
@@ -632,30 +857,30 @@ cdef int fit_multinomial_helper(
                 for i in range(n):
                     d_eta_k[i] = sw[i] * (prob[i * K + k] - y_onehot[i * K + k])
                 # grad_k = X^T d_eta_k + rho*(z_newton_k - coef_k + tau_k)
-                _gemv(RowMajor, Trans, n, p1,
-                      <floating> 1.0, x, p1, d_eta_k, 1,
+                _gemv(RowMajor, Trans, n, p,
+                      <floating> 1.0, x, p, d_eta_k, 1,
                       <floating> 0.0, grad, 1)
-                for j in range(p1):
-                    grad[j] += rho * (z_newton[k * p1 + j] - coef[k * p1 + j] + tau[k * p1 + j])
+                for j in range(p):
+                    grad[j] += rho * (z_newton[k * p + j] - coef[k * p + j] + tau[k * p + j])
                 # xw[i,j] = x[i,j] * sqrt(sw[i] * prob[i,k]*(1-prob[i,k]))
                 for i in range(n):
                     pk = prob[i * K + k]
                     sqrt_w = sqrt(sw[i] * pk * (<floating> 1.0 - pk))
-                    for j in range(p1):
-                        xw[i * p1 + j] = x[i * p1 + j] * sqrt_w
+                    for j in range(p):
+                        xw[i * p + j] = x[i * p + j] * sqrt_w
                 # hess_k = xw^T xw + rho*I
-                _gemm(RowMajor, Trans, NoTrans, p1, p1, n,
-                      <floating> 1.0, xw, p1, xw, p1,
-                      <floating> 0.0, hess, p1)
-                for j in range(p1):
-                    hess[j * p1 + j] += rho
+                _gemm(RowMajor, Trans, NoTrans, p, p, n,
+                      <floating> 1.0, xw, p, xw, p,
+                      <floating> 0.0, hess, p)
+                for j in range(p):
+                    hess[j * p + j] += rho
                 # solve
                 info = 0
-                _posv(RowMajor, Upper, p1, 1, hess, p1, grad, 1, &info)
+                _posv(RowMajor, Upper, p, 1, hess, p, grad, 1, &info)
                 if info != 0:
                     break
-                for j in range(p1):
-                    z_newton[k * p1 + j] -= grad[j]
+                for j in range(p):
+                    z_newton[k * p + j] -= grad[j]
 
             if info != 0:
                 break
@@ -664,23 +889,23 @@ cdef int fit_multinomial_helper(
             obj_old = obj
 
         # z_new = Newton result
-        for j in range(Kp1):
+        for j in range(K * p):
             z_new[j] = z_newton[j]
 
         # ===== w-update: soft-thresholding (intercept col NOT penalised) =====
         for k in range(K):
-            coef[k * p1] = z_new[k * p1]  # intercept
-            for j in range(1, p1):
-                val = (z_new[k * p1 + j] + tau[k * p1 + j]) * sc
+            coef[k * p] = z_new[k * p]  # intercept
+            for j in range(1, p):
+                val = (z_new[k * p + j] + tau[k * p + j]) * sc
                 if val > threshold:
-                    coef[k * p1 + j] = val - threshold
+                    coef[k * p + j] = val - threshold
                 elif val < -threshold:
-                    coef[k * p1 + j] = val + threshold
+                    coef[k * p + j] = val + threshold
                 else:
-                    coef[k * p1 + j] = <floating> 0.0
+                    coef[k * p + j] = <floating> 0.0
 
         # tau update
-        for j in range(Kp1):
+        for j in range(K * p):
             tau[j] += z_new[j] - coef[j]
 
         # Convergence
@@ -689,7 +914,7 @@ cdef int fit_multinomial_helper(
         norm_tau = <floating> 0.0
         norm_primal = <floating> 0.0
         norm_dual = <floating> 0.0
-        for j in range(Kp1):
+        for j in range(K * p):
             norm_coef += coef[j] * coef[j]
             norm_z_new += z_new[j] * z_new[j]
             norm_tau += tau[j] * tau[j]
@@ -704,7 +929,7 @@ cdef int fit_multinomial_helper(
         eps_dual_val = sqrt_n * abs_tol + rel_tol * rho * norm_tau
         converged = (norm_primal < eps_pri) and (norm_dual < eps_dual_val)
 
-        for j in range(Kp1):
+        for j in range(K * p):
             z[j] = z_new[j]
 
     free(z)
@@ -733,21 +958,46 @@ def fit_multinomial_f64(
     np.float64_t rel_tol = 1e-4,
     int min_iter = 3
 ):
-    """Float64 multinomial wrapper."""
+    """Float64 weighted multinomial logistic ElasticNet wrapper.
+
+    One-hot encodes y, prepends an intercept column to X, then delegates
+    to ``fit_multinomial_helper`` which incorporates ``sample_weight``
+    into the cross-entropy objective, gradient, and Hessian.
+
+    Parameters
+    ----------
+    x : ndarray of float64, shape (n, p). Design matrix (no intercept).
+    y : ndarray of float64, shape (n,). Integer class labels in [0, K).
+    sample_weight : ndarray of float64, shape (n,).
+        Non-negative sample weights (normalised so that sum(w) = n).
+    n_classes : int. Number of classes K.
+    l1_reg : float64, default=0.0. L1 penalty.
+    l2_reg : float64, default=0.0. L2 penalty.
+    rho : float64, default=1.0. ADMM augmented-Lagrangian parameter.
+    max_iter : int, default=1000. Maximum ADMM iterations.
+    abs_tol : float64, default=1e-3. Absolute convergence tolerance.
+    rel_tol : float64, default=1e-4. Relative convergence tolerance.
+    min_iter : int, default=3. Minimum ADMM iterations.
+
+    Returns
+    -------
+    intercept : ndarray of float64, shape (K,). Fitted intercepts.
+    coef : ndarray of float64, shape (K, p). Fitted coefficients.
+    n_iter : int. Number of ADMM iterations performed.
+    """
     cdef int n = x.shape[0], p = x.shape[1], K = n_classes
-    cdef np.ndarray[np.float64_t, ndim=2] x2 = np.ascontiguousarray(
-        np.concatenate([np.ones((n, 1), dtype=np.float64), x], axis=1), dtype=np.float64)
+    cdef np.ndarray[np.float64_t, ndim=2] x2 = np.ascontiguousarray(x, dtype=np.float64)
     cdef np.ndarray[np.float64_t, ndim=2] y_oh = np.zeros((n, K), dtype=np.float64)
     cdef int i
     for i in range(n):
         y_oh[i, <int> y[i]] = 1.0
-    cdef np.ndarray[np.float64_t] sw_arr = np.ascontiguousarray(sample_weight, dtype=np.float64)
-    cdef np.ndarray[np.float64_t] coef_flat = np.zeros(K * (p + 1), dtype=np.float64)
+    cdef np.ndarray[np.float64_t] coef_flat = np.empty(K * p, order='C', dtype=np.float64)
     cdef int n_iter = fit_multinomial_helper(
-        n, p, K, &x2[0, 0], &y_oh[0, 0], &sw_arr[0],
-        l1_reg, l2_reg, rho, max_iter, abs_tol, rel_tol, min_iter, &coef_flat[0])
-    cdef np.ndarray[np.float64_t, ndim=2] coef2d = coef_flat.reshape(K, p + 1)
-    return coef2d[:, 0].copy(), coef2d[:, 1:].copy(), n_iter
+        n, p, K, &x2[0, 0], &y_oh[0, 0], &sample_weight[0],
+        l1_reg, l2_reg, rho, max_iter, abs_tol, rel_tol, min_iter, &coef_flat[0]
+    )
+    cdef np.ndarray[np.float64_t, ndim=2] coef2d = coef_flat.reshape(K, p)
+    return coef2d, n_iter
 
 
 def fit_multinomial_f32(
@@ -763,18 +1013,43 @@ def fit_multinomial_f32(
     np.float32_t rel_tol = 1e-4,
     int min_iter = 3
 ):
-    """Float32 multinomial wrapper."""
+    """Float32 weighted multinomial logistic ElasticNet wrapper.
+
+    One-hot encodes y, prepends an intercept column to X, then delegates
+    to ``fit_multinomial_helper`` which incorporates ``sample_weight``
+    into the cross-entropy objective, gradient, and Hessian.
+
+    Parameters
+    ----------
+    x : ndarray of float32, shape (n, p). Design matrix (no intercept).
+    y : ndarray of float32, shape (n,). Integer class labels in [0, K).
+    sample_weight : ndarray of float32, shape (n,).
+        Non-negative sample weights (normalised so that sum(w) = n).
+    n_classes : int. Number of classes K.
+    l1_reg : float32, default=0.0. L1 penalty.
+    l2_reg : float32, default=0.0. L2 penalty.
+    rho : float32, default=1.0. ADMM augmented-Lagrangian parameter.
+    max_iter : int, default=1000. Maximum ADMM iterations.
+    abs_tol : float32, default=1e-3. Absolute convergence tolerance.
+    rel_tol : float32, default=1e-4. Relative convergence tolerance.
+    min_iter : int, default=3. Minimum ADMM iterations.
+
+    Returns
+    -------
+    intercept : ndarray of float32, shape (K,). Fitted intercepts.
+    coef : ndarray of float32, shape (K, p). Fitted coefficients.
+    n_iter : int. Number of ADMM iterations performed.
+    """
     cdef int n = x.shape[0], p = x.shape[1], K = n_classes
-    cdef np.ndarray[np.float32_t, ndim=2] x2 = np.ascontiguousarray(
-        np.concatenate([np.ones((n, 1), dtype=np.float32), x], axis=1), dtype=np.float32)
+    cdef np.ndarray[np.float32_t, ndim=2] x2 = np.ascontiguousarray(x, dtype=np.float32)
     cdef np.ndarray[np.float32_t, ndim=2] y_oh = np.zeros((n, K), dtype=np.float32)
     cdef int i
     for i in range(n):
         y_oh[i, <int> y[i]] = 1.0
-    cdef np.ndarray[np.float32_t] sw_arr = np.ascontiguousarray(sample_weight, dtype=np.float32)
-    cdef np.ndarray[np.float32_t] coef_flat = np.zeros(K * (p + 1), dtype=np.float32)
+    cdef np.ndarray[np.float32_t] coef_flat = np.empty(K * p, order='C', dtype=np.float32)
     cdef int n_iter = fit_multinomial_helper(
-        n, p, K, &x2[0, 0], &y_oh[0, 0], &sw_arr[0],
-        l1_reg, l2_reg, rho, max_iter, abs_tol, rel_tol, min_iter, &coef_flat[0])
-    cdef np.ndarray[np.float32_t, ndim=2] coef2d = coef_flat.reshape(K, p + 1)
-    return coef2d[:, 0].copy(), coef2d[:, 1:].copy(), n_iter
+        n, p, K, &x2[0, 0], &y_oh[0, 0], &sample_weight[0],
+        l1_reg, l2_reg, rho, max_iter, abs_tol, rel_tol, min_iter, &coef_flat[0]
+    )
+    cdef np.ndarray[np.float32_t, ndim=2] coef2d = coef_flat.reshape(K, p)
+    return coef2d, n_iter

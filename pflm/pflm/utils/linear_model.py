@@ -157,12 +157,15 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
         else:
             X_offset = np.zeros(n_features, dtype=X.dtype)
 
+        if family != LinearModelFamily.GAUSSIAN:
+            X = np.concatenate([np.ones((X.shape[0], 1), dtype=X.dtype), X], axis=1)
+
         if family == LinearModelFamily.GAUSSIAN and fit_intercept:
             y_offset = np.average(y, weights=sample_weight, axis=0).astype(X.dtype)
             y -= y_offset
         else:
             y_offset = np.zeros(1, dtype=X.dtype)
-        return X, y, X_offset, y_offset
+        return X, y, sample_weight, X_offset, y_offset
 
     def fit(self, X, y, sample_weight=None):
         """Fit the model with L1 and L2 regularization.
@@ -215,6 +218,12 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
             if len(np.unique(y_arr)) < 2:
                 raise ValueError('For MULTINOMIAL family, y must contain at least 2 classes.')
 
+        # Store fitted data
+        self.X_ = X
+        self.y_ = y
+        self.weight_ = sample_weight
+        self.n_features_in_ = X.shape[1]
+
         # Validate and normalise sample weights (sum → n)
         if sample_weight is not None:
             sw = np.asarray(sample_weight, dtype=self._input_dtype).ravel()
@@ -228,14 +237,8 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
         else:
             sw = np.ones(n, dtype=self._input_dtype)
 
-        # Store fitted data
-        self.X_ = X
-        self.y_ = y
-        self.sample_weight_ = sample_weight
-        self.n_features_in_ = X.shape[1]
-
         # Preprocess the data (center if fit_intercept is True and family is 'gaussian')
-        self.preprocess_X_, self.preprocess_y_, self.X_offset, self.y_offset = ElasticNet.preprocess_data(
+        self.preprocess_X_, self.preprocess_y_, self.preprocess_weight_, self.X_offset, self.y_offset = ElasticNet.preprocess_data(
             X.copy().astype(self._input_dtype), y.copy().astype(self._input_dtype),
             self.family, self.fit_intercept, sample_weight=sw
         )
@@ -248,18 +251,22 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
 
         if self.family == LinearModelFamily.GAUSSIAN:
             _fit = fit_gaussian_f32 if self._input_dtype == np.float32 else fit_gaussian_f64
-            coef_out, self.n_iter = _fit(self.preprocess_X_, self.preprocess_y_, sw, l1_reg, l2_reg, self.rho, self.max_iter, self.abs_tol, self.rel_tol, self.min_iter)
+            coef_out, self.n_iter = _fit(
+                self.preprocess_X_, self.preprocess_y_, self.preprocess_weight_, l1_reg, l2_reg,
+                self.rho, self.max_iter, self.abs_tol, self.rel_tol, self.min_iter
+            )
         elif self.family == LinearModelFamily.MULTINOMIAL:
             _fit = fit_multinomial_f32 if self._input_dtype == np.float32 else fit_multinomial_f64
             n_classes = int(self.preprocess_y_.max()) + 1
-            self.intercept_, coef_out, self.n_iter = _fit(
-                self.preprocess_X_, self.preprocess_y_, sw, n_classes, l1_reg, l2_reg, self.rho, self.max_iter, self.abs_tol, self.rel_tol, self.min_iter
+            coef_out, self.n_iter = _fit(
+                self.preprocess_X_, self.preprocess_y_, self.preprocess_weight_, n_classes,
+                l1_reg, l2_reg, self.rho, self.max_iter, self.abs_tol, self.rel_tol, self.min_iter
             )
         else:
             _fit = fit_nongaussian_f32 if self._input_dtype == np.float32 else fit_nongaussian_f64
-            self.intercept_, coef_out, self.n_iter = _fit(
-                self.preprocess_X_, self.preprocess_y_, sw, self.family.value, self.power, l1_reg, l2_reg, self.rho,
-                self.max_iter, self.abs_tol, self.rel_tol, self.min_iter
+            coef_out, self.n_iter = _fit(
+                self.preprocess_X_, self.preprocess_y_, self.preprocess_weight_, self.family.value, self.power,
+                l1_reg, l2_reg, self.rho, self.max_iter, self.abs_tol, self.rel_tol, self.min_iter
             )
 
         self.coef_ = coef_out
@@ -268,6 +275,13 @@ class ElasticNet(MultiOutputMixin, RegressorMixin):
                 self.intercept_ = self.y_offset - np.dot(self.X_offset, self.coef_)
             else:
                 self.intercept_ = self.y_offset
+        else:
+            if self.family == LinearModelFamily.MULTINOMIAL:
+                self.intercept_ = self.coef_[:, 0]  # Intercept is the first column of coef_ for multinomial
+                self.coef_ = self.coef_[:, 1:]  # Remaining columns are the coefficients for features
+            else:
+                self.intercept_ = self.coef_[0]  # Intercept is the first element of coef_ for non-Gaussian families
+                self.coef_ = self.coef_[1:]  # Remaining elements are the coefficients for features
         self.fitted = True
         return self
 
