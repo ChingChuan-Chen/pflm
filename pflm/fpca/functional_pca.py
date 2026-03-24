@@ -177,8 +177,8 @@ class FunctionalPCAUserDefinedParams:
     sigma2 : float, optional
         Variance of the measurement error.
     rho : float, optional
-        The user-defined measurement truncation threshold used for conditional expectations estimation on the principal component scores.
-        If provided, must be a non-negative scalar.
+        The user-defined measurement truncation threshold used for conditional expectations estimation on the
+        principal component scores.  If provided, must be a non-negative scalar.
 
     Examples
     --------
@@ -391,8 +391,7 @@ class FunctionalPCA(BaseEstimator):
         This helper:
         - Optionally warns when the number of samples is small (<= 3).
         - Checks list lengths (len(y) == len(t)).
-        - Resolves the output dtype either from `dtype` or from the inputs using
-          sklearn's supported float dtypes.
+        - Resolves the output dtype either from `dtype` or from the inputs using sklearn's supported float dtypes.
         - Validates each (ti, yi) pair:
           * Both must be 1D arrays.
           * Their lengths must match.
@@ -407,8 +406,8 @@ class FunctionalPCA(BaseEstimator):
         t : list of array-like
             Time vectors per sample; each element must be a 1D array of shape (n_i,).
         w : list or array-like, optional
-            Optional weights (shape policy follows the downstream flatten utility).
-            If provided, validated and cast to the resolved dtype.
+            Optional weights (shape policy follows the downstream flatten utility).  If provided, validated and cast
+            to the resolved dtype.
         dtype : str or np.dtype, optional
             If given, forces the output dtype; otherwise determined from inputs.
 
@@ -432,8 +431,8 @@ class FunctionalPCA(BaseEstimator):
 
         Notes
         -----
-        The dtype resolution uses `sklearn.utils._array_api.get_namespace_and_device`
-        and `supported_float_dtypes` to select a compatible floating dtype.
+        The dtype resolution uses `sklearn.utils._array_api.get_namespace_and_device` and `supported_float_dtypes`
+        to select a compatible floating dtype.
         """
         if len(y) <= 3:
             warnings.warn("The number of samples is less than or equal to 3. This may lead to unreliable results in functional PCA.")
@@ -553,8 +552,8 @@ class FunctionalPCA(BaseEstimator):
         y : list of array-like
             Observations per sample; each is 1D with shape (n_i,).
         w : list of array-like, optional
-            Per-sample weights; each is 1D with shape (n_i,) or sample-level weights
-            compatible with the flattening utility.
+            Per-sample weights; each is 1D with shape (n_i,) or sample-level weights compatible with the flattening
+            utility.
         method_pcs : {"IN", "CE"}, default="CE"
             Score computation method (In-sample or Conditional Expectation).
         method_select_num_pcs : int or {"FVE", "AIC", "BIC"}, default="FVE"

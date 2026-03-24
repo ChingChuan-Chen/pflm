@@ -11,8 +11,7 @@ Requirements
 From GitHub (recommended)
 ---------------------------
 
-Install the latest version directly from GitHub. pip will build the
-Cython extensions automatically via meson-python.
+Install the latest version directly from GitHub. pip will build the Cython extensions automatically via meson-python.
 
 .. code-block:: shell
 
@@ -21,8 +20,8 @@ Cython extensions automatically via meson-python.
 Development install
 -------------------
 
-For local development, clone the repository and install in editable mode.
-You will need the build tool-chain installed first.
+For local development, clone the repository and install in editable mode.  You will need the build tool-chain
+installed first.
 
 .. code-block:: shell
 

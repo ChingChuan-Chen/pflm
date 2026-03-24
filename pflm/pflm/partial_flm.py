@@ -21,23 +21,18 @@ class FPCAConfig:
         Number of points in the regular grid for FPCA.
         Forwarded to ``FunctionalPCA.__init__()``.
     mu_cov_params : FunctionalPCAMuCovParams, optional
-        Parameters for mean and covariance estimation in FPCA.
-        Forwarded to ``FunctionalPCA.__init__()``.  If ``None``, the
-        default ``FunctionalPCAMuCovParams()`` is used.
+        Parameters for mean and covariance estimation in FPCA.  Forwarded to ``FunctionalPCA.__init__()``.  If
+        ``None``, the default ``FunctionalPCAMuCovParams()`` is used.
     user_params : FunctionalPCAUserDefinedParams, optional
-        User-defined parameters for FPCA (e.g., user-defined mean or
-        eigenfunctions).  Forwarded to ``FunctionalPCA.__init__()``.
-        If ``None``, the default ``FunctionalPCAUserDefinedParams()``
-        is used.
+        User-defined parameters for FPCA (e.g., user-defined mean or eigenfunctions).  Forwarded to
+        ``FunctionalPCA.__init__()``.  If ``None``, the default ``FunctionalPCAUserDefinedParams()`` is used.
     verbose : bool, default=False
         Whether to print verbose output during FPCA fitting.
         Forwarded to ``FunctionalPCA.__init__()``.
     fit_params : dict
-        Keyword arguments forwarded to ``FunctionalPCA.fit()``.
-        Supported keys: ``method_pcs``, ``method_select_num_pcs``,
-        ``method_rho``, ``max_num_pcs``, ``if_impute_scores``,
-        ``if_shrinkage``, ``if_fit_eigen_values``, ``fve_threshold``,
-        ``reg_grid``.
+        Keyword arguments forwarded to ``FunctionalPCA.fit()``.  Supported keys: ``method_pcs``,
+        ``method_select_num_pcs``, ``method_rho``, ``max_num_pcs``, ``if_impute_scores``, ``if_shrinkage``,
+        ``if_fit_eigen_values``, ``fve_threshold``, ``reg_grid``.
 
     Examples
     --------
@@ -76,26 +71,22 @@ class FPCAConfig:
 class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimator):
     """Partial Functional Linear Model with elastic-net regularization.
 
-    Combines scalar predictors with one or more functional predictors
-    (via FPCA) and fits an ``ElasticNet`` on the concatenated design matrix
-    ``[scalar_features | FPCA_scores_0 | ... | FPCA_scores_k]``.
+    Combines scalar predictors with one or more functional predictors (via FPCA) and fits an ``ElasticNet`` on the
+    concatenated design matrix ``[scalar_features | FPCA_scores_0 | ... | FPCA_scores_k]``.
 
     Parameters
     ----------
     family : LinearModelFamily, default=LinearModelFamily.GAUSSIAN
-        Distribution family for the response variable.  Forwarded to
-        ``ElasticNet`` via ``linear_opts``.
+        Distribution family for the response variable.  Forwarded to ``ElasticNet`` via ``linear_opts``.
     linear_opts : dict, optional
         Keyword arguments forwarded to ``ElasticNet.__init__()``.
         Supported keys: ``alpha``, ``l1_ratio``, ``fit_intercept``,
         ``power``, ``max_iter``, ``rho``, ``abs_tol``, ``rel_tol``,
         ``min_iter``.
     fpca_configs : FPCAConfig or list of FPCAConfig, optional
-        FPCA configuration.  If a single ``FPCAConfig``, it is shared
-        across all functional features.  If a list, its length must
-        equal the number of functional features passed to ``fit()``.
-        Each entry separately controls ``FunctionalPCA.__init__()``
-        and ``FunctionalPCA.fit()`` parameters.
+        FPCA configuration.  If a single ``FPCAConfig``, it is shared across all functional features.  If a list,
+        its length must equal the number of functional features passed to ``fit()``.  Each entry separately controls
+        ``FunctionalPCA.__init__()`` and ``FunctionalPCA.fit()`` parameters.
 
     Attributes
     ----------
@@ -189,19 +180,17 @@ class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimat
         Parameters
         ----------
         functional_time : list of list-of-ndarray
-            ``functional_time[j]`` is the list of per-subject time vectors
-            for the *j*-th functional feature.
+            ``functional_time[j]`` is the list of per-subject time vectors for the *j*-th functional feature.
         functional_features : list of list-of-ndarray
-            ``functional_features[j]`` is the list of per-subject
-            observation vectors for the *j*-th functional feature.
+            ``functional_features[j]`` is the list of per-subject observation vectors for the *j*-th functional
+            feature.
         scalar_features : ndarray of shape (n_samples, n_scalar_features)
             Scalar predictors.
         y : ndarray of shape (n_samples,)
             Response vector.  Will be cast to the functional features'
             dtype if necessary.
         sample_weight : array-like of shape (n_samples,), default=None
-            Individual weights for each sample.  Weights are normalized
-            so that ``sum(w) == n``.
+            Individual weights for each sample.  Weights are normalized so that ``sum(w) == n``.
 
         Returns
         -------
@@ -211,14 +200,13 @@ class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimat
         Raises
         ------
         ValueError
-            If the number of functional time lists does not match the
-            number of functional feature lists, or if ``fpca_configs``
-            is a list whose length does not match.
+            If the number of functional time lists does not match the number of functional feature lists, or if
+            ``fpca_configs`` is a list whose length does not match.
 
         Notes
         -----
-        The dtype resolution uses `sklearn.utils._array_api.get_namespace_and_device`
-        and `supported_float_dtypes` to select a compatible floating dtype.
+        The dtype resolution uses `sklearn.utils._array_api.get_namespace_and_device` and `supported_float_dtypes`
+        to select a compatible floating dtype.
         """
         self.n_functional_features_in_ = len(functional_features)
         self.n_scalar_features_in_ = scalar_features.shape[1]
@@ -292,8 +280,7 @@ class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimat
         Parameters
         ----------
         new_functional_time : list of list-of-ndarray
-            Time vectors for each functional feature (same structure as
-            ``functional_time`` in ``fit()``).
+            Time vectors for each functional feature (same structure as ``functional_time`` in ``fit()``).
         new_functional_features : list of list-of-ndarray
             Observations for each functional feature.
         new_scalar_features : np.ndarray of shape (n_samples, n_scalar_features)
@@ -302,16 +289,15 @@ class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimat
         Returns
         -------
         y_pred : np.ndarray of shape (n_samples,) or (n_samples, n_classes)
-            Predicted values.  The transform depends on ``family``;
-            see ``ElasticNet.predict`` for details.
+            Predicted values.  The transform depends on ``family``; see ``ElasticNet.predict`` for details.
 
         Raises
         ------
         sklearn.exceptions.NotFittedError
             If the model has not been fitted yet.
         ValueError
-            If the number of new functional features or scalar features
-            does not match the number seen during ``fit()``.
+            If the number of new functional features or scalar features does not match the number seen during
+            ``fit()``.
         """
         check_is_fitted(self, ['linear_model_', 'fpca_models_'])
         if len(new_functional_features) != self.n_functional_features_in_:
@@ -331,8 +317,7 @@ class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimat
         Returns
         -------
         np.ndarray of shape (n_samples,) or (n_samples, n_classes)
-            Predictions evaluated on the training data
-            ``functional_features_`` and ``scalar_features_``.
+            Predictions evaluated on the training data ``functional_features_`` and ``scalar_features_``.
 
         Raises
         ------

@@ -1,9 +1,8 @@
 Partial Functional Linear Model
 ================================
 
-``PartialFunctionalLinearModel`` combines scalar predictors with one or
-more functional predictors (via FPCA) and fits an ``ElasticNet`` on the
-concatenated design matrix ``[scalar_features | FPCA_scores]``.
+``PartialFunctionalLinearModel`` combines scalar predictors with one or more functional predictors (via FPCA) and fits
+an ``ElasticNet`` on the concatenated design matrix ``[scalar_features | FPCA_scores]``.
 
 Single functional feature
 --------------------------
@@ -41,8 +40,7 @@ Single functional feature
 Customise ElasticNet and FPCA
 -----------------------------
 
-Use ``linear_opts`` to control the ElasticNet regularisation and
-``fpca_configs`` to tune the FPCA pipeline.
+Use ``linear_opts`` to control the ElasticNet regularisation and ``fpca_configs`` to tune the FPCA pipeline.
 
 .. code-block:: python
 
@@ -68,9 +66,8 @@ Use ``linear_opts`` to control the ElasticNet regularisation and
 Multiple functional features
 -----------------------------
 
-When more than one functional predictor is available, pass each as a
-separate element in the lists and optionally provide per-feature FPCA
-configs.
+When more than one functional predictor is available, pass each as a separate element in the lists and optionally
+provide per-feature FPCA configs.
 
 .. code-block:: python
 

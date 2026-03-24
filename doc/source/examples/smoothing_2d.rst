@@ -1,9 +1,8 @@
 2D smoothing with Polyfit2DModel
 ================================
 
-``Polyfit2DModel`` extends local polynomial regression to two-dimensional
-inputs.  Bandwidths for each dimension are selected independently (or
-forced identical with ``same_bandwidth_for_2dim=True``).
+``Polyfit2DModel`` extends local polynomial regression to two-dimensional inputs.  Bandwidths for each dimension are
+selected independently (or forced identical with ``same_bandwidth_for_2dim=True``).
 
 Basic usage
 -----------
@@ -39,8 +38,7 @@ Basic usage
 Shared bandwidth across dimensions
 -----------------------------------
 
-When you expect similar smoothness along both axes, force the solver to
-pick a single bandwidth.
+When you expect similar smoothness along both axes, force the solver to pick a single bandwidth.
 
 .. code-block:: python
 

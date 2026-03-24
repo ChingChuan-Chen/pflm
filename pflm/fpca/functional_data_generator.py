@@ -1,8 +1,7 @@
 """Functional data generation utilities.
 
-This module provides a class to synthesize functional observations using
-a mean function, marginal variance, and correlation structure, with FPCA
-to draw low‑rank samples on a grid.
+This module provides a class to synthesize functional observations using a mean function, marginal variance, and
+correlation structure, with FPCA to draw low‑rank samples on a grid.
 """
 
 # Authors: Ching-Chuan Chen
@@ -20,10 +19,9 @@ from pflm.fpca.utils import get_eigen_analysis_results, get_fpca_phi, select_num
 class FunctionalDataGenerator:
     """Generator for synthetic functional data on a fixed grid.
 
-    This class builds a stationary covariance surface from a marginal variance
-    function and a correlation kernel, performs an FPCA on the implied
-    covariance, and samples low-rank functional signals with optional
-    Gaussian measurement noise.
+    This class builds a stationary covariance surface from a marginal variance function and a correlation kernel,
+    performs an FPCA on the implied covariance, and samples low-rank functional signals with optional Gaussian
+    measurement noise.
 
     Parameters
     ----------
@@ -37,11 +35,10 @@ class FunctionalDataGenerator:
         Correlation kernel k(h) used to build the covariance surface, where
         h is the absolute time lag.
     variation_prop_thresh : float, default=0.999999
-        Threshold of fraction of variance explained (FVE) to choose the number
-        of components if `num_pcs` is None. Must satisfy 0 < thresh < 1.
+        Threshold of fraction of variance explained (FVE) to choose the number of components if `num_pcs` is None.
+        Must satisfy 0 < thresh < 1.
     num_pcs : int or None, default=None
-        Number of principal components to retain. If None, it is determined
-        by the FVE threshold.
+        Number of principal components to retain. If None, it is determined by the FVE threshold.
     error_var : float, default=1.0
         Gaussian noise variance added to generated curves.
 

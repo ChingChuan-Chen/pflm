@@ -25,8 +25,7 @@ class SmoothedModelResult:
 
     Notes
     -----
-    This dataclass is a container with no validation logic; shapes and
-    consistency are assumed to be checked upstream.
+    This dataclass is a container with no validation logic; shapes and consistency are assumed to be checked upstream.
 
     Examples
     --------
@@ -58,8 +57,7 @@ class FpcaModelParams:
         Eigen decomposition results with keys like
         {"lambda": np.ndarray, "vector": np.ndarray}.
     select_num_pcs_criterion : np.ndarray, optional
-        Criterion values used in selecting the number of PCs (e.g., FVE curve or
-        information criteria).
+        Criterion values used in selecting the number of PCs (e.g., FVE curve or information criteria).
     fpca_lambda : np.ndarray, optional
         Selected/processed eigenvalues for FPCA.
     fpca_phi : dict, optional
@@ -87,8 +85,8 @@ class FpcaModelParams:
 
     Notes
     -----
-    This dataclass is a passive container; validation and consistency checks
-    should be handled by the FPCA fitting pipeline.
+    This dataclass is a passive container; validation and consistency checks should be handled by the FPCA fitting
+    pipeline.
 
     Examples
     --------

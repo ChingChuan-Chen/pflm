@@ -1,10 +1,9 @@
 1D smoothing with Polyfit1DModel
 ================================
 
-``Polyfit1DModel`` performs local polynomial regression with a selectable
-kernel.  Bandwidth can be chosen automatically via GCV or CV.  After
-fitting, predictions are computed efficiently through internal
-interpolation on a regular grid.
+``Polyfit1DModel`` performs local polynomial regression with a selectable kernel.  Bandwidth can be chosen
+automatically via GCV or CV.  After fitting, predictions are computed efficiently through internal interpolation on
+a regular grid.
 
 Basic usage
 -----------
@@ -35,8 +34,8 @@ Basic usage
 Kernel and bandwidth options
 ----------------------------
 
-The ``kernel_type`` parameter supports several kernels.  You can also
-provide a fixed bandwidth or use CV with a custom candidate grid.
+The ``kernel_type`` parameter supports several kernels.  You can also provide a fixed bandwidth or use CV with a
+custom candidate grid.
 
 .. code-block:: python
 

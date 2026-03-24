@@ -1,9 +1,8 @@
 ElasticNet via ADMM
 ===================
 
-The ``ElasticNet`` estimator solves the elastic-net problem using ADMM
-(Alternating Direction Method of Multipliers).  It supports six distribution
-families: Gaussian, Binomial, Poisson, Gamma, Tweedie, and Multinomial.
+The ``ElasticNet`` estimator solves the elastic-net problem using ADMM (Alternating Direction Method of Multipliers).
+It supports six distribution families: Gaussian, Binomial, Poisson, Gamma, Tweedie, and Multinomial.
 
 Gaussian regression
 -------------------
@@ -34,8 +33,7 @@ Gaussian is the default and most common family.
 Logistic regression (Binomial)
 ------------------------------
 
-For binary classification, use the Binomial family.  ``predict`` returns
-probabilities ∈ (0, 1).
+For binary classification, use the Binomial family.  ``predict`` returns probabilities ∈ (0, 1).
 
 .. code-block:: python
 
@@ -55,8 +53,7 @@ probabilities ∈ (0, 1).
 Poisson regression
 ------------------
 
-For count data use the Poisson family.  ``predict`` returns the rate
-λ = exp(Xβ).
+For count data use the Poisson family.  ``predict`` returns the rate λ = exp(Xβ).
 
 .. code-block:: python
 
@@ -75,8 +72,7 @@ For count data use the Poisson family.  ``predict`` returns the rate
 Tuning the ADMM solver
 -----------------------
 
-The ``rho``, ``abs_tol``, ``rel_tol``, ``max_iter`` and ``min_iter``
-parameters control the ADMM convergence behaviour.
+The ``rho``, ``abs_tol``, ``rel_tol``, ``max_iter`` and ``min_iter`` parameters control the ADMM convergence behaviour.
 
 .. code-block:: python
 

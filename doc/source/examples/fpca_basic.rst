@@ -1,15 +1,14 @@
 FPCA: basic workflow
 ====================
 
-This example demonstrates a minimal FPCA workflow: generate synthetic
-functional data, run Functional PCA, and inspect the results.
+This example demonstrates a minimal FPCA workflow: generate synthetic functional data, run Functional PCA, and
+inspect the results.
 
 Generate synthetic functional data
 -----------------------------------
 
-``FunctionalDataGenerator`` builds a stationary covariance surface from a
-mean function, a marginal variance function, and a correlation kernel,
-then samples low-rank functional signals with Gaussian noise.
+``FunctionalDataGenerator`` builds a stationary covariance surface from a mean function, a marginal variance function,
+and a correlation kernel, then samples low-rank functional signals with Gaussian noise.
 
 .. code-block:: python
 
@@ -36,9 +35,8 @@ then samples low-rank functional signals with Gaussian noise.
 Fit FPCA
 --------
 
-``FunctionalPCA`` follows the scikit-learn estimator API.  Calling
-``fit()`` performs mean/covariance smoothing, eigen decomposition, and
-PC-score estimation in one go.
+``FunctionalPCA`` follows the scikit-learn estimator API.  Calling ``fit()`` performs mean/covariance smoothing,
+eigen decomposition, and PC-score estimation in one go.
 
 .. code-block:: python
 
@@ -71,8 +69,7 @@ Inspect the smoothed mean and covariance
 Choose a different selection method
 ------------------------------------
 
-By default ``method_select_num_pcs='FVE'`` is used.  You can switch to
-AIC or BIC, or fix the number of PCs directly.
+By default ``method_select_num_pcs='FVE'`` is used.  You can switch to AIC or BIC, or fix the number of PCs directly.
 
 .. code-block:: python
 
@@ -101,8 +98,7 @@ Predict scores for new curves
 Simulate sparse / irregular data
 ----------------------------------
 
-``FunctionalDataGenerator.make_missing`` randomly drops observations from
-each curve to simulate irregular designs.
+``FunctionalDataGenerator.make_missing`` randomly drops observations from each curve to simulate irregular designs.
 
 .. code-block:: python
 

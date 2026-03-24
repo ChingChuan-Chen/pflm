@@ -109,8 +109,8 @@ def interp2d(
     Notes
     -----
     - Duplicates in `x` and `y` are deduplicated using the first occurrence.
-    - The underlying C++ implementation expects `v` in Fortran-like layout
-      with axes swapped; this wrapper transposes/contiguates as needed.
+    - The underlying C++ implementation expects `v` in Fortran-like layout with axes swapped; this wrapper
+      transposes/contiguates as needed.
     - Backend is selected by dtype of `x` (float32 -> f32; otherwise f64).
 
     See Also

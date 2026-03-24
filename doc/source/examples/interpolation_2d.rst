@@ -1,9 +1,8 @@
 Interpolation 2D
 ================
 
-``interp2d`` interpolates 2D gridded data.  Input is a pair of 1D
-coordinate vectors and a 2D value matrix; the output is the
-interpolated surface on the query grid.
+``interp2d`` interpolates 2D gridded data.  Input is a pair of 1D coordinate vectors and a 2D value matrix; the output
+is the interpolated surface on the query grid.
 
 Bilinear interpolation
 ----------------------

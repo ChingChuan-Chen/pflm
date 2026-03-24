@@ -34,22 +34,20 @@ class LinearModelFamily(Enum):
 class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
     """ElasticNet linear model solved via ADMM.
 
-    Supports Gaussian, Binomial, Poisson, Gamma, Tweedie and Multinomial
-    families.  For the Gaussian family the objective is:
+    Supports Gaussian, Binomial, Poisson, Gamma, Tweedie and Multinomial families.  For the Gaussian family the
+    objective is:
 
     .. math::
 
         \\min_w \\frac{1}{2n} \\|y - Xw\\|_2^2
         + \\alpha \\|w\\|_1 + \\frac{\\beta}{2} \\|w\\|_2^2
 
-    where ``alpha = self.alpha * self.l1_ratio`` (L1 penalty) and
-    ``beta = self.alpha * (1 - self.l1_ratio)`` (L2 penalty).
+    where ``alpha = self.alpha * self.l1_ratio`` (L1 penalty) and ``beta = self.alpha * (1 - self.l1_ratio)``
+    (L2 penalty).
 
-    For non-Gaussian families the squared-error loss is replaced by the
-    corresponding negative log-likelihood.  The solver uses ADMM
-    (Alternating Direction Method of Multipliers); see
-    ``fit_gaussian`` / ``fit_nongaussian`` / ``fit_multinomial`` for the
-    detailed update formulae.
+    For non-Gaussian families the squared-error loss is replaced by the corresponding negative log-likelihood.  The
+    solver uses ADMM (Alternating Direction Method of Multipliers); see ``fit_gaussian`` / ``fit_nongaussian`` /
+    ``fit_multinomial`` for the detailed update formulae.
 
     Parameters
     ----------
@@ -59,14 +57,13 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
         ElasticNet mixing parameter with ``0 <= l1_ratio <= 1``.
         ``l1_ratio=0`` corresponds to an L2 penalty, ``l1_ratio=1`` to L1.
     fit_intercept : bool, default=True
-        Whether to fit an intercept.  Only effective when
-        ``family=GAUSSIAN``; other families always include an intercept.
+        Whether to fit an intercept.  Only effective when ``family=GAUSSIAN``; other families always include an
+        intercept.
     family : LinearModelFamily, default=LinearModelFamily.GAUSSIAN
-        Distribution family.  One of ``GAUSSIAN``, ``BINOMIAL``,
-        ``POISSON``, ``GAMMA``, ``TWEEDIE``, or ``MULTINOMIAL``.
+        Distribution family.  One of ``GAUSSIAN``, ``BINOMIAL``, ``POISSON``, ``GAMMA``, ``TWEEDIE``, or
+        ``MULTINOMIAL``.
     power : float, default=1.5
-        Tweedie variance power parameter.  Only used when
-        ``family=TWEEDIE``.  Must not be 0, 1, or 2.
+        Tweedie variance power parameter.  Only used when ``family=TWEEDIE``.  Must not be 0, 1, or 2.
     max_iter : int, default=1000
         Maximum number of ADMM iterations.
     rho : float, default=1.0
@@ -129,9 +126,8 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Centre data for the Gaussian-with-intercept case.
 
-        When ``family`` is ``GAUSSIAN`` and ``fit_intercept`` is ``True``,
-        subtract the (optionally weighted) column means from *X* and the
-        mean from *y*.  Otherwise leave the data unchanged.
+        When ``family`` is ``GAUSSIAN`` and ``fit_intercept`` is ``True``, subtract the (optionally weighted) column
+        means from *X* and the mean from *y*.  Otherwise leave the data unchanged.
 
         Parameters
         ----------
@@ -151,8 +147,7 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
         X : np.ndarray of shape (n_samples, n_features)
             Centred training data.
         y : np.ndarray of shape (n_samples,)
-            Centred target values (only meaningful for Gaussian with
-            intercept).
+            Centred target values (only meaningful for Gaussian with intercept).
         X_offset : np.ndarray of shape (n_features,)
             Column means subtracted from *X*.
         y_offset : np.ndarray of shape (1,)
@@ -201,8 +196,7 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
         y : array-like of shape (n_samples,)
             Target values.  Will be cast to *X*'s dtype if necessary.
         sample_weight : array-like of shape (n_samples,), default=None
-            Individual weights for each sample.  Weights are normalized
-            so that ``sum(w) == n``.
+            Individual weights for each sample.  Weights are normalized so that ``sum(w) == n``.
 
         Returns
         -------
@@ -212,14 +206,13 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
         Raises
         ------
         ValueError
-            If ``sample_weight`` contains negative values, is all zeros,
-            or has the wrong length.  Also raised when *y* violates the
-            constraints of the chosen ``family``.
+            If ``sample_weight`` contains negative values, is all zeros, or has the wrong length.  Also raised when
+            *y* violates the constraints of the chosen ``family``.
 
         Notes
         -----
-        The dtype resolution uses `sklearn.utils._array_api.get_namespace_and_device`
-        and `supported_float_dtypes` to select a compatible floating dtype.
+        The dtype resolution uses `sklearn.utils._array_api.get_namespace_and_device` and `supported_float_dtypes`
+        to select a compatible floating dtype.
         """
 
         xp, *_ = get_namespace_and_device(X, y, sample_weight)

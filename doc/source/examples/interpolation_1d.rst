@@ -1,9 +1,8 @@
 Interpolation 1D
 ================
 
-``interp1d`` interpolates 1D scattered data using linear or cubic spline
-methods.  It is backed by Cython for speed and handles duplicate
-x-coordinates gracefully (first occurrence is used).
+``interp1d`` interpolates 1D scattered data using linear or cubic spline methods.  It is backed by Cython for speed
+and handles duplicate x-coordinates gracefully (first occurrence is used).
 
 Linear interpolation
 --------------------
@@ -23,8 +22,7 @@ Linear interpolation
 Spline interpolation
 --------------------
 
-Use ``method="spline"`` for smoother results when the underlying
-function is expected to be smooth.
+Use ``method="spline"`` for smoother results when the underlying function is expected to be smooth.
 
 .. code-block:: python
 

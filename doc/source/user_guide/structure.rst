@@ -1,19 +1,17 @@
 Structure of pflm
 =================
 
-pflm is organised into five subpackages. Each one is independently
-importable so you can pick only the parts you need.
+pflm is organised into five subpackages.  Each one is independently importable so you can pick only the parts you need.
 
 Subpackage overview
 -------------------
 
 - ``pflm.fpca`` — Functional Principal Component Analysis
 
-  - Classes: ``FunctionalPCA``, ``FunctionalDataGenerator``,
-    ``FpcaModelParams``, ``SmoothedModelResult``,
+  - Classes: ``FunctionalPCA``, ``FunctionalDataGenerator``, ``FpcaModelParams``, ``SmoothedModelResult``,
     ``FunctionalPCAMuCovParams``, ``FunctionalPCAUserDefinedParams``
-  - Functions: ``get_covariance_matrix``, ``get_eigen_analysis_results``,
-    ``estimate_rho``, ``get_fpca_ce_score``, ``get_fpca_in_score``, …
+  - Functions: ``get_covariance_matrix``, ``get_eigen_analysis_results``, ``estimate_rho``, ``get_fpca_ce_score``,
+    ``get_fpca_in_score``, …
 
 - ``pflm.smooth`` — Kernel smoothing / local polynomial regression
 
@@ -52,11 +50,10 @@ Typical imports
 Estimator API
 -------------
 
-All main models (``FunctionalPCA``, ``Polyfit1DModel``, ``Polyfit2DModel``,
-``ElasticNet``, ``PartialFunctionalLinearModel``) follow the
+All main models (``FunctionalPCA``, ``Polyfit1DModel``, ``Polyfit2DModel``, ``ElasticNet``,
+``PartialFunctionalLinearModel``) follow the
 `scikit-learn estimator API <https://scikit-learn.org/stable/developers/develop.html>`_:
 
 - ``model.fit(...)`` trains the model and returns ``self``.
 - ``model.predict(...)`` produces predictions on new data.
-- Fitted attributes use the trailing underscore convention (``coef_``,
-  ``bandwidth_``, ``xi_``, etc.).
+- Fitted attributes use the trailing underscore convention (``coef_``, ``bandwidth_``, ``xi_``, etc.).
