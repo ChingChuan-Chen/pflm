@@ -68,9 +68,11 @@ numpydoc_show_class_members = False
 autodoc_mock_imports = [
     'pflm.interp.interp',
     'pflm.smooth.polyfit',
-    'pflm.fpca.utils._raw_cov',
+    'pflm.fpca.utils.raw_cov',
     'pflm.fpca.utils.fpca_score',
+    'pflm.fpca.utils.log_lik',
     'pflm.fpca.utils.rotate_polyfit2d',
+    'pflm.pflm.utils.elastic_net_solver',
     'pflm.utils.blas_helper',
     'pflm.utils.lapack_helper',
     'pflm.utils.trapz',
