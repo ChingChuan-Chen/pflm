@@ -57,6 +57,24 @@ class FunctionalPCAMuCovParams:
         Number of folds for cross-validation when selecting bandwidth for the covariance function.
     random_seed : int, optional
         Random seed for reproducibility which is used only in CV. If None, no seed is set.
+
+    Examples
+    --------
+    Default configuration with automatic bandwidth selection:
+
+    >>> from pflm.fpca import FunctionalPCAMuCovParams
+    >>> params = FunctionalPCAMuCovParams()
+
+    Fix bandwidths manually:
+
+    >>> params = FunctionalPCAMuCovParams(bw_mu=0.5, bw_cov=0.8)
+
+    Use cross-validation for bandwidth selection:
+
+    >>> params = FunctionalPCAMuCovParams(
+    ...     method_select_mu_bw='cv', method_select_cov_bw='cv',
+    ...     cv_folds_mu=5, cv_folds_cov=5, random_seed=42,
+    ... )
     """
 
     def __init__(
@@ -163,6 +181,24 @@ class FunctionalPCAUserDefinedParams:
     rho : float, optional
         The user-defined measurement truncation threshold used for conditional expectations estimation on the principal component scores.
         If provided, must be a non-negative scalar.
+
+    Examples
+    --------
+    Default (no user-defined overrides):
+
+    >>> from pflm.fpca import FunctionalPCAUserDefinedParams
+    >>> params = FunctionalPCAUserDefinedParams()
+
+    Provide a known mean function:
+
+    >>> import numpy as np
+    >>> t_mu = np.linspace(0, 10, 51)
+    >>> mu = np.sin(t_mu) * 0.5
+    >>> params = FunctionalPCAUserDefinedParams(t_mu=t_mu, mu=mu)
+
+    Fix the measurement error variance:
+
+    >>> params = FunctionalPCAUserDefinedParams(sigma2=0.01)
     """
 
     def __init__(
@@ -276,6 +312,21 @@ class FunctionalPCA(BaseEstimator):
         Fitted values at observed time points per subject.
     elapsed_time_ : Dict[str, float]
         Timings (seconds) per pipeline stage.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from pflm.fpca import FunctionalDataGenerator, FunctionalPCA
+    >>> t = np.linspace(0.0, 10.0, 51)
+    >>> gen = FunctionalDataGenerator(
+    ...     t, lambda x: np.sin(x) * 0.5, lambda x: 1.0 + 0.2 * np.cos(x),
+    ... )
+    >>> y_list, t_list = gen.generate(n=50, seed=42)
+    >>> fpca = FunctionalPCA().fit(t_list, y_list)
+    >>> fpca.xi_.shape[0]
+    50
+    >>> fpca.num_pcs_
+    2
 
     See Also
     --------

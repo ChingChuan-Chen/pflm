@@ -12,6 +12,17 @@ from pflm.pflm.utils import (
 
 
 class LinearModelFamily(Enum):
+    """Distribution families supported by ``ElasticNet``.
+
+    Examples
+    --------
+    >>> from pflm.pflm.utils import LinearModelFamily
+    >>> LinearModelFamily.GAUSSIAN
+    <LinearModelFamily.GAUSSIAN: 99>
+    >>> LinearModelFamily.BINOMIAL.value
+    1
+    """
+
     BINOMIAL = 1
     POISSON = 2
     GAMMA = 3
@@ -204,6 +215,11 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
             If ``sample_weight`` contains negative values, is all zeros,
             or has the wrong length.  Also raised when *y* violates the
             constraints of the chosen ``family``.
+
+        Notes
+        -----
+        The dtype resolution uses `sklearn.utils._array_api.get_namespace_and_device`
+        and `supported_float_dtypes` to select a compatible floating dtype.
         """
 
         xp, *_ = get_namespace_and_device(X, y, sample_weight)
@@ -338,5 +354,5 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
         sklearn.exceptions.NotFittedError
             If the model has not been fitted yet.
         """
-        check_is_fitted(self, ["coef_", "intercept_"])
+        check_is_fitted(self, ["coef_", "intercept_", "fitted_values_"])
         return self.fitted_values_

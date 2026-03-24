@@ -57,6 +57,20 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
     bandwidth_selection_results_ : dict
         Selection details: candidates, method, scores, and chosen bandwidth.
 
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from pflm.smooth import Polyfit1DModel
+    >>> rng = np.random.default_rng(42)
+    >>> X = np.linspace(0, 2 * np.pi, 100)
+    >>> y = np.sin(X) + rng.normal(0, 0.1, 100)
+    >>> model = Polyfit1DModel().fit(X, y)
+    >>> model.bandwidth_ > 0
+    True
+    >>> y_pred = model.predict(np.array([1.0, 2.0, 3.0]))
+    >>> y_pred.shape
+    (3,)
+
     See Also
     --------
     Polyfit2DModel : Local polynomial regression in 2D.

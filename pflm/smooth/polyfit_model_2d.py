@@ -60,6 +60,21 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
         Selection details including candidates, method, and chosen pair.
 
 
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from pflm.smooth import Polyfit2DModel
+    >>> rng = np.random.default_rng(42)
+    >>> n = 200
+    >>> X = rng.uniform(0, 1, (n, 2))
+    >>> y = np.sin(X[:, 0] * np.pi) * np.cos(X[:, 1] * np.pi) + rng.normal(0, 0.1, n)
+    >>> model = Polyfit2DModel().fit(X, y)
+    >>> model.bandwidth1_ > 0 and model.bandwidth2_ > 0
+    True
+    >>> y_pred = model.predict(np.array([0.5, 0.8]), np.array([0.5, 0.8]))
+    >>> y_pred.shape
+    (2,)
+
     See Also
     --------
     Polyfit1DModel : Local polynomial regression in 1D.

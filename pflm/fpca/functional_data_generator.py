@@ -68,6 +68,20 @@ class FunctionalDataGenerator:
     - Private caches:
       - `_num_pcs`: Optional[int]
       - `_fpca_phi`: Optional[np.ndarray of shape (nt, k)]
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from pflm.fpca import FunctionalDataGenerator
+    >>> t = np.linspace(0.0, 10.0, 51)
+    >>> gen = FunctionalDataGenerator(
+    ...     t, lambda x: np.sin(x) * 0.5, lambda x: 1.0 + 0.2 * np.cos(x),
+    ... )
+    >>> y_list, t_list = gen.generate(n=20, seed=42)
+    >>> len(y_list)
+    20
+    >>> y_list[0].shape
+    (51,)
     """
 
     def __init__(

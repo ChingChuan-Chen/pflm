@@ -7,7 +7,16 @@ from enum import Enum
 
 
 class KernelType(Enum):
-    """Enum for kernel types used in local regression."""
+    """Enum for kernel types used in local regression.
+
+    Examples
+    --------
+    >>> from pflm.smooth import KernelType
+    >>> KernelType.EPANECHNIKOV
+    KernelType.EPANECHNIKOV
+    >>> KernelType.GAUSSIAN.value
+    0
+    """
 
     GAUSSIAN = 0
     LOGISTIC = 1

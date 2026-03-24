@@ -103,6 +103,18 @@ class FlattenFunctionalData:
         Unique sample ids present in the data.
     sid_cnt : np.ndarray of shape (n_samples,)
         Number of observations for each sample id.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from pflm.utils.utility import flatten_and_sort_data_matrices
+    >>> y = [np.array([1.0, 2.0]), np.array([3.0, 4.0, 5.0])]
+    >>> t = [np.array([0.0, 1.0]), np.array([0.0, 0.5, 1.0])]
+    >>> ffd = flatten_and_sort_data_matrices(y, t)
+    >>> ffd.y.shape
+    (5,)
+    >>> ffd.unique_sid.shape
+    (2,)
     """
 
     y: np.ndarray

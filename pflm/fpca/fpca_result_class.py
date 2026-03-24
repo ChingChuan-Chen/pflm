@@ -27,6 +27,17 @@ class SmoothedModelResult:
     -----
     This dataclass is a container with no validation logic; shapes and
     consistency are assumed to be checked upstream.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from pflm.fpca import SmoothedModelResult
+    >>> grid = np.linspace(0, 1, 5)
+    >>> mu = np.zeros(5)
+    >>> cov = np.eye(5)
+    >>> result = SmoothedModelResult(grid=grid, mu=mu, cov=cov, grid_type='reg')
+    >>> result.grid_type
+    'reg'
     """
 
     grid: np.ndarray
@@ -78,6 +89,17 @@ class FpcaModelParams:
     -----
     This dataclass is a passive container; validation and consistency checks
     should be handled by the FPCA fitting pipeline.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from pflm.fpca.fpca_result_class import FpcaModelParams
+    >>> params = FpcaModelParams(
+    ...     measurement_error_variance=0.01,
+    ...     eigen_results={'lambda': np.array([1.0, 0.5]), 'vector': np.eye(2)},
+    ... )
+    >>> params.measurement_error_variance
+    0.01
     """
 
     measurement_error_variance: float
