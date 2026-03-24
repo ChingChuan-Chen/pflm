@@ -221,22 +221,25 @@ class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimat
                 f'{self.n_functional_features_in_} functional features were provided'
             )
 
-        # -- Validate and store input data --
-        xp, *_ = get_namespace_and_device(functional_features, functional_time, scalar_features, y, sample_weight)
-        functional_features = check_array(functional_features, ensure_2d=True, dtype=supported_float_dtypes(xp))
-        functional_time = check_array(functional_time, ensure_2d=True, dtype=functional_features.dtype)
-        scalar_features = check_array(scalar_features, ensure_2d=True, dtype=functional_features.dtype)
-        y = check_array(y, ensure_2d=False, dtype=functional_features.dtype)
-        sample_weight = check_array(sample_weight, ensure_2d=False, dtype=functional_features.dtype) if sample_weight is not None else \
-            np.ones(y.shape[0], dtype=functional_features.dtype)
-        self._input_dtype = functional_features.dtype
+        # -- Validate and store input data (scalar features, response, sample weight) --
+        xp, *_ = get_namespace_and_device(scalar_features, y, sample_weight)
+        scalar_features = check_array(scalar_features, ensure_2d=True, dtype=supported_float_dtypes(xp))
+        y = check_array(y, ensure_2d=False, dtype=scalar_features.dtype)
+        sample_weight = check_array(sample_weight, ensure_2d=False, dtype=scalar_features.dtype) if sample_weight is not None else \
+            np.ones(y.shape[0], dtype=scalar_features.dtype)
+        self._input_dtype = scalar_features.dtype
 
-        # -- Store fitted data --
-        self.functional_features_ = functional_features
-        self.functional_time_ = functional_time
+        # -- Store fitted data (scalar features, response, sample weight) --
         self.scalar_features_ = scalar_features
         self.y_ = y
         self.weight_ = sample_weight
+
+        # -- Validate functional features and times --
+        self.functional_features_ = []
+        self.functional_time_ = []
+        for i in range(self.n_functional_features_in_):
+            self.functional_features_.append(check_array(functional_features[i], ensure_2d=False, dtype=self._input_dtype))
+            self.functional_time_.append(check_array(functional_time[i], ensure_2d=False, dtype=self._input_dtype))
 
         # -- preprocess weights --
         self.preprocessed_weight_ = self.weight_ * (self.weight_.shape[0] / self.weight_.sum())
@@ -304,6 +307,10 @@ class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimat
             raise ValueError('Number of new functional features does not match the number seen during fit')
         if new_scalar_features.shape[1] != self.n_scalar_features_in_:
             raise ValueError('Number of new scalar features does not match the number seen during fit')
+
+        new_scalar_features = check_array(new_scalar_features, ensure_2d=True, dtype=self._input_dtype)
+        new_functional_time = [check_array(ft, ensure_2d=False, dtype=self._input_dtype) for ft in new_functional_time]
+        new_functional_features = [check_array(ff, ensure_2d=False, dtype=self._input_dtype) for ff in new_functional_features]
 
         feature_list = [new_scalar_features]
         for i, fpca in enumerate(self.fpca_models_):

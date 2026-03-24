@@ -58,8 +58,17 @@ def get_eigen_analysis_results(reg_cov: np.ndarray, is_upper_triangular: bool = 
     if info != 0:
         warnings.warn(f"LAPACK syevd failed with info={info}")
         return None, None
-    if np.any(np.isnan(eig_lambda)) or np.any(eig_lambda < 0):
-        warnings.warn("Eigenvalues contain NaN or negative values. The covariance function may not be positive semi-definite.")
+    if np.any(np.isnan(eig_lambda)):
+        warnings.warn("Eigenvalues contain NaN values. The covariance function may be ill-conditioned.")
+    elif np.any(eig_lambda < 0):
+        max_eig = eig_lambda.max()
+        # Warn only when negative eigenvalues are large relative to the
+        # leading eigenvalue, not for harmless numerical noise.
+        if max_eig <= 0 or np.abs(eig_lambda.min()) / max_eig > np.sqrt(np.finfo(eig_lambda.dtype).eps):
+            warnings.warn(
+                "Eigenvalues contain significant negative values. "
+                "The covariance function may not be positive semi-definite."
+            )
 
     # sort eigen values and corresponding eigen vectors
     mask = np.isfinite(eig_lambda) & (eig_lambda > 10.0 * np.finfo(eig_lambda.dtype).eps)  # only leave significant eigenvalues

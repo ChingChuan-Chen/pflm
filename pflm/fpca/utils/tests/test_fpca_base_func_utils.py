@@ -61,8 +61,7 @@ def test_get_eigen_analysis_results_zero_matrix_all_filtered():
 
 def test_get_eigen_analysis_results_rank1_matrix():
     ones_matrix = np.ones((3, 3), dtype=np.float64)
-    with pytest.warns(UserWarning, match="Eigenvalues contain NaN or negative values."):
-        eig_lambda, eig_vector = get_eigen_analysis_results(ones_matrix)
+    eig_lambda, eig_vector = get_eigen_analysis_results(ones_matrix)
     assert eig_lambda.size == 1
     assert eig_vector.shape == (3, 1)
     assert_allclose(np.abs(eig_vector[:, 0]), np.array([1, 1, 1]) / np.sqrt(3))
