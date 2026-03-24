@@ -24,17 +24,12 @@ estimator interface (``fit`` / ``predict``).
 Key Features
 ============
 
-- **Functional PCA** — mean / covariance smoothing, eigen decomposition,
-  score estimation (conditional-expectation or numerical integration),
+- **Functional PCA** — mean / covariance smoothing, eigen decomposition, score estimation (conditional-expectation or numerical integration),
   with automatic PC-selection via FVE, AIC, or BIC.
-- **Partial Functional Linear Model** — combine scalar and functional
-  predictors (via FPCA scores) in a single regularised regression.
-- **ElasticNet via ADMM** — elastic-net solver supporting Gaussian,
-  Binomial, Poisson, Gamma, Tweedie, and Multinomial families.
-- **Local polynomial smoothing** — 1D and 2D kernel regression with
-  GCV / CV bandwidth selection (``Polyfit1DModel``, ``Polyfit2DModel``).
-- **Fast interpolation** — Cython-backed 1D / 2D linear and cubic-spline
-  interpolation (``interp1d``, ``interp2d``).
+- **Partial Functional Linear Model** — combine scalar and functional predictors (via FPCA scores) in a single regularised regression.
+- **ElasticNet via ADMM** — elastic-net solver supporting Gaussian, Binomial, Poisson, Gamma, Tweedie, and Multinomial families.
+- **Local polynomial smoothing** — 1D and 2D kernel regression with GCV / CV bandwidth selection (``Polyfit1DModel``, ``Polyfit2DModel``).
+- **Fast interpolation** — Cython-backed 1D / 2D linear and cubic-spline interpolation (``interp1d``, ``interp2d``).
 - **Synthetic data generation** —
   ``FunctionalDataGenerator`` for reproducible simulation studies.
 
