@@ -45,7 +45,7 @@ jobs:
           python -m sphinx -b html source build/html
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v6
+        uses: actions/upload-pages-artifact@v4
         with:
           path: doc/build/html
 
