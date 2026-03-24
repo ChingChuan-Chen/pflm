@@ -1,4 +1,0 @@
-FPCA: basic workflow
-====================
-
-TBD.

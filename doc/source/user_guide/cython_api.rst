@@ -1,5 +1,5 @@
 Access pflm Cython API
-=================
+======================
 
 Available extensions
 -------------------------------
@@ -10,6 +10,8 @@ Available extensions
 - ``pflm.interp.interp``: internal interpolation routines
   - ``interp1d_linear``, ``interp1d_spline_small``, ``interp1d_spline``
   - ``interp2d_linear``, ``interp2d_spline``
+- ``pflm.pflm.utils.elastic_net_solver``: ADMM solver for elastic net regression
+  - ``fit_gaussian_helper``, ``fit_nongaussian_helper`` and ``fit_multinomial_helper``
 - ``pflm.utils.lapack_helper``: LAPACK wrappers
   - ``_gels``, ``_gelss``, ``_gtsv``, ``_posv`` and ``_syevd``
 - ``pflm.utils.blas_helper``: BLAS wrappers
