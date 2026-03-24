@@ -32,8 +32,7 @@ from pflm.utils import flatten_and_sort_data_matrices
 
 
 class FunctionalPCAMuCovParams:
-    """
-    Parameters for mean and covariance functions in Functional PCA.
+    """Parameters for mean and covariance functions in Functional PCA.
 
     Parameters
     ----------
@@ -163,8 +162,7 @@ class FunctionalPCAMuCovParams:
 
 
 class FunctionalPCAUserDefinedParams:
-    """
-    User-defined parameters for Functional PCA.
+    """User-defined parameters for Functional PCA.
 
     Parameters
     ----------
@@ -268,8 +266,7 @@ class FunctionalPCAUserDefinedParams:
 
 
 class FunctionalPCA(BaseEstimator):
-    """
-    Functional Principal Component Analysis (FPCA) for functional data.
+    """Functional Principal Component Analysis (FPCA) for functional data.
 
     Parameters
     ----------

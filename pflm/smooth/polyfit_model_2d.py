@@ -59,7 +59,6 @@ class Polyfit2DModel(BaseEstimator, RegressorMixin):
     bandwidth_selection_results_ : dict
         Selection details including candidates, method, and chosen pair.
 
-
     Examples
     --------
     >>> import numpy as np

@@ -17,8 +17,7 @@ from pflm.smooth.polyfit import calculate_kernel_value_f32, calculate_kernel_val
 
 
 class Polyfit1DModel(BaseEstimator, RegressorMixin):
-    """
-    1D polynomial fitting with kernel smoothing and fast interpolation.
+    """1D polynomial fitting with kernel smoothing and fast interpolation.
 
     This estimator performs local polynomial regression using a selectable kernel.
     It can choose bandwidth by CV/GCV and predicts efficiently via interpolation.
