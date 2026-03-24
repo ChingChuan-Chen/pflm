@@ -1,7 +1,8 @@
-pflm vs fdapace
+pflm Benchmarks
 ***************
 
-This benchmark compares the performance of the Python package ``pflm`` against the R package ``fdapace`` on simulated data.
+This benchmark compares the performance of the Python package ``pflm`` against the R package ``fdapace`` on simulated data,
+and benchmarks the pflm ADMM-based ElasticNet solver against scikit-learn's coordinate descent ElasticNet.
 
 Environment
 ===========
@@ -142,3 +143,46 @@ Configuration:
   +------------------------+-------------------------+------------------+--------------+
   | GetINScores (mapply)   | IN (R, fdapace)         | 0.192143         | 0.006862     |
   +------------------------+-------------------------+------------------+--------------+
+
+ADMM ElasticNet (pflm) v.s. sklearn ElasticNet
+==============================================
+
+- Python benchmark: see ``benchmarks/bench_elastic_net.py``.
+
+This benchmark compares the pflm ADMM-based ElasticNet solver (Cython) against
+scikit-learn's coordinate descent ElasticNet on synthetic Gaussian regression data
+with sparse true coefficients.
+
+Suggested steps:
+
+.. code-block:: shell
+
+    # Run with default settings (n_samples=5000, n_features=500)
+    python ./benchmarks/bench_elastic_net.py
+
+    # Customize problem size
+    python ./benchmarks/bench_elastic_net.py --n-samples 10000 --n-features 1000
+
+ElasticNet Benchmark
+---------------------------------
+
+Configuration:
+
+- n_samples = 5000
+- n_features = 500
+- n_informative = 10 (sparse true coefficients)
+- alpha = 0.1, l1_ratio = 0.5
+- num_replications = 30
+- summary = remove fastest and slowest, then compute mean/std
+
+.. table:: ElasticNet (Gaussian, 5000 x 500)
+   :widths: 28 24 24 24
+   :align: left
+
+   +----------------------------+------------------+------------------+--------------+
+   | Implementation             | Solver           | Average time (s) | Std dev (s)  |
+   +============================+==================+==================+==============+
+   | ElasticNet (pflm)          | ADMM (Cython)    | 0.033099         | 0.002353     |
+   +----------------------------+------------------+------------------+--------------+
+   | ElasticNet (sklearn)       | Coordinate desc. | 0.070434         | 0.003825     |
+   +----------------------------+------------------+------------------+--------------+
