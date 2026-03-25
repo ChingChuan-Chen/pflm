@@ -37,7 +37,7 @@ jobs:
     - name: Store the distribution packages
       uses: actions/upload-artifact@v5
       with:
-        name: python-package-distributions
+        name: python-package-distributions-${{ matrix.os }}-py${{ matrix.python-version }}
         path: dist/
 
   publish-to-pypi:
@@ -58,7 +58,7 @@ jobs:
     - name: Download all the dists
       uses: actions/download-artifact@v6
       with:
-        name: python-package-distributions
+        name: python-package-distributions-${{ matrix.os }}-py${{ matrix.python-version }}
         path: dist/
 
     - name: Publish distribution 📦 to PyPI
@@ -81,11 +81,10 @@ jobs:
     - name: Download all the dists
       uses: actions/download-artifact@v6
       with:
-        name: python-package-distributions
+        name: python-package-distributions-${{ matrix.os }}-py${{ matrix.python-version }}
         path: dist/
 
     - name: Publish distribution 📦 to TestPyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         repository-url: https://test.pypi.org/legacy/
-
