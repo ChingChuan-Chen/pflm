@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: MIT
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator, MultiOutputMixin, RegressorMixin
@@ -70,10 +69,10 @@ class FPCAConfig:
 
     assume_measurement_error: bool = True
     num_points_reg_grid: int = 51
-    mu_cov_params: Optional[FunctionalPCAMuCovParams] = None
-    user_params: Optional[FunctionalPCAUserDefinedParams] = None
+    mu_cov_params: FunctionalPCAMuCovParams | None = None
+    user_params: FunctionalPCAUserDefinedParams | None = None
     verbose: bool = False
-    fit_params: Dict = field(default_factory=dict)
+    fit_params: dict = field(default_factory=dict)
 
 
 class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimator):
@@ -160,8 +159,8 @@ class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimat
     def __init__(
         self,
         family: LinearModelFamily = LinearModelFamily.GAUSSIAN,
-        linear_opts: Optional[Dict] = None,
-        fpca_configs: Optional[Union[FPCAConfig, List[FPCAConfig]]] = None,
+        linear_opts: dict | None = None,
+        fpca_configs: FPCAConfig | list[FPCAConfig] | None = None,
     ):
         self.linear_opts = linear_opts or {}
         self.linear_opts["family"] = family
@@ -177,11 +176,11 @@ class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimat
 
     def fit(
         self,
-        functional_time: List[List[np.ndarray]],
-        functional_features: List[List[np.ndarray]],
+        functional_time: list[list[np.ndarray]],
+        functional_features: list[list[np.ndarray]],
         scalar_features: np.ndarray,
         y: np.ndarray,
-        sample_weight: Optional[np.ndarray] = None,
+        sample_weight: np.ndarray | None = None,
     ):
         """Fit the partial functional linear model.
 
@@ -252,7 +251,7 @@ class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimat
         self.preprocessed_weight_ = self.weight_ * (self.weight_.shape[0] / self.weight_.sum())
 
         # --- Fit one FPCA per functional feature ---
-        self.fpca_models_: List[FunctionalPCA] = []
+        self.fpca_models_: list[FunctionalPCA] = []
         for i in range(self.n_functional_features_in_):
             cfg = self._get_fpca_config(i)
             fpca = FunctionalPCA(
@@ -281,8 +280,8 @@ class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimat
 
     def predict(
         self,
-        new_functional_time: List[List[np.ndarray]],
-        new_functional_features: List[List[np.ndarray]],
+        new_functional_time: list[list[np.ndarray]],
+        new_functional_features: list[list[np.ndarray]],
         new_scalar_features: np.ndarray,
     ) -> np.ndarray:
         """Predict using the fitted partial functional linear model.

@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: MIT
 
 from enum import Enum
-from typing import Optional, Tuple
 
 import numpy as np
 from sklearn.base import BaseEstimator, MultiOutputMixin, RegressorMixin
@@ -140,8 +139,8 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
 
     @staticmethod
     def preprocess_data(
-        X: np.ndarray, y: np.ndarray, weight: Optional[np.ndarray], family: LinearModelFamily, fit_intercept: bool
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        X: np.ndarray, y: np.ndarray, weight: np.ndarray | None, family: LinearModelFamily, fit_intercept: bool
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Centre data for the Gaussian-with-intercept case.
 
         When ``family`` is ``GAUSSIAN`` and ``fit_intercept`` is ``True``, subtract the (optionally weighted) column

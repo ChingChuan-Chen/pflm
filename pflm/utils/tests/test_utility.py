@@ -95,17 +95,17 @@ def test_flatten_and_sort_data_matrices_shape_mismatch():
 def test_flatten_and_sort_data_matrices_wrong_type():
     y = np.array([1.0, 2.0])
     t = [np.array([0.1, 0.2])]
-    with pytest.raises(ValueError, match="y must be a list of arrays."):
+    with pytest.raises(TypeError, match="y must be a list of arrays."):
         flatten_and_sort_data_matrices(y, t)
 
     y = [np.array([1.0, 2.0])]
     t = np.array([0.1, 0.2])
-    with pytest.raises(ValueError, match="t must be a list of arrays."):
+    with pytest.raises(TypeError, match="t must be a list of arrays."):
         flatten_and_sort_data_matrices(y, t)
 
     t = [np.array([0.1, 0.2])]
     w = [1.0]
-    with pytest.raises(ValueError, match="Weights w must be a 1D array."):
+    with pytest.raises(TypeError, match="Weights w must be a 1D array."):
         flatten_and_sort_data_matrices(y, t, w=w)
 
 

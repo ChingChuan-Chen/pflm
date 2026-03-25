@@ -3,7 +3,6 @@
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 from dataclasses import dataclass
-from typing import List, Optional, Union
 
 import numpy as np
 from sklearn.utils.validation import check_array
@@ -11,7 +10,7 @@ from sklearn.utils.validation import check_array
 from pflm.utils.trapz import trapz_f32, trapz_f64
 
 
-def trapz(y: np.ndarray, x: np.ndarray) -> Union[np.ndarray, float]:
+def trapz(y: np.ndarray, x: np.ndarray) -> np.ndarray | float:
     """
     Compute the integrated area using the trapezoidal rule.
 
@@ -129,10 +128,10 @@ class FlattenFunctionalData:
 
 
 def flatten_and_sort_data_matrices(
-    y: List[np.ndarray],
-    t: List[np.ndarray],
-    input_dtype: Union[str, np.dtype] = np.float64,
-    w: Optional[np.ndarray] = None,
+    y: list[np.ndarray],
+    t: list[np.ndarray],
+    input_dtype: str | np.dtype = np.float64,
+    w: np.ndarray | None = None,
 ) -> FlattenFunctionalData:
     """Flatten per-sample 1D arrays into contiguous vectors and build indices.
 
@@ -174,9 +173,9 @@ def flatten_and_sort_data_matrices(
     FlattenFunctionalData: The returned dataclass holding the flattened arrays and indices.
     """
     if not isinstance(y, list):
-        raise ValueError("y must be a list of arrays.")
+        raise TypeError("y must be a list of arrays.")
     if not isinstance(t, list):
-        raise ValueError("t must be a list of arrays.")
+        raise TypeError("t must be a list of arrays.")
     if len(y) != len(t):
         raise ValueError("The length of y and t must be the same.")
     for yi, ti in zip(y, t):
@@ -189,7 +188,7 @@ def flatten_and_sort_data_matrices(
         w = np.ones((len(y),), dtype=input_dtype)
     else:
         if not isinstance(w, np.ndarray):
-            raise ValueError("Weights w must be a 1D array.")
+            raise TypeError("Weights w must be a 1D array.")
         if len(y) != w.size:
             raise ValueError("The length of y and w must be the same.")
         w = check_array(w, ensure_2d=False, dtype=input_dtype)
