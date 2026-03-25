@@ -5,6 +5,4 @@
 
 from pflm.pflm.partial_flm import PartialFunctionalLinearModel
 
-__all__ = [
-    "PartialFunctionalLinearModel"
-]
+__all__ = ["PartialFunctionalLinearModel"]

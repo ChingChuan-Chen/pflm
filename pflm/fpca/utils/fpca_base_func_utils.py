@@ -7,8 +7,8 @@ from typing import List, Literal, Optional, Tuple
 
 import numpy as np
 
-from pflm.interp import interp1d
 from pflm.fpca.utils.log_lik import get_log_likelihood_f32, get_log_likelihood_f64
+from pflm.interp import interp1d
 from pflm.utils.blas_helper import BLAS_Jobz, BLAS_Uplo
 from pflm.utils.lapack_helper import _syevd_memview_f32, _syevd_memview_f64
 from pflm.utils.utility import trapz
@@ -65,10 +65,7 @@ def get_eigen_analysis_results(reg_cov: np.ndarray, is_upper_triangular: bool = 
         # Warn only when negative eigenvalues are large relative to the
         # leading eigenvalue, not for harmless numerical noise.
         if max_eig <= 0 or np.abs(eig_lambda.min()) / max_eig > np.sqrt(np.finfo(eig_lambda.dtype).eps):
-            warnings.warn(
-                "Eigenvalues contain significant negative values. "
-                "The covariance function may not be positive semi-definite."
-            )
+            warnings.warn("Eigenvalues contain significant negative values. The covariance function may not be positive semi-definite.")
 
     # sort eigen values and corresponding eigen vectors
     mask = np.isfinite(eig_lambda) & (eig_lambda > 10.0 * np.finfo(eig_lambda.dtype).eps)  # only leave significant eigenvalues

@@ -3,9 +3,9 @@ import math
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
+from pflm.fpca.utils.log_lik import get_log_likelihood_f32, get_log_likelihood_f64
 
 from pflm.fpca.utils import get_eigen_analysis_results, get_fpca_phi, select_num_pcs_fve, select_num_pcs_ic
-from pflm.fpca.utils.log_lik import get_log_likelihood_f32, get_log_likelihood_f64
 from pflm.utils import trapz
 
 

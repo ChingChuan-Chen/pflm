@@ -1,11 +1,18 @@
-import numpy as np
+"""Partial Functional Linear Model (PFLM) implementation."""
+
+# Authors: Ching-Chuan Chen
+# SPDX-License-Identifier: MIT
+
 from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Union
+
+import numpy as np
 from sklearn.base import BaseEstimator, MultiOutputMixin, RegressorMixin
 from sklearn.utils._array_api import get_namespace_and_device, supported_float_dtypes
 from sklearn.utils.validation import check_array, check_is_fitted
-from typing import Dict, List, Optional, Union
-from pflm.pflm.utils import ElasticNet, LinearModelFamily
+
 from pflm.fpca import FunctionalPCA, FunctionalPCAMuCovParams, FunctionalPCAUserDefinedParams
+from pflm.pflm.utils import ElasticNet, LinearModelFamily
 
 
 @dataclass
@@ -60,6 +67,7 @@ class FPCAConfig:
     FunctionalPCAMuCovParams
     FunctionalPCAUserDefinedParams
     """
+
     assume_measurement_error: bool = True
     num_points_reg_grid: int = 51
     mu_cov_params: Optional[FunctionalPCAMuCovParams] = None
@@ -156,7 +164,7 @@ class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimat
         fpca_configs: Optional[Union[FPCAConfig, List[FPCAConfig]]] = None,
     ):
         self.linear_opts = linear_opts or {}
-        self.linear_opts['family'] = family
+        self.linear_opts["family"] = family
         self.fpca_configs = fpca_configs
 
     def _get_fpca_config(self, i: int) -> FPCAConfig:
@@ -211,22 +219,21 @@ class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimat
         self.n_functional_features_in_ = len(functional_features)
         self.n_scalar_features_in_ = scalar_features.shape[1]
         if len(functional_time) != self.n_functional_features_in_:
-            raise ValueError(
-                'Number of functional time lists does not match '
-                'number of functional feature lists'
-            )
+            raise ValueError("Number of functional time lists does not match number of functional feature lists")
         if isinstance(self.fpca_configs, list) and len(self.fpca_configs) != self.n_functional_features_in_:
             raise ValueError(
-                f'fpca_configs has {len(self.fpca_configs)} entries but '
-                f'{self.n_functional_features_in_} functional features were provided'
+                f"fpca_configs has {len(self.fpca_configs)} entries but {self.n_functional_features_in_} functional features were provided"
             )
 
         # -- Validate and store input data (scalar features, response, sample weight) --
         xp, *_ = get_namespace_and_device(scalar_features, y, sample_weight)
         scalar_features = check_array(scalar_features, ensure_2d=True, dtype=supported_float_dtypes(xp))
         y = check_array(y, ensure_2d=False, dtype=scalar_features.dtype)
-        sample_weight = check_array(sample_weight, ensure_2d=False, dtype=scalar_features.dtype) if sample_weight is not None else \
-            np.ones(y.shape[0], dtype=scalar_features.dtype)
+        sample_weight = (
+            check_array(sample_weight, ensure_2d=False, dtype=scalar_features.dtype)
+            if sample_weight is not None
+            else np.ones(y.shape[0], dtype=scalar_features.dtype)
+        )
         self._input_dtype = scalar_features.dtype
 
         # -- Store fitted data (scalar features, response, sample weight) --
@@ -302,11 +309,11 @@ class PartialFunctionalLinearModel(MultiOutputMixin, RegressorMixin, BaseEstimat
             If the number of new functional features or scalar features does not match the number seen during
             ``fit()``.
         """
-        check_is_fitted(self, ['linear_model_', 'fpca_models_'])
+        check_is_fitted(self, ["linear_model_", "fpca_models_"])
         if len(new_functional_features) != self.n_functional_features_in_:
-            raise ValueError('Number of new functional features does not match the number seen during fit')
+            raise ValueError("Number of new functional features does not match the number seen during fit")
         if new_scalar_features.shape[1] != self.n_scalar_features_in_:
-            raise ValueError('Number of new scalar features does not match the number seen during fit')
+            raise ValueError("Number of new scalar features does not match the number seen during fit")
 
         new_scalar_features = check_array(new_scalar_features, ensure_2d=True, dtype=self._input_dtype)
         new_functional_time = [check_array(ft, ensure_2d=False, dtype=self._input_dtype) for ft in new_functional_time]
