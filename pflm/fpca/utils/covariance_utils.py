@@ -210,7 +210,9 @@ def rotate_polyfit2d(
     new_grid_rotated = np.ascontiguousarray(new_grid_rotated[:, sorted_idx_new_grid]).astype(input_dtype)
 
     rotate_polyfit2d_func = rotate_polyfit2d_f64 if input_dtype == np.float64 else rotate_polyfit2d_f32
-    output = rotate_polyfit2d_func(x_grid_rotated, y_sorted, w_sorted, new_grid_rotated, bandwidth, kernel_type.value)
+    output_sorted = rotate_polyfit2d_func(x_grid_rotated, y_sorted, w_sorted, new_grid_rotated, bandwidth, kernel_type.value)
+    output = np.empty_like(output_sorted)
+    output[sorted_idx_new_grid] = output_sorted
     return output
 
 

@@ -53,7 +53,7 @@ cdef void rotate_polyfit2d_helper(
 
         lb2 = center2 - bw + epsilon
         ub2 = center2 + bw - epsilon
-        for i in range(left, right):
+        for i in range(<int64_t> left, <int64_t> right):
             if x_grid[1, i] > lb2 and x_grid[1, i] < ub2:
                 idx.push_back(i)
 
@@ -66,7 +66,7 @@ cdef void rotate_polyfit2d_helper(
             use_svd = 1
     else:
         idx.resize(n)
-        for i in range(n):
+        for i in range(<int64_t> n):
             idx[i] = i
         check_rank = 0
         use_svd = 0
@@ -78,7 +78,7 @@ cdef void rotate_polyfit2d_helper(
     cdef int64_t kx, ky
 
     if check_rank == 1:
-        for i in range(n_rows):
+        for i in range(<int64_t> n_rows):
             # quantize (round-to-nearest) to integer bins under tol_unique
             if x_grid[0, idx[i]] >= 0:
                 kx = <int64_t>(x_grid[0, idx[i]] * inv_tol + (<floating>0.5))

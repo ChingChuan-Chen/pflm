@@ -132,6 +132,16 @@ def test_rotate_polyfit2d_permutation_invariance():
     assert_allclose(out_orig, out_perm)
 
 
+def test_rotate_polyfit2d_preserves_new_grid_order():
+    x, y, w, new_x = _make_basic_inputs(dtype=np.float64)
+    permuted_new_x = new_x[[1, 0]]
+
+    out_orig = rotate_polyfit2d(x, y, w, new_x, 1.0, KernelType.GAUSSIAN)
+    out_permuted = rotate_polyfit2d(x, y, w, permuted_new_x, 1.0, KernelType.GAUSSIAN)
+
+    assert_allclose(out_permuted, out_orig[[1, 0]])
+
+
 def test_rotate_polyfit2d_float32_path_and_kernel_enum():
     x, y, w, new_x = _make_basic_inputs(dtype=np.float32)
     out = rotate_polyfit2d(x, y, w, new_x, 1.0, KernelType.GAUSSIAN)
