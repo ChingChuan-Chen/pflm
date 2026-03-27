@@ -5,7 +5,6 @@ This module contains comprehensive tests for the 2D polynomial fitting model
 with kernel smoothing, including happy path tests, edge cases, and error conditions.
 """
 
-from typing import Tuple
 
 import numpy as np
 import pytest
@@ -250,7 +249,7 @@ def test_polyfit2d_different_order_array(order):
     assert fitted_value.shape == (len(x_new1), len(x_new2))
 
 
-def make_test_inputs_2d() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def make_test_inputs_2d() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Create standard test inputs for Polyfit2DModel tests.
 
@@ -276,7 +275,7 @@ def make_test_inputs_2d() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarra
 
 def test_polyfit2d_x_not_2d() -> None:
     """Test that Polyfit2DModel raises error for non-2D X input."""
-    X, y, w, x_new1, x_new2 = make_test_inputs_2d()
+    _, y, w, x_new1, x_new2 = make_test_inputs_2d()
 
     # Test with 1D input
     X_1d = np.array([0.1, 0.2, 0.3])
@@ -298,7 +297,7 @@ def test_polyfit2d_x_wrong_features() -> None:
 
 def test_polyfit2d_y_x_size_mismatch() -> None:
     """Test that Polyfit2DModel raises error when X and y have different sizes."""
-    X, y, w, x_new1, x_new2 = make_test_inputs_2d()
+    X, _, w, x_new1, x_new2 = make_test_inputs_2d()
 
     y_wrong = np.array([0.1, 0.2, 0.3])  # Different size than X
     model = Polyfit2DModel()
@@ -319,7 +318,7 @@ def test_polyfit2d_w_negative() -> None:
 
 def test_polyfit2d_y_w_size_mismatch() -> None:
     """Test that Polyfit2DModel raises error when y and sample_weight have different sizes."""
-    X, y, w, x_new1, x_new2 = make_test_inputs_2d()
+    X, y, _, x_new1, x_new2 = make_test_inputs_2d()
 
     w_wrong = np.array([1.0, 1.0, 1.0])  # Different size than y
     model = Polyfit2DModel()
@@ -536,7 +535,7 @@ def test_polyfit2d_model_predict_wrong_features() -> None:
 
 def test_polyfit2d_model_predict_without_fit() -> None:
     """Test that predict method raises error when called before fitting."""
-    X, y, w, x_new1, x_new2 = make_test_inputs_2d()
+    _, _, _, x_new1, x_new2 = make_test_inputs_2d()
     model = Polyfit2DModel()
 
     with pytest.raises(ValueError, match="This .* instance is not fitted yet"):

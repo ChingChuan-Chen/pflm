@@ -100,7 +100,7 @@ def test_get_measurement_error_variance_reg_grid_not_increasing(raw_cov):
 @pytest.mark.parametrize("bad_bw", ["0.15", [0.15], (0.15,), {"bw": 0.15}])
 def test_get_measurement_error_variance_invalid_bandwidth_type(raw_cov, bad_bw):
     reg_grid = np.array([0.1, 0.2, 0.3], dtype=np.float64)
-    with pytest.raises(ValueError, match="bandwidth must be a numeric value"):
+    with pytest.raises(TypeError, match="bandwidth must be a numeric value"):
         get_measurement_error_variance(raw_cov, reg_grid, bad_bw, KernelType.GAUSSIAN)
 
 

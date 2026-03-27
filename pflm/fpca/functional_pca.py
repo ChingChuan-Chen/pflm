@@ -5,7 +5,7 @@
 
 import time
 import warnings
-from typing import List, Literal, Optional, Tuple, Union
+from typing import Literal, Optional
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -78,8 +78,8 @@ class FunctionalPCAMuCovParams:
 
     def __init__(
         self,
-        bw_mu: Optional[float] = None,
-        bw_cov: Optional[float] = None,
+        bw_mu: float | None = None,
+        bw_cov: float | None = None,
         estimate_method: Literal["smooth", "cross-sectional"] = "smooth",
         kernel_type: KernelType = KernelType.EPANECHNIKOV,
         method_select_mu_bw: Literal["cv", "gcv"] = "gcv",
@@ -87,7 +87,7 @@ class FunctionalPCAMuCovParams:
         apply_geo_avg_cov_bw: bool = False,
         cv_folds_mu: int = 10,
         cv_folds_cov: int = 10,
-        random_seed: Optional[int] = None,
+        random_seed: int | None = None,
     ):
         """Validate and store smoothing-related parameters.
 
@@ -126,17 +126,17 @@ class FunctionalPCAMuCovParams:
         if estimate_method not in ["smooth", "cross-sectional"]:
             raise ValueError("estimate_method must be either 'smooth' or 'cross-sectional'.")
         if not isinstance(kernel_type, KernelType):
-            raise ValueError("kernel_type must be an instance of KernelType Enum.")
+            raise TypeError("kernel_type must be an instance of KernelType Enum.")
         if method_select_mu_bw not in ["gcv", "cv"]:
             raise ValueError("method_select_mu_bw must be either 'gcv' or 'cv'.")
         if method_select_cov_bw not in ["gcv", "cv"]:
             raise ValueError("method_select_cov_bw must be either 'gcv' or 'cv'.")
         if not isinstance(apply_geo_avg_cov_bw, bool):
-            raise ValueError("apply_geo_avg_cov_bw must be a boolean value.")
+            raise TypeError("apply_geo_avg_cov_bw must be a boolean value.")
         if not isinstance(cv_folds_mu, int) or cv_folds_mu <= 2:
-            raise ValueError("cv_folds_mu must be greater than 2.")
+            raise TypeError("cv_folds_mu must be greater than 2.")
         if not isinstance(cv_folds_cov, int) or cv_folds_cov <= 2:
-            raise ValueError("cv_folds_cov must be greater than 2.")
+            raise TypeError("cv_folds_cov must be greater than 2.")
         if random_seed is not None and (not isinstance(random_seed, int) or random_seed < 0):
             raise ValueError("random_seed must be a non-negative integer.")
 
@@ -201,12 +201,12 @@ class FunctionalPCAUserDefinedParams:
 
     def __init__(
         self,
-        t_mu: Union[np.ndarray, List[float]] = None,
-        mu: Union[np.ndarray, List[float]] = None,
-        t_cov: Union[np.ndarray, List[float]] = None,
-        cov: Union[np.ndarray, List[List[float]]] = None,
-        sigma2: Optional[float] = None,
-        rho: Optional[float] = None,
+        t_mu: np.ndarray | list[float] = None,
+        mu: np.ndarray | list[float] = None,
+        t_cov: np.ndarray | list[float] = None,
+        cov: np.ndarray | list[list[float]] = None,
+        sigma2: float | None = None,
+        rho: float | None = None,
     ):
         """Validate shapes/types for optional user-specified artifacts.
 
@@ -258,7 +258,7 @@ class FunctionalPCAUserDefinedParams:
 
     def __repr__(self):
         """Return a compact string representation of user-defined parameters."""
-        cov_repr = " ".join(list(map(lambda x: x.strip(), repr(self.cov).split("\n")))) if self.cov is not None else "None"
+        cov_repr = " ".join([x.strip() for x in repr(self.cov).split("\n")]) if self.cov is not None else "None"
         return (
             f"FunctionalPCAUserDefinedParams(t_mu={self.t_mu!r}, mu={self.mu!r}, "
             f"t_cov={self.t_cov!r}, cov={cov_repr}, sigma2={self.sigma2}, rho={self.rho})"
@@ -335,8 +335,8 @@ class FunctionalPCA(BaseEstimator):
         self,
         assume_measurement_error: bool = True,
         num_points_reg_grid: int = 51,
-        mu_cov_params: FunctionalPCAMuCovParams = FunctionalPCAMuCovParams(),
-        user_params: FunctionalPCAUserDefinedParams = FunctionalPCAUserDefinedParams(),
+        mu_cov_params: Optional[FunctionalPCAMuCovParams] = None,
+        user_params: Optional[FunctionalPCAUserDefinedParams] = None,
         verbose: bool = False,
     ) -> None:
         """Initialize estimator and validate top-level configuration.
@@ -347,9 +347,9 @@ class FunctionalPCA(BaseEstimator):
             If True, estimate sigma2 (unless user provides).
         num_points_reg_grid : int, default=51
             Size of the internal regular grid used for smoothing/interpolation.
-        mu_cov_params : FunctionalPCAMuCovParams
+        mu_cov_params : Optional[FunctionalPCAMuCovParams]
             Smoothing hyperparameters and selection policies.
-        user_params : FunctionalPCAUserDefinedParams
+        user_params : Optional[FunctionalPCAUserDefinedParams]
             Optional user-specified mean/cov/sigma2/rho inputs.
         verbose : bool, default=False
             If True, enable timing diagnostics.
@@ -362,17 +362,27 @@ class FunctionalPCA(BaseEstimator):
         # Initialize parameters
         self.assume_measurement_error = assume_measurement_error
         self.num_points_reg_grid = num_points_reg_grid
-        self.mu_cov_params = mu_cov_params
-        self.user_params = user_params
+        if mu_cov_params is None:
+            self.mu_cov_params = FunctionalPCAMuCovParams()
+        else:
+            if not isinstance(mu_cov_params, FunctionalPCAMuCovParams):
+                raise TypeError("mu_cov_params must be an instance of FunctionalPCAMuCovParams.")
+            self.mu_cov_params = mu_cov_params
+        if user_params is None:
+            self.user_params = FunctionalPCAUserDefinedParams()
+        else:
+            if not isinstance(user_params, FunctionalPCAUserDefinedParams):
+                raise TypeError("user_params must be an instance of FunctionalPCAUserDefinedParams.")
+            self.user_params = user_params
         self.verbose = verbose
 
         # Validate user-defined sigma2 and rho
-        if not assume_measurement_error and user_params.sigma2 is not None and user_params.sigma2 > 0:
+        if not assume_measurement_error and self.user_params.sigma2 is not None and self.user_params.sigma2 > 0:
             raise ValueError(
                 "Measurement error is assumed to be false, but user-defined sigma2 is provided and greater than 0. "
                 + "Please set assume_measurement_error to True or set sigma2 to None or 0."
             )
-        if not assume_measurement_error and user_params.rho is not None and user_params.rho > 0:
+        if not assume_measurement_error and self.user_params.rho is not None and self.user_params.rho > 0:
             raise ValueError(
                 "Measurement error is assumed to be false, but user-defined rho is provided and greater than 0. "
                 + "Please set assume_measurement_error to True or set rho to None or 0."
@@ -380,11 +390,11 @@ class FunctionalPCA(BaseEstimator):
 
     def __check_data(
         self,
-        y: List[Union[np.ndarray, List[float]]],
-        t: List[Union[np.ndarray, List[float]]],
-        w: Optional[List[Union[np.ndarray, List[float]]]] = None,
-        dtype: Optional[Union[str, np.dtype]] = None,
-    ) -> Tuple[np.dtype, List[np.ndarray], List[np.ndarray]]:
+        y: list[np.ndarray | list[float]],
+        t: list[np.ndarray | list[float]],
+        w: list[np.ndarray | list[float]] | None = None,
+        dtype: str | np.dtype | None = None,
+    ) -> tuple[np.dtype, list[np.ndarray], list[np.ndarray]]:
         """
         Validate and normalize input series (y, t, optional w) and resolve output dtype.
 
@@ -473,9 +483,9 @@ class FunctionalPCA(BaseEstimator):
     def __check_fit_params(
         self,
         method_pcs: Literal["IN", "CE"] = "CE",
-        method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
+        method_select_num_pcs: int | Literal["FVE", "AIC", "BIC"] = "FVE",
         method_rho: Literal["truncated", "ridge", "vanilla"] = "vanilla",
-        max_num_pcs: Optional[int] = None,
+        max_num_pcs: int | None = None,
         if_impute_scores: bool = True,
         if_shrinkage: bool = False,
         if_fit_eigen_values: bool = False,
@@ -510,38 +520,38 @@ class FunctionalPCA(BaseEstimator):
         if method_pcs not in ["IN", "CE"]:
             raise ValueError("method_pcs must be either 'IN' (Numerical Integration) or 'CE' (Conditional Expectation).")
         if not isinstance(method_select_num_pcs, (int, str)):
-            raise ValueError("method_select_num_pcs must be either a positive integer or one of 'FVE', 'AIC', 'BIC'.")
+            raise TypeError("method_select_num_pcs must be either a positive integer or one of 'FVE', 'AIC', 'BIC'.")
         if isinstance(method_select_num_pcs, int) and method_select_num_pcs <= 0:
-            raise ValueError("If method_select_num_pcs is an integer, it must be a positive integer.")
+            raise TypeError("If method_select_num_pcs is an integer, it must be a positive integer.")
         if isinstance(method_select_num_pcs, str) and method_select_num_pcs not in ["FVE", "AIC", "BIC"]:
-            raise ValueError("method_select_num_pcs must be one of 'FVE', 'AIC', 'BIC' or a positive integer.")
+            raise TypeError("method_select_num_pcs must be one of 'FVE', 'AIC', 'BIC' or a positive integer.")
         if method_rho not in ["truncated", "ridge", "vanilla"]:
             raise ValueError("method_rho must be one of 'truncated', 'ridge', 'vanilla'.")
         if not isinstance(max_num_pcs, int) or max_num_pcs <= 0:
-            raise ValueError("max_num_pcs must be a positive integer.")
+            raise TypeError("max_num_pcs must be a positive integer.")
         if not isinstance(fve_threshold, float) or fve_threshold <= 0 or fve_threshold > 1:
-            raise ValueError("fve_threshold must be a float between 0 and 1.")
+            raise TypeError("fve_threshold must be a float between 0 and 1.")
         if not isinstance(if_impute_scores, bool):
-            raise ValueError("if_impute_scores must be a boolean value.")
+            raise TypeError("if_impute_scores must be a boolean value.")
         if not isinstance(if_shrinkage, bool):
-            raise ValueError("if_shrinkage must be a boolean value.")
+            raise TypeError("if_shrinkage must be a boolean value.")
         if not isinstance(if_fit_eigen_values, bool):
-            raise ValueError("if_fit_eigen_values must be a boolean value.")
+            raise TypeError("if_fit_eigen_values must be a boolean value.")
 
     def fit(
         self,
-        t: List[Union[np.ndarray, List[float]]],
-        y: List[Union[np.ndarray, List[float]]],
-        w: Optional[List[Union[np.ndarray, List[float]]]] = None,
+        t: list[np.ndarray | list[float]],
+        y: list[np.ndarray | list[float]],
+        w: list[np.ndarray | list[float]] | None = None,
         method_pcs: Literal["IN", "CE"] = "CE",
-        method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
+        method_select_num_pcs: int | Literal["FVE", "AIC", "BIC"] = "FVE",
         method_rho: Literal["truncated", "ridge", "vanilla"] = "vanilla",
-        max_num_pcs: Optional[int] = None,
+        max_num_pcs: int | None = None,
         if_impute_scores: bool = True,
         if_shrinkage: bool = False,
         if_fit_eigen_values: bool = False,
         fve_threshold: float = 0.99,
-        reg_grid: Union[np.ndarray, List[float]] = None,
+        reg_grid: np.ndarray | list[float] = None,
     ) -> "FunctionalPCA":
         """Fit the FPCA model: mean, covariance, eigen-structure, and scores.
 
@@ -779,14 +789,14 @@ class FunctionalPCA(BaseEstimator):
     def fit_score(
         self,
         method_pcs: Literal["IN", "CE"] = "CE",
-        method_select_num_pcs: Union[int, Literal["FVE", "AIC", "BIC"]] = "FVE",
+        method_select_num_pcs: int | Literal["FVE", "AIC", "BIC"] = "FVE",
         method_rho: Literal["truncated", "ridge", "vanilla"] = "vanilla",
         max_num_pcs: int = 20,
         if_impute_scores: bool = True,
         if_shrinkage: bool = False,
         if_fit_eigen_values: bool = False,
         fve_threshold: float = 0.99,
-    ) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray, List[np.ndarray]]:
+    ) -> tuple[np.ndarray, list[np.ndarray], np.ndarray, list[np.ndarray]]:
         """Compute principal component scores given smoothed artifacts.
 
         This method assumes `fit` has been called to produce smoothed mean/covariance
@@ -886,7 +896,7 @@ class FunctionalPCA(BaseEstimator):
         elif isinstance(method_select_num_pcs, int):
             num_pcs = method_select_num_pcs
         else:
-            raise ValueError("Invalid method_select_num_pcs. Must be one of ['FVE', 'AIC', 'BIC'] or an integer.")
+            raise TypeError("Invalid method_select_num_pcs. Must be one of ['FVE', 'AIC', 'BIC'] or an integer.")
         self.num_pcs_ = num_pcs
         self.elapsed_time_["num_pcs_selection"] = (time.time_ns() - start_time) / 1e9
 
@@ -962,7 +972,7 @@ class FunctionalPCA(BaseEstimator):
 
         return self.xi_, self.xi_var_, self.fitted_y_mat_, self.fitted_y_
 
-    def fitted_values(self) -> Tuple[np.ndarray, List[np.ndarray]]:
+    def fitted_values(self) -> tuple[np.ndarray, list[np.ndarray]]:
         """Return fitted functional values on grids.
 
         Returns
@@ -982,11 +992,11 @@ class FunctionalPCA(BaseEstimator):
 
     def predict(
         self,
-        y: List[Union[np.ndarray, List[float]]],
-        t: List[Union[np.ndarray, List[float]]],
-        w: Optional[List[Union[np.ndarray, List[float]]]] = None,
-        num_pcs: Optional[int] = None,
-    ) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray, List[np.ndarray]]:
+        y: list[np.ndarray | list[float]],
+        t: list[np.ndarray | list[float]],
+        w: list[np.ndarray | list[float]] | None = None,
+        num_pcs: int | None = None,
+    ) -> tuple[np.ndarray, list[np.ndarray], np.ndarray, list[np.ndarray]]:
         """Predict scores and fitted curves for new observations.
 
         Parameters

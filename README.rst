@@ -76,6 +76,24 @@ Development install
    pip install "meson-python>=0.17.1" "meson>=1.3" "ninja" "Cython>=3.0.10"
    pip install -e .
 
+Docker development
+------------------
+
+To reproduce a Linux build-and-test environment locally, use the dev Docker image:
+
+.. code-block:: shell
+
+   docker build -f Dockerfile.dev -t pflm-dev .
+   docker run --rm -v "$PWD":/work -w /work pflm-dev \
+     bash -lc 'python -m pip install --verbose --no-build-isolation --editable .[tests] --config-settings editable-verbose=true && pytest . -v'
+
+If you use ``make``, the equivalent commands are:
+
+.. code-block:: shell
+
+   make docker-build
+   make docker-test
+
 Quick Start
 ===========
 

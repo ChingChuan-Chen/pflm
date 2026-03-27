@@ -3,18 +3,18 @@
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 import warnings
-from typing import List, Literal, Optional, Tuple
+from typing import Literal
 
 import numpy as np
 
-from pflm.interp import interp1d
 from pflm.fpca.utils.log_lik import get_log_likelihood_f32, get_log_likelihood_f64
+from pflm.interp import interp1d
 from pflm.utils.blas_helper import BLAS_Jobz, BLAS_Uplo
 from pflm.utils.lapack_helper import _syevd_memview_f32, _syevd_memview_f64
 from pflm.utils.utility import trapz
 
 
-def get_eigen_analysis_results(reg_cov: np.ndarray, is_upper_triangular: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+def get_eigen_analysis_results(reg_cov: np.ndarray, is_upper_triangular: bool = False) -> tuple[np.ndarray, np.ndarray]:
     """
     Compute eigenvalues and eigenvectors of a covariance matrix.
 
@@ -65,10 +65,7 @@ def get_eigen_analysis_results(reg_cov: np.ndarray, is_upper_triangular: bool = 
         # Warn only when negative eigenvalues are large relative to the
         # leading eigenvalue, not for harmless numerical noise.
         if max_eig <= 0 or np.abs(eig_lambda.min()) / max_eig > np.sqrt(np.finfo(eig_lambda.dtype).eps):
-            warnings.warn(
-                "Eigenvalues contain significant negative values. "
-                "The covariance function may not be positive semi-definite."
-            )
+            warnings.warn("Eigenvalues contain significant negative values. The covariance function may not be positive semi-definite.")
 
     # sort eigen values and corresponding eigen vectors
     mask = np.isfinite(eig_lambda) & (eig_lambda > 10.0 * np.finfo(eig_lambda.dtype).eps)  # only leave significant eigenvalues
@@ -107,8 +104,8 @@ def select_num_pcs_fve(eig_lambda: np.ndarray, fve_threshold: float, max_compone
 
 def select_num_pcs_ic(
     criterion: Literal["AIC", "BIC"],
-    y: List[np.ndarray],
-    t: List[np.ndarray],
+    y: list[np.ndarray],
+    t: list[np.ndarray],
     obs_grid: np.ndarray,
     reg_grid: np.ndarray,
     reg_mu: np.ndarray,
@@ -117,8 +114,8 @@ def select_num_pcs_ic(
     eig_vector: np.ndarray,
     max_components: int = 20,
     measurement_error_variance: float = 0.0,
-    rho: Optional[float] = None,
-) -> Tuple[np.ndarray, int]:
+    rho: float | None = None,
+) -> tuple[np.ndarray, int]:
     """Select number of PCs via AIC/BIC with fdapace-style early stopping."""
     if criterion not in ["AIC", "BIC"]:
         raise ValueError("criterion must be either 'AIC' or 'BIC'.")
@@ -132,8 +129,7 @@ def select_num_pcs_ic(
     sigma2 = float(measurement_error_variance)
     if rho is not None and sigma2 <= float(rho):
         sigma2 = float(rho)
-    if sigma2 < 0.0:
-        sigma2 = 0.0
+    sigma2 = max(sigma2, 0.0)
     if sigma2 == 0.0:
         y_all = np.concatenate(y)
         sigma2 = max(float(np.var(y_all)) * 1e-8, float(np.finfo(input_dtype).eps) * 10.0)

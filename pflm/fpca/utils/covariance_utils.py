@@ -170,7 +170,7 @@ def rotate_polyfit2d(
     - This function does not select bandwidth; it assumes `bandwidth` is given.
     """
     if not isinstance(bandwidth, (int, float, np.floating)):
-        raise ValueError("bandwidth must be a numeric value.")
+        raise TypeError("bandwidth must be a numeric value.")
     if bandwidth <= 0:
         raise ValueError("bandwidth must be a positive number.")
     if np.isnan(bandwidth):
@@ -210,7 +210,9 @@ def rotate_polyfit2d(
     new_grid_rotated = np.ascontiguousarray(new_grid_rotated[:, sorted_idx_new_grid]).astype(input_dtype)
 
     rotate_polyfit2d_func = rotate_polyfit2d_f64 if input_dtype == np.float64 else rotate_polyfit2d_f32
-    output = rotate_polyfit2d_func(x_grid_rotated, y_sorted, w_sorted, new_grid_rotated, bandwidth, kernel_type.value)
+    output_sorted = rotate_polyfit2d_func(x_grid_rotated, y_sorted, w_sorted, new_grid_rotated, bandwidth, kernel_type.value)
+    output = np.empty_like(output_sorted)
+    output[sorted_idx_new_grid] = output_sorted
     return output
 
 
@@ -263,7 +265,7 @@ def get_measurement_error_variance(
     if np.any(np.diff(reg_grid) <= 0):
         raise ValueError("reg_grid must be a 1D array with increasing values.")
     if not isinstance(bandwidth, (int, float, np.floating)):
-        raise ValueError("bandwidth must be a numeric value.")
+        raise TypeError("bandwidth must be a numeric value.")
     if bandwidth <= 0:
         raise ValueError("bandwidth must be a positive number.")
     if np.isnan(bandwidth):

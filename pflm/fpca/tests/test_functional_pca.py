@@ -129,7 +129,7 @@ def test_fit_user_defined_mu_or_cov_with_nan_raises():
     bad_mu[0] = np.nan
     user = FunctionalPCAUserDefinedParams(t_mu=obs, mu=bad_mu)
     fpca = FunctionalPCA(user_params=user)
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         fpca.fit(t, y)
 
     # NaN cov
@@ -139,7 +139,7 @@ def test_fit_user_defined_mu_or_cov_with_nan_raises():
     # Replace cov with NaN after construction to avoid constructor validation
     fpca2.user_params.cov = np.eye(reg.size)
     fpca2.user_params.cov[0, 0] = np.nan
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         fpca2.fit(t, y)
 
 
@@ -148,7 +148,7 @@ def test_reg_grid_mismatch_raises():
     y, t = _make_toy()
     bad_grid = np.linspace(-0.1, 1.1, 51)
     fpca = FunctionalPCA()
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         fpca.fit(t, y, reg_grid=bad_grid)
 
 
@@ -158,7 +158,7 @@ def test_insufficient_observations_raises():
     y[0] = y[0][:1]
     t[0] = t[0][:1]
     fpca = FunctionalPCA()
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         fpca.fit(t, y)
 
 

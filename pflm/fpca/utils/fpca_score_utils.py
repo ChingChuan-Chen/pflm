@@ -2,7 +2,6 @@
 
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
-from typing import List, Tuple
 
 import numpy as np
 
@@ -20,7 +19,7 @@ def get_fpca_ce_score(
     fpca_phi: np.ndarray,
     fitted_cov: np.ndarray,
     sigma2: float,
-) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
+) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]:
     """
     Compute conditional expectation (CE) FPCA scores and fitted curves.
 
@@ -174,7 +173,7 @@ def get_fpca_in_score(
     fpca_phi: np.ndarray,
     sigma2: float,
     if_shrinkage: bool = False,
-) -> Tuple[np.ndarray, List[np.ndarray], np.ndarray, List[np.ndarray]]:
+) -> tuple[np.ndarray, list[np.ndarray], np.ndarray, list[np.ndarray]]:
     """
     Compute Numerical integration FPCA scores and fitted curves.
 
@@ -222,7 +221,7 @@ def get_fpca_in_score(
     if fpca_phi.shape != (nt, fpca_lambda.size):
         raise ValueError("fpca_phi must have shape (nt, fpca_lambda.size).")
     if not isinstance(if_shrinkage, bool):
-        raise ValueError("if_shrinkage must be a boolean.")
+        raise TypeError("if_shrinkage must be a boolean.")
 
     input_dtype = flatten_func_data.y.dtype
     fpca_in_score_func = fpca_in_score_f64 if input_dtype == np.float64 else fpca_in_score_f32

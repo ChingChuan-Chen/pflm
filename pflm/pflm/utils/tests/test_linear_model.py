@@ -1,14 +1,14 @@
-import pytest
 import numpy as np
+import pytest
 from numpy.testing import assert_allclose
+from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import ElasticNet as SklearnElasticNet
+from sklearn.linear_model import GammaRegressor as SklearnGammaRegressor
 from sklearn.linear_model import LogisticRegression as SklearnLogisticRegression
 from sklearn.linear_model import PoissonRegressor as SklearnPoissonRegressor
-from sklearn.linear_model import GammaRegressor as SklearnGammaRegressor
 from sklearn.linear_model import TweedieRegressor as SklearnTweedieRegressor
-from sklearn.exceptions import NotFittedError
 
-from pflm.pflm.utils import LinearModelFamily, ElasticNet
+from pflm.pflm.utils import ElasticNet, LinearModelFamily
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -74,6 +74,7 @@ def test_elastic_net_matches_sklearn_without_intercept(dtype):
 #     min_w  (1/n) * Poisson_NLL(w) + (alpha_sk/2) * ||w||_2^2
 # Mapping:  alpha_sk = alpha_our / n   (with l1_ratio = 0)
 
+
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_binomial_elastic_net_matches_sklearn(dtype):
     """Compare Binomial (logistic) ElasticNet against sklearn LogisticRegression."""
@@ -90,15 +91,27 @@ def test_binomial_elastic_net_matches_sklearn(dtype):
 
     # Our model
     model = ElasticNet(
-        alpha=alpha, l1_ratio=l1_ratio, family=LinearModelFamily.BINOMIAL,
-        max_iter=3000, abs_tol=1e-6, rel_tol=1e-6, min_iter=5, rho=1.0,
+        alpha=alpha,
+        l1_ratio=l1_ratio,
+        family=LinearModelFamily.BINOMIAL,
+        max_iter=3000,
+        abs_tol=1e-6,
+        rel_tol=1e-6,
+        min_iter=5,
+        rho=1.0,
     )
     model.fit(x, y)
 
     # sklearn — C = n / alpha
     sk_model = SklearnLogisticRegression(
-        penalty="elasticnet", solver="saga", C=n / alpha, l1_ratio=l1_ratio,
-        max_iter=20000, tol=1e-10, fit_intercept=True, random_state=0,
+        penalty="elasticnet",
+        solver="saga",
+        C=n / alpha,
+        l1_ratio=l1_ratio,
+        max_iter=20000,
+        tol=1e-10,
+        fit_intercept=True,
+        random_state=0,
     )
     sk_model.fit(x, y)
 
@@ -122,14 +135,23 @@ def test_poisson_l2_matches_sklearn(dtype):
 
     # Our model
     model = ElasticNet(
-        alpha=alpha_our, l1_ratio=l1_ratio, family=LinearModelFamily.POISSON,
-        max_iter=3000, abs_tol=1e-6, rel_tol=1e-6, min_iter=5, rho=1.0,
+        alpha=alpha_our,
+        l1_ratio=l1_ratio,
+        family=LinearModelFamily.POISSON,
+        max_iter=3000,
+        abs_tol=1e-6,
+        rel_tol=1e-6,
+        min_iter=5,
+        rho=1.0,
     )
     model.fit(x, y)
 
     # sklearn — alpha_sk = alpha_our / n
     sk_model = SklearnPoissonRegressor(
-        alpha=alpha_our / n, max_iter=5000, tol=1e-10, fit_intercept=True,
+        alpha=alpha_our / n,
+        max_iter=5000,
+        tol=1e-10,
+        fit_intercept=True,
     )
     sk_model.fit(x, y)
 
@@ -153,13 +175,22 @@ def test_gamma_l2_matches_sklearn(dtype):
     y = rng.gamma(shape=5.0, scale=mu / 5.0).astype(dtype)
 
     model = ElasticNet(
-        alpha=alpha_our, l1_ratio=l1_ratio, family=LinearModelFamily.GAMMA,
-        max_iter=3000, abs_tol=1e-6, rel_tol=1e-6, min_iter=5, rho=1.0,
+        alpha=alpha_our,
+        l1_ratio=l1_ratio,
+        family=LinearModelFamily.GAMMA,
+        max_iter=3000,
+        abs_tol=1e-6,
+        rel_tol=1e-6,
+        min_iter=5,
+        rho=1.0,
     )
     model.fit(x, y)
 
     sk_model = SklearnGammaRegressor(
-        alpha=alpha_our / n, max_iter=5000, tol=1e-10, fit_intercept=True,
+        alpha=alpha_our / n,
+        max_iter=5000,
+        tol=1e-10,
+        fit_intercept=True,
     )
     sk_model.fit(x, y)
 
@@ -186,16 +217,29 @@ def test_tweedie_l2_matches_sklearn(dtype):
     for i in range(n):
         cnt = rng.poisson(lam=mu[i] ** (2 - tw_power) / (2 - tw_power))
         if cnt > 0:
-            y[i] = rng.gamma(shape=(2 - tw_power) / (tw_power - 1), scale=mu[i] ** (tw_power - 1) / (2 - tw_power) * (tw_power - 1), size=cnt).sum()
+            y[i] = rng.gamma(
+                shape=(2 - tw_power) / (tw_power - 1), scale=mu[i] ** (tw_power - 1) / (2 - tw_power) * (tw_power - 1), size=cnt
+            ).sum()
 
     model = ElasticNet(
-        alpha=alpha_our, l1_ratio=l1_ratio, family=LinearModelFamily.TWEEDIE,
-        power=tw_power, max_iter=3000, abs_tol=1e-6, rel_tol=1e-6, min_iter=5, rho=1.0,
+        alpha=alpha_our,
+        l1_ratio=l1_ratio,
+        family=LinearModelFamily.TWEEDIE,
+        power=tw_power,
+        max_iter=3000,
+        abs_tol=1e-6,
+        rel_tol=1e-6,
+        min_iter=5,
+        rho=1.0,
     )
     model.fit(x, y)
 
     sk_model = SklearnTweedieRegressor(
-        power=tw_power, alpha=alpha_our / n, max_iter=5000, tol=1e-10, fit_intercept=True,
+        power=tw_power,
+        alpha=alpha_our / n,
+        max_iter=5000,
+        tol=1e-10,
+        fit_intercept=True,
     )
     sk_model.fit(x, y)
 
@@ -213,11 +257,14 @@ def test_multinomial_matches_sklearn(dtype):
     rng = np.random.default_rng(55)
 
     x = rng.normal(size=(n, p)).astype(dtype)
-    true_W = np.array([
-        [1.0, -0.5, 0.0, 0.8, 0.0, -0.3],
-        [-0.5, 1.0, 0.3, 0.0, -0.4, 0.0],
-        [0.0, 0.0, -0.5, -0.3, 0.5, 0.2],
-    ], dtype=dtype)
+    true_W = np.array(
+        [
+            [1.0, -0.5, 0.0, 0.8, 0.0, -0.3],
+            [-0.5, 1.0, 0.3, 0.0, -0.4, 0.0],
+            [0.0, 0.0, -0.5, -0.3, 0.5, 0.2],
+        ],
+        dtype=dtype,
+    )
     eta = x @ true_W.T + np.array([0.3, -0.2, 0.1])
     eta -= eta.max(axis=1, keepdims=True)
     prob = np.exp(eta) / np.exp(eta).sum(axis=1, keepdims=True)
@@ -225,14 +272,26 @@ def test_multinomial_matches_sklearn(dtype):
     y = y_int.astype(dtype)
 
     model = ElasticNet(
-        alpha=alpha, l1_ratio=l1_ratio, family=LinearModelFamily.MULTINOMIAL,
-        max_iter=3000, abs_tol=1e-6, rel_tol=1e-6, min_iter=5, rho=1.0,
+        alpha=alpha,
+        l1_ratio=l1_ratio,
+        family=LinearModelFamily.MULTINOMIAL,
+        max_iter=3000,
+        abs_tol=1e-6,
+        rel_tol=1e-6,
+        min_iter=5,
+        rho=1.0,
     )
     model.fit(x, y)
 
     sk_model = SklearnLogisticRegression(
-        penalty="elasticnet", solver="saga", C=n / alpha, l1_ratio=l1_ratio,
-        max_iter=20000, tol=1e-4, fit_intercept=True, random_state=0,
+        penalty="elasticnet",
+        solver="saga",
+        C=n / alpha,
+        l1_ratio=l1_ratio,
+        max_iter=20000,
+        tol=1e-4,
+        fit_intercept=True,
+        random_state=0,
     )
     sk_model.fit(x, y_int)
 
@@ -243,6 +302,7 @@ def test_multinomial_matches_sklearn(dtype):
 # ---------------------------------------------------------------------------
 # Sample-weighted tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_weighted_gaussian_matches_sklearn(dtype):
@@ -255,12 +315,10 @@ def test_weighted_gaussian_matches_sklearn(dtype):
     sw = rng.uniform(0.2, 3.0, size=n).astype(dtype)
 
     alpha, l1_ratio = 0.08, 0.7
-    model = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, fit_intercept=True,
-                       family=LinearModelFamily.GAUSSIAN)
+    model = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, fit_intercept=True, family=LinearModelFamily.GAUSSIAN)
     model.fit(x, y, sample_weight=sw)
 
-    sk_model = SklearnElasticNet(alpha=alpha, l1_ratio=l1_ratio, fit_intercept=True,
-                                 max_iter=4000, tol=1e-8, selection="cyclic")
+    sk_model = SklearnElasticNet(alpha=alpha, l1_ratio=l1_ratio, fit_intercept=True, max_iter=4000, tol=1e-8, selection="cyclic")
     sk_model.fit(x, y, sample_weight=sw)
 
     assert_allclose(model.coef_, sk_model.coef_, rtol=8e-2, atol=3e-2)
@@ -284,14 +342,26 @@ def test_weighted_binomial_matches_sklearn(dtype):
     sw = rng.uniform(0.5, 2.0, size=n).astype(dtype)
 
     model = ElasticNet(
-        alpha=alpha, l1_ratio=l1_ratio, family=LinearModelFamily.BINOMIAL,
-        max_iter=3000, abs_tol=1e-6, rel_tol=1e-6, min_iter=5, rho=1.0,
+        alpha=alpha,
+        l1_ratio=l1_ratio,
+        family=LinearModelFamily.BINOMIAL,
+        max_iter=3000,
+        abs_tol=1e-6,
+        rel_tol=1e-6,
+        min_iter=5,
+        rho=1.0,
     )
     model.fit(x, y, sample_weight=sw)
 
     sk_model = SklearnLogisticRegression(
-        penalty="elasticnet", solver="saga", C=n / alpha, l1_ratio=l1_ratio,
-        max_iter=20000, tol=1e-10, fit_intercept=True, random_state=0,
+        penalty="elasticnet",
+        solver="saga",
+        C=n / alpha,
+        l1_ratio=l1_ratio,
+        max_iter=20000,
+        tol=1e-10,
+        fit_intercept=True,
+        random_state=0,
     )
     sk_model.fit(x, y, sample_weight=sw)
 
@@ -315,13 +385,22 @@ def test_weighted_poisson_l2_matches_sklearn(dtype):
     sw = rng.uniform(0.5, 2.0, size=n).astype(dtype)
 
     model = ElasticNet(
-        alpha=alpha_our, l1_ratio=l1_ratio, family=LinearModelFamily.POISSON,
-        max_iter=3000, abs_tol=1e-6, rel_tol=1e-6, min_iter=5, rho=1.0,
+        alpha=alpha_our,
+        l1_ratio=l1_ratio,
+        family=LinearModelFamily.POISSON,
+        max_iter=3000,
+        abs_tol=1e-6,
+        rel_tol=1e-6,
+        min_iter=5,
+        rho=1.0,
     )
     model.fit(x, y, sample_weight=sw)
 
     sk_model = SklearnPoissonRegressor(
-        alpha=alpha_our / n, max_iter=5000, tol=1e-10, fit_intercept=True,
+        alpha=alpha_our / n,
+        max_iter=5000,
+        tol=1e-10,
+        fit_intercept=True,
     )
     sk_model.fit(x, y, sample_weight=sw)
 
@@ -387,6 +466,7 @@ def test_predict_before_fit_raises():
 # ---------------------------------------------------------------------------
 # y-validation tests per family
 # ---------------------------------------------------------------------------
+
 
 def test_binomial_y_not_binary_raises():
     x = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
@@ -455,6 +535,7 @@ def test_multinomial_y_negative_raises():
 # ---------------------------------------------------------------------------
 # fitted_values tests
 # ---------------------------------------------------------------------------
+
 
 def test_fitted_values_before_fit_raises():
     model = ElasticNet()

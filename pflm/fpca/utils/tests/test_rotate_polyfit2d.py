@@ -67,7 +67,7 @@ def test_rotate_polyfit2d_bandwidth_nan(bad_type):
 @pytest.mark.parametrize("bad_type", ["2", [1], (2,), {"a": 1}])
 def test_rotate_polyfit2d_invalid_bandwidth_type(bad_type):
     x, y, w, new_x = _make_basic_inputs()
-    with pytest.raises(ValueError, match="bandwidth must be a numeric value"):
+    with pytest.raises(TypeError, match="bandwidth must be a numeric value"):
         rotate_polyfit2d(x, y, w, new_x, bandwidth=bad_type, kernel_type=KernelType.GAUSSIAN)
 
 
@@ -130,6 +130,16 @@ def test_rotate_polyfit2d_permutation_invariance():
     out_orig = rotate_polyfit2d(x, y, w, new_x, 1.0, KernelType.GAUSSIAN)
     out_perm = rotate_polyfit2d(x_shuffled, y_shuffled, w_shuffled, new_x, 1.0, KernelType.GAUSSIAN)
     assert_allclose(out_orig, out_perm)
+
+
+def test_rotate_polyfit2d_preserves_new_grid_order():
+    x, y, w, new_x = _make_basic_inputs(dtype=np.float64)
+    permuted_new_x = new_x[[1, 0]]
+
+    out_orig = rotate_polyfit2d(x, y, w, new_x, 1.0, KernelType.GAUSSIAN)
+    out_permuted = rotate_polyfit2d(x, y, w, permuted_new_x, 1.0, KernelType.GAUSSIAN)
+
+    assert_allclose(out_permuted, out_orig[[1, 0]])
 
 
 def test_rotate_polyfit2d_float32_path_and_kernel_enum():
