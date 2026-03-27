@@ -9,9 +9,15 @@ all:
 	@echo "  clean                clean pflm Meson build. Very rarely needed,"
 	@echo "  format               run code formatting tools"
 	@echo "                       since meson-python recompiles on import."
+	@echo "  docker-build         build the Linux dev Docker image"
+	@echo "  docker-shell         start an interactive shell in the Linux dev image"
+	@echo "  docker-test          run pytest in the Linux dev image"
 	@echo "  test                 run tests"
 
 .PHONY: all
+
+DOCKER_IMAGE ?= pflm-dev
+DOCKER_PYTHON_VERSION ?= 3.13
 
 dev: dev-meson
 
@@ -33,3 +39,12 @@ clean-meson:
 
 test:
 	pytest .
+
+docker-build:
+	docker build --build-arg PYTHON_VERSION=$(DOCKER_PYTHON_VERSION) -f Dockerfile.dev -t $(DOCKER_IMAGE) .
+
+docker-shell: docker-build
+	docker run --rm -it -v $(CURDIR):/work -w /work $(DOCKER_IMAGE) bash /work/tools/docker-dev-env.sh
+
+docker-test: docker-build
+	docker run --rm -v $(CURDIR):/work -w /work $(DOCKER_IMAGE) bash /work/tools/docker-dev-env.sh pytest . -v
