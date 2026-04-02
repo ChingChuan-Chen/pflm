@@ -33,47 +33,53 @@ jobs:
 
   ubuntu-tests:
     needs: ruff
-    uses: ./.github/workflows/_test-ubuntu.yml
+    uses: ./.github/workflows/_test.yml
     with:
       python-versions: '["3.12", "3.13"]'
+      os: "ubuntu-latest"
 
   ubuntu-tests-extended:
     needs: ruff
     if: startsWith(github.ref, 'refs/tags/')
-    uses: ./.github/workflows/_test-ubuntu.yml
+    uses: ./.github/workflows/_test.yml
     with:
       python-versions: '["3.10", "3.11"]'
+      os: "ubuntu-latest"
 
   windows-conda-tests:
     needs: ruff
-    uses: ./.github/workflows/_test-windows-conda.yml
+    uses: ./.github/workflows/_test.yml
     with:
       python-versions: '["3.12", "3.13"]'
+      os: "windows-latest"
 
   windows-conda-tests-extended:
     needs: ruff
     if: startsWith(github.ref, 'refs/tags/')
-    uses: ./.github/workflows/_test-windows-conda.yml
+    uses: ./.github/workflows/_test.yml
     with:
       python-versions: '["3.10", "3.11"]'
+      os: "windows-latest"
 
   build-linux:
     if: |
       needs.ubuntu-tests.result == 'success' &&
       (needs.ubuntu-tests-extended.result == 'success' || needs.ubuntu-tests-extended.result == 'skipped')
     needs: [ ubuntu-tests, ubuntu-tests-extended ]
-    uses: ./.github/workflows/_build-linux.yml
+    uses: ./.github/workflows/_build-wheels.yml
     with:
       python-versions: '["3.10", "3.11", "3.12", "3.13"]'
+      os: "ubuntu-latest"
 
   build-windows-conda:
     if: |
       needs.windows-conda-tests.result == 'success' &&
       (needs.windows-conda-tests-extended.result == 'success' || needs.windows-conda-tests-extended.result == 'skipped')
     needs: [ windows-conda-tests, windows-conda-tests-extended ]
-    uses: ./.github/workflows/_build-windows-conda.yml
+    uses: ./.github/workflows/_build-wheels.yml
     with:
       python-versions: '["3.10", "3.11", "3.12", "3.13"]'
+      os: "windows-latest"
 
   publish-to-pypi:
     name: "Publish Python distribution to PyPI"
@@ -90,7 +96,7 @@ jobs:
 
     steps:
     - name: Download all the dists
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         pattern: python-package-distributions-*
         merge-multiple: true
@@ -113,7 +119,7 @@ jobs:
 
     steps:
     - name: Download all the dists
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         pattern: python-package-distributions-*
         merge-multiple: true
