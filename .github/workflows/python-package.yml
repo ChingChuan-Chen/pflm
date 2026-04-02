@@ -69,6 +69,11 @@ jobs:
     steps:
     - uses: actions/checkout@v5
 
+    - name: Set up MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
     - name: Set up Miniconda with Python ${{ matrix.python-version }}
       uses: conda-incubator/setup-miniconda@v3
       with:

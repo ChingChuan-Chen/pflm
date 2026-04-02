@@ -296,7 +296,7 @@ cdef void polyfit2d_helper(
     cdef int64_t j
     # DGELSS requires ldb >= max(m, n); when n_rows < num_lx_cols the system is
     # underdetermined and the solution occupies num_lx_cols entries in B.
-    cdef int ly_ldb = <int> n_rows if <int> n_rows >= num_lx_cols else num_lx_cols
+    cdef int ly_ldb = <int> n_rows if n_rows >= num_lx_cols else <int> num_lx_cols
     cdef floating *lx = <floating*> malloc(n_rows * num_lx_cols * sizeof(floating))
     cdef floating *ly = <floating*> malloc(ly_ldb * sizeof(floating))
     if (not lx) or (not ly):
