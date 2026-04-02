@@ -58,14 +58,20 @@ jobs:
       python-versions: '["3.10", "3.11"]'
 
   build-linux:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: |
+      startsWith(github.ref, 'refs/tags/') &&
+      needs.ubuntu-tests.result == 'success' &&
+      (needs.ubuntu-tests-extended.result == 'success' || needs.ubuntu-tests-extended.result == 'skipped')
     needs: [ ubuntu-tests, ubuntu-tests-extended ]
     uses: ./.github/workflows/_build-linux.yml
     with:
       python-versions: '["3.10", "3.11", "3.12", "3.13"]'
 
   build-windows-conda:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: |
+      startsWith(github.ref, 'refs/tags/') &&
+      needs.windows-conda-tests.result == 'success' &&
+      (needs.windows-conda-tests-extended.result == 'success' || needs.windows-conda-tests-extended.result == 'skipped')
     needs: [ windows-conda-tests, windows-conda-tests-extended ]
     uses: ./.github/workflows/_build-windows-conda.yml
     with:
