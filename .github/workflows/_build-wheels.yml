@@ -40,7 +40,6 @@ jobs:
       uses: conda-incubator/setup-miniconda@v3
       with:
         activate-environment: pflm-build
-        auto-activate-base: false
         channels: conda-forge,defaults
         python-version: ${{ matrix.python-version }}
 

@@ -46,14 +46,14 @@ jobs:
       python-versions: '["3.10", "3.11"]'
       os: "ubuntu-latest"
 
-  windows-conda-tests:
+  windows-tests:
     needs: ruff
     uses: ./.github/workflows/_test.yml
     with:
       python-versions: '["3.12", "3.13"]'
       os: "windows-latest"
 
-  windows-conda-tests-extended:
+  windows-tests-extended:
     needs: ruff
     if: startsWith(github.ref, 'refs/tags/')
     uses: ./.github/workflows/_test.yml
@@ -62,29 +62,39 @@ jobs:
       os: "windows-latest"
 
   build-linux:
-    if: |
-      needs.ubuntu-tests.result == 'success' &&
-      (needs.ubuntu-tests-extended.result == 'success' || needs.ubuntu-tests-extended.result == 'skipped')
     needs: [ ubuntu-tests, ubuntu-tests-extended ]
     uses: ./.github/workflows/_build-wheels.yml
     with:
-      python-versions: '["3.10", "3.11", "3.12", "3.13"]'
+      python-versions: '["3.12", "3.13"]'
       os: "ubuntu-latest"
 
-  build-windows-conda:
-    if: |
-      needs.windows-conda-tests.result == 'success' &&
-      (needs.windows-conda-tests-extended.result == 'success' || needs.windows-conda-tests-extended.result == 'skipped')
-    needs: [ windows-conda-tests, windows-conda-tests-extended ]
+  build-linux-extended:
+    needs: [ ubuntu-tests-extended ]
+    if: startsWith(github.ref, 'refs/tags/')
     uses: ./.github/workflows/_build-wheels.yml
     with:
-      python-versions: '["3.10", "3.11", "3.12", "3.13"]'
+      python-versions: '["3.10", "3.11"]'
+      os: "ubuntu-latest"
+
+  build-windows:
+    needs: [ windows-tests, windows-tests-extended ]
+    uses: ./.github/workflows/_build-wheels.yml
+    with:
+      python-versions: '["3.12", "3.13"]'
+      os: "windows-latest"
+
+  build-windows-extended:
+    needs: [ windows-tests-extended ]
+    if: startsWith(github.ref, 'refs/tags/')
+    uses: ./.github/workflows/_build-wheels.yml
+    with:
+      python-versions: '["3.10", "3.11"]'
       os: "windows-latest"
 
   publish-to-pypi:
     name: "Publish Python distribution to PyPI"
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [ build-linux, build-windows-conda ]
+    needs: [ build-linux, build-windows, build-linux-extended, build-windows-extended ]
     runs-on: ubuntu-latest
 
     environment:
@@ -107,7 +117,7 @@ jobs:
 
   publish-to-testpypi:
     name: "Publish Python distribution to TestPyPI"
-    needs: [ build-linux, build-windows-conda ]
+    needs: [ build-linux, build-windows ]
     runs-on: ubuntu-latest
 
     environment:
