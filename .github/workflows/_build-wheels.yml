@@ -64,7 +64,7 @@ jobs:
         conda run -n pflm-build python -m build --no-isolation --wheel
 
     - name: Store distribution packages
-      uses: actions/upload-artifact@v8
+      uses: actions/upload-artifact@v7
       with:
         name: python-package-distributions-${{ inputs.os }}-py${{ matrix.python-version }}
         path: dist/
