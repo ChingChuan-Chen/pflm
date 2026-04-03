@@ -62,7 +62,7 @@ jobs:
       os: "windows-latest"
 
   build-linux:
-    needs: [ ubuntu-tests, ubuntu-tests-extended ]
+    needs: [ ubuntu-tests ]
     uses: ./.github/workflows/_build-wheels.yml
     with:
       python-versions: '["3.12", "3.13"]'
@@ -77,7 +77,7 @@ jobs:
       os: "ubuntu-latest"
 
   build-windows:
-    needs: [ windows-tests, windows-tests-extended ]
+    needs: [ windows-tests ]
     uses: ./.github/workflows/_build-wheels.yml
     with:
       python-versions: '["3.12", "3.13"]'
