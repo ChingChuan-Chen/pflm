@@ -1,3 +1,7 @@
+
+# Authors: Ching-Chuan Chen
+# SPDX-License-Identifier: MIT
+
 import numpy as np
 cimport numpy as np
 from cython cimport floating

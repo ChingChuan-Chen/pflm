@@ -1,14 +1,16 @@
-import numpy as np
+"""ElasticNet linear model module."""
+
+# Authors: Ching-Chuan Chen
+# SPDX-License-Identifier: MIT
+
 from enum import Enum
+
+import numpy as np
 from sklearn.base import BaseEstimator, MultiOutputMixin, RegressorMixin
 from sklearn.utils._array_api import get_namespace_and_device, supported_float_dtypes
 from sklearn.utils.validation import check_array, check_is_fitted
-from typing import Tuple, Dict, Optional
-from pflm.pflm.utils import (
-    fit_gaussian_f32, fit_gaussian_f64,
-    fit_nongaussian_f32, fit_nongaussian_f64,
-    fit_multinomial_f32, fit_multinomial_f64,
-)
+
+from pflm.pflm.utils import fit_gaussian_f32, fit_gaussian_f64, fit_multinomial_f32, fit_multinomial_f64, fit_nongaussian_f32, fit_nongaussian_f64
 
 
 class LinearModelFamily(Enum):
@@ -98,22 +100,37 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
     """
 
     def __init__(
-        self, alpha: float = 1.0, l1_ratio: float = 0.5, fit_intercept: bool = True, family: LinearModelFamily = LinearModelFamily.GAUSSIAN,
-        power: float = 1.5, max_iter: int = 1000, rho: float = 1.0, abs_tol: float = 1e-4, rel_tol: float = 1e-5, min_iter: int = 3
+        self,
+        alpha: float = 1.0,
+        l1_ratio: float = 0.5,
+        fit_intercept: bool = True,
+        family: LinearModelFamily = LinearModelFamily.GAUSSIAN,
+        power: float = 1.5,
+        max_iter: int = 1000,
+        rho: float = 1.0,
+        abs_tol: float = 1e-4,
+        rel_tol: float = 1e-5,
+        min_iter: int = 3,
     ):
         if alpha < 0:
-            raise ValueError('alpha must be non-negative.')
+            raise ValueError("alpha must be non-negative.")
         if not (0.0 <= l1_ratio <= 1.0):
-            raise ValueError('l1_ratio must be between 0 and 1.')
+            raise ValueError("l1_ratio must be between 0 and 1.")
         self.alpha: float = alpha
         self.l1_ratio: float = l1_ratio
         self.fit_intercept: bool = fit_intercept if family == LinearModelFamily.GAUSSIAN else False
         self.max_iter: int = max_iter
         self.family: LinearModelFamily = family
-        _valid = {LinearModelFamily.GAUSSIAN, LinearModelFamily.BINOMIAL, LinearModelFamily.POISSON,
-                  LinearModelFamily.GAMMA, LinearModelFamily.TWEEDIE, LinearModelFamily.MULTINOMIAL}
+        _valid = {
+            LinearModelFamily.GAUSSIAN,
+            LinearModelFamily.BINOMIAL,
+            LinearModelFamily.POISSON,
+            LinearModelFamily.GAMMA,
+            LinearModelFamily.TWEEDIE,
+            LinearModelFamily.MULTINOMIAL,
+        }
         if self.family not in _valid:
-            raise ValueError('Invalid family')
+            raise ValueError("Invalid family")
         self.power: float = power
         self.rho: float = rho
         self.abs_tol: float = abs_tol
@@ -122,8 +139,8 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
 
     @staticmethod
     def preprocess_data(
-        X: np.ndarray, y: np.ndarray, weight: Optional[np.ndarray], family: LinearModelFamily, fit_intercept: bool
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        X: np.ndarray, y: np.ndarray, weight: np.ndarray | None, family: LinearModelFamily, fit_intercept: bool
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Centre data for the Gaussian-with-intercept case.
 
         When ``family`` is ``GAUSSIAN`` and ``fit_intercept`` is ``True``, subtract the (optionally weighted) column
@@ -158,11 +175,11 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
 
         # Validate and normalise sample weights (sum → n)
         if weight.shape[0] != n:
-            raise ValueError('sample_weight must have the same length as y.')
+            raise ValueError("sample_weight must have the same length as y.")
         if np.any(weight < 0):
-            raise ValueError('sample_weight cannot contain negative values.')
+            raise ValueError("sample_weight cannot contain negative values.")
         if np.sum(weight) == 0:
-            raise ValueError('At least one sample_weight must be positive.')
+            raise ValueError("At least one sample_weight must be positive.")
         weight = weight * (n / weight.sum())
 
         if fit_intercept:
@@ -218,7 +235,9 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
         xp, *_ = get_namespace_and_device(X, y, sample_weight)
         X = check_array(X, ensure_2d=True, dtype=supported_float_dtypes(xp))
         y = check_array(y, ensure_2d=False, dtype=X.dtype)
-        sample_weight = check_array(sample_weight, ensure_2d=False, dtype=X.dtype) if sample_weight is not None else np.ones(X.shape[0], dtype=X.dtype)
+        sample_weight = (
+            check_array(sample_weight, ensure_2d=False, dtype=X.dtype) if sample_weight is not None else np.ones(X.shape[0], dtype=X.dtype)
+        )
 
         self._input_dtype = X.dtype
 
@@ -227,21 +246,21 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
         if self.family == LinearModelFamily.BINOMIAL:
             unique = np.unique(y_arr)
             if not np.all(np.isin(unique, [0, 1])):
-                raise ValueError('For BINOMIAL family, y must contain only 0 and 1.')
+                raise ValueError("For BINOMIAL family, y must contain only 0 and 1.")
         elif self.family == LinearModelFamily.POISSON:
             if np.any(y_arr < 0):
-                raise ValueError('For POISSON family, y must be non-negative.')
+                raise ValueError("For POISSON family, y must be non-negative.")
         elif self.family == LinearModelFamily.GAMMA:
             if np.any(y_arr <= 0):
-                raise ValueError('For GAMMA family, y must be strictly positive.')
+                raise ValueError("For GAMMA family, y must be strictly positive.")
         elif self.family == LinearModelFamily.TWEEDIE:
             if np.any(y_arr < 0):
-                raise ValueError('For TWEEDIE family, y must be non-negative.')
+                raise ValueError("For TWEEDIE family, y must be non-negative.")
         elif self.family == LinearModelFamily.MULTINOMIAL:
             if np.any(y_arr < 0) or not np.all(y_arr == np.floor(y_arr)):
-                raise ValueError('For MULTINOMIAL family, y must be non-negative integers.')
+                raise ValueError("For MULTINOMIAL family, y must be non-negative integers.")
             if len(np.unique(y_arr)) < 2:
-                raise ValueError('For MULTINOMIAL family, y must contain at least 2 classes.')
+                raise ValueError("For MULTINOMIAL family, y must contain at least 2 classes.")
 
         # Store fitted data
         self.X_ = X
@@ -251,8 +270,11 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
 
         # Preprocess the data (center if fit_intercept is True and family is 'gaussian')
         self.preprocess_X_, self.preprocess_y_, self.preprocess_weight_, self.X_offset, self.y_offset = ElasticNet.preprocess_data(
-            X.copy().astype(self._input_dtype), y.copy().astype(self._input_dtype),
-            weight=sample_weight, family=self.family, fit_intercept=self.fit_intercept
+            X.copy().astype(self._input_dtype),
+            y.copy().astype(self._input_dtype),
+            weight=sample_weight,
+            family=self.family,
+            fit_intercept=self.fit_intercept,
         )
 
         # Map sklearn-style (alpha, l1_ratio) → solver-level (l1_reg, l2_reg):
@@ -264,20 +286,46 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, BaseEstimator):
         if self.family == LinearModelFamily.GAUSSIAN:
             _fit = fit_gaussian_f32 if self._input_dtype == np.float32 else fit_gaussian_f64
             coef_out, self.n_iter = _fit(
-                self.preprocess_X_, self.preprocess_y_, self.preprocess_weight_, l1_reg, l2_reg,
-                self.rho, self.max_iter, self.abs_tol, self.rel_tol, self.min_iter
+                self.preprocess_X_,
+                self.preprocess_y_,
+                self.preprocess_weight_,
+                l1_reg,
+                l2_reg,
+                self.rho,
+                self.max_iter,
+                self.abs_tol,
+                self.rel_tol,
+                self.min_iter,
             )
         elif self.family == LinearModelFamily.MULTINOMIAL:
             _fit = fit_multinomial_f32 if self._input_dtype == np.float32 else fit_multinomial_f64
             coef_out, self.n_iter = _fit(
-                self.preprocess_X_, self.preprocess_y_, self.preprocess_weight_,
-                l1_reg, l2_reg, self.rho, self.max_iter, self.abs_tol, self.rel_tol, self.min_iter
+                self.preprocess_X_,
+                self.preprocess_y_,
+                self.preprocess_weight_,
+                l1_reg,
+                l2_reg,
+                self.rho,
+                self.max_iter,
+                self.abs_tol,
+                self.rel_tol,
+                self.min_iter,
             )
         else:
             _fit = fit_nongaussian_f32 if self._input_dtype == np.float32 else fit_nongaussian_f64
             coef_out, self.n_iter = _fit(
-                self.preprocess_X_, self.preprocess_y_, self.preprocess_weight_, self.family.value, self.power,
-                l1_reg, l2_reg, self.rho, self.max_iter, self.abs_tol, self.rel_tol, self.min_iter
+                self.preprocess_X_,
+                self.preprocess_y_,
+                self.preprocess_weight_,
+                self.family.value,
+                self.power,
+                l1_reg,
+                l2_reg,
+                self.rho,
+                self.max_iter,
+                self.abs_tol,
+                self.rel_tol,
+                self.min_iter,
             )
 
         self.coef_ = coef_out

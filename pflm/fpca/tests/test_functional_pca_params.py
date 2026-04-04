@@ -27,7 +27,7 @@ class TestFunctionalPCAMuCovParamsValidation:
             FunctionalPCAMuCovParams(estimate_method=bad_method)
 
     def test_kernel_type_invalid(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             # pass a wrong type instead of KernelType enum
             FunctionalPCAMuCovParams(kernel_type=123)  # type: ignore[arg-type]
 
@@ -43,17 +43,17 @@ class TestFunctionalPCAMuCovParamsValidation:
 
     @pytest.mark.parametrize("bad_bool", [0, 1, "x"])
     def test_apply_geo_avg_cov_bw_type(self, bad_bool):
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             FunctionalPCAMuCovParams(apply_geo_avg_cov_bw=bad_bool)  # type: ignore[arg-type]
 
     @pytest.mark.parametrize("bad", [0, -1, 2.5, "10"])
     def test_cv_folds_mu_invalid(self, bad):
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             FunctionalPCAMuCovParams(cv_folds_mu=bad)  # type: ignore[arg-type]
 
     @pytest.mark.parametrize("bad", [0, -1, 2.5, "10"])
     def test_cv_folds_cov_invalid(self, bad):
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             FunctionalPCAMuCovParams(cv_folds_cov=bad)  # type: ignore[arg-type]
 
     @pytest.mark.parametrize("bad_seed", [-1, 3.14, "7"])
@@ -153,7 +153,7 @@ class TestFunctionalPCAAPIAndHyperParamChecks:
     def test_check_fit_params_method_select_num_pcs_type_and_value(self):
         fpca = FunctionalPCA()
         # wrong type
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             fpca._FunctionalPCA__check_fit_params(
                 "CE",
                 method_select_num_pcs=3.14,
@@ -165,7 +165,7 @@ class TestFunctionalPCAAPIAndHyperParamChecks:
                 fve_threshold=0.99,
             )
         # bad int
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             fpca._FunctionalPCA__check_fit_params(
                 "CE",
                 method_select_num_pcs=0,
@@ -177,7 +177,7 @@ class TestFunctionalPCAAPIAndHyperParamChecks:
                 fve_threshold=0.99,
             )
         # bad str
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             fpca._FunctionalPCA__check_fit_params(
                 "CE",
                 method_select_num_pcs="BAD",
@@ -206,7 +206,7 @@ class TestFunctionalPCAAPIAndHyperParamChecks:
     @pytest.mark.parametrize("bad", [None, 0, -1, 3.14, "10"])
     def test_check_fit_params_max_num_pcs_invalid(self, bad):
         fpca = FunctionalPCA()
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             fpca._FunctionalPCA__check_fit_params(
                 "CE",
                 method_select_num_pcs="FVE",
@@ -221,7 +221,7 @@ class TestFunctionalPCAAPIAndHyperParamChecks:
     @pytest.mark.parametrize("bad_fve", [-0.1, 0.0, 1.1, "x"])
     def test_check_fit_params_fve_threshold_invalid(self, bad_fve):
         fpca = FunctionalPCA()
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             fpca._FunctionalPCA__check_fit_params(
                 "CE",
                 method_select_num_pcs="FVE",
@@ -236,16 +236,16 @@ class TestFunctionalPCAAPIAndHyperParamChecks:
     @pytest.mark.parametrize("flag_name", ["if_impute_scores", "if_shrinkage", "if_fit_eigen_values"])
     def test_check_fit_params_flags_type(self, flag_name):
         fpca = FunctionalPCA()
-        kwargs = dict(
-            method_pcs="CE",
-            method_select_num_pcs="FVE",
-            method_rho="vanilla",
-            max_num_pcs=10,
-            if_impute_scores=True,
-            if_shrinkage=False,
-            if_fit_eigen_values=False,
-            fve_threshold=0.99,
-        )
+        kwargs = {
+            "method_pcs": "CE",
+            "method_select_num_pcs": "FVE",
+            "method_rho": "vanilla",
+            "max_num_pcs": 10,
+            "if_impute_scores": True,
+            "if_shrinkage": False,
+            "if_fit_eigen_values": False,
+            "fve_threshold": 0.99,
+        }
         kwargs[flag_name] = "x"  # wrong type
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             fpca._FunctionalPCA__check_fit_params(**kwargs)

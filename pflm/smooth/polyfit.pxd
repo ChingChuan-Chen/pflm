@@ -1,3 +1,7 @@
+
+# Authors: Ching-Chuan Chen
+# SPDX-License-Identifier: MIT
+
 from cython cimport floating
 
 cdef double half_pi

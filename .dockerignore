@@ -1,0 +1,14 @@
+.git
+.github
+.pytest_cache
+.ruff_cache
+.venv
+.conda
+__pycache__
+*.py[cod]
+*.so
+*.pyd
+build
+dev
+dist
+doc/build

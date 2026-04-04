@@ -37,8 +37,9 @@ extensions = [
     'sphinx_copybutton',
 ]
 
-templates_path = ['_templates']
-html_static_path = ['_static']
+_HERE = os.path.abspath(os.path.dirname(__file__))
+templates_path = ['_templates'] if os.path.isdir(os.path.join(_HERE, '_templates')) else []
+html_static_path = ['_static'] if os.path.isdir(os.path.join(_HERE, '_static')) else []
 exclude_patterns = ['_build']
 language = 'en'
 

@@ -18,6 +18,17 @@ class KernelType(Enum):
     0
     """
 
+    @classmethod
+    def coerce(cls, value, *, param_name: str = "kernel"):
+        """Return a validated ``KernelType`` from an enum member or raw value."""
+        if isinstance(value, cls):
+            return value
+
+        try:
+            return cls(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{param_name} must be one of {list(cls)}.") from exc
+
     GAUSSIAN = 0
     LOGISTIC = 1
     SIGMOID = 2

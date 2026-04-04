@@ -124,30 +124,19 @@ ignore=[
     "Q003",
     "COM812",
     "COM819",
+    "UP045", # Use `X | None` for optional types instead of `Optional[X]`
 ]
 
 [tool.ruff.lint.flake8-copyright]
 notice-rgx = "\\#\\ Authors:[^\r]+\\\r?\\\n\\#\\ SPDX\\-License\\-Identifier:\\ MIT"
 
 [tool.ruff.lint.per-file-ignores]
-# It's fine not to put the import at the top of the file in the examples folder.
-"examples/*"=["E402"]
 "doc/conf.py"=["E402"]
-"**/tests/*"=["CPY001"]
-"asv_benchmarks/*"=["CPY001"]
+"**/tests/*"=["CPY001", "RUF043"]
 "benchmarks/*"=["CPY001"]
 "doc/*"=["CPY001"]
-"build_tools/*"=["CPY001"]
-"sklearn/_build_utils/*"=["CPY001"]
-"maint_tools/*"=["CPY001"]
-".spin/*"=["CPY001"]
-".github/*"=["CPY001"]
-# __doc__ is too long (>4096 chars) and therefore false positive on copyright check
-"examples/model_selection/plot_precision_recall.py"=["CPY001"]
-"examples/svm/plot_rbf_parameters.py"=["CPY001"]
-# __all__ has un-imported names
-"sklearn/__init__.py"=["F822"]
-"sklearn/utils/_metadata_requests.py"=["CPY001"]
+"pflm/_build_utils/*"=["CPY001", "SIM115"]
+"pflm/__init__.py"=["PLE0605"]
 
 [tool.cython-lint]
 # Ignore the same error codes as ruff

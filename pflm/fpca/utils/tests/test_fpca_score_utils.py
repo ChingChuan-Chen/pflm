@@ -244,7 +244,7 @@ def test_get_fpca_in_score_fpca_phi_shape_mismatch(flatten_data):
 def test_get_fpca_in_score_fpca_bad_if_shrinkage(flatten_data, bad_value):
     ffd, mu = flatten_data
     fpca_phi = np.array([[0.8, 0.1], [0.6, 0.2], [0.1, 0.3]])
-    with pytest.raises(ValueError, match="if_shrinkage must be a boolean"):
+    with pytest.raises(TypeError, match="if_shrinkage must be a boolean"):
         get_fpca_in_score(ffd, mu, 2, np.array([[2.0, 1.0]]), fpca_phi, 0.5, bad_value)
 
 

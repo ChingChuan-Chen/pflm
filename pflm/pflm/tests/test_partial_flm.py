@@ -1,24 +1,20 @@
-import pytest
 import numpy as np
+import pytest
 from numpy.testing import assert_allclose
 from sklearn.exceptions import NotFittedError
 
-from pflm.fpca import FunctionalDataGenerator, FunctionalPCAMuCovParams
-from pflm.pflm.partial_flm import (
-    FPCAConfig,
-    PartialFunctionalLinearModel,
-)
+from pflm.fpca import FunctionalDataGenerator
+from pflm.pflm.partial_flm import FPCAConfig, PartialFunctionalLinearModel
 from pflm.pflm.utils import LinearModelFamily
 
 # Suppress numerical-noise eigenvalue warnings from FPCA on synthetic data
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:Eigenvalues contain.*:UserWarning"
-)
+pytestmark = pytest.mark.filterwarnings("ignore:Eigenvalues contain.*:UserWarning")
 
 
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
 
 def _generate_functional_data(n: int, nt: int = 51, seed: int = 42):
     """Generate one functional feature via FunctionalDataGenerator."""
@@ -45,13 +41,14 @@ def _make_pflm_data(n: int = 60, n_scalar: int = 3, seed: int = 0):
 # Smoke / integration tests
 # ---------------------------------------------------------------------------
 
+
 def test_pflm_gaussian_fit_predict():
     """Basic fit + predict round-trip for Gaussian family."""
     t_list, y_list, scalar, response = _make_pflm_data(n=60)
 
     model = PartialFunctionalLinearModel(
         family=LinearModelFamily.GAUSSIAN,
-        linear_opts=dict(alpha=0.1, l1_ratio=0.5),
+        linear_opts={"alpha": 0.1, "l1_ratio": 0.5},
     )
     model.fit([t_list], [y_list], scalar, response)
 
@@ -79,7 +76,7 @@ def test_pflm_gaussian_with_sample_weight():
 
     model = PartialFunctionalLinearModel(
         family=LinearModelFamily.GAUSSIAN,
-        linear_opts=dict(alpha=0.1, l1_ratio=0.5),
+        linear_opts={"alpha": 0.1, "l1_ratio": 0.5},
     )
     model.fit([t_list], [y_list], scalar, response, sample_weight=w)
     assert model.fitted_values().shape == (60,)
@@ -93,7 +90,7 @@ def test_pflm_binomial():
 
     model = PartialFunctionalLinearModel(
         family=LinearModelFamily.BINOMIAL,
-        linear_opts=dict(alpha=0.1, l1_ratio=0.5),
+        linear_opts={"alpha": 0.1, "l1_ratio": 0.5},
     )
     model.fit([t_list], [y_list], scalar, response)
     y_pred = model.predict([t_list], [y_list], scalar)
@@ -109,7 +106,7 @@ def test_pflm_poisson():
 
     model = PartialFunctionalLinearModel(
         family=LinearModelFamily.POISSON,
-        linear_opts=dict(alpha=0.1, l1_ratio=0.5),
+        linear_opts={"alpha": 0.1, "l1_ratio": 0.5},
     )
     model.fit([t_list], [y_list], scalar, response)
     y_pred = model.predict([t_list], [y_list], scalar)
@@ -125,7 +122,7 @@ def test_pflm_multinomial():
 
     model = PartialFunctionalLinearModel(
         family=LinearModelFamily.MULTINOMIAL,
-        linear_opts=dict(alpha=0.05, l1_ratio=0.5),
+        linear_opts={"alpha": 0.05, "l1_ratio": 0.5},
     )
     model.fit([t_list], [y_list], scalar, response)
     y_pred = model.predict([t_list], [y_list], scalar)
@@ -137,6 +134,7 @@ def test_pflm_multinomial():
 # Multiple functional features
 # ---------------------------------------------------------------------------
 
+
 def test_pflm_two_functional_features():
     """Fit with two independent functional features."""
     n = 60
@@ -147,7 +145,7 @@ def test_pflm_two_functional_features():
     response = rng.standard_normal(n)
 
     model = PartialFunctionalLinearModel(
-        linear_opts=dict(alpha=0.1, l1_ratio=0.5),
+        linear_opts={"alpha": 0.1, "l1_ratio": 0.5},
     )
     model.fit([t1, t2], [y1, y2], scalar, response)
     assert model.n_functional_features_in_ == 2
@@ -163,6 +161,7 @@ def test_pflm_two_functional_features():
 # FPCAConfig tests
 # ---------------------------------------------------------------------------
 
+
 def test_pflm_shared_fpca_config():
     """A single FPCAConfig is shared across all functional features."""
     n = 60
@@ -172,9 +171,9 @@ def test_pflm_shared_fpca_config():
     scalar = rng.standard_normal((n, 2))
     response = rng.standard_normal(n)
 
-    cfg = FPCAConfig(num_points_reg_grid=31, fit_params=dict(fve_threshold=0.95))
+    cfg = FPCAConfig(num_points_reg_grid=31, fit_params={"fve_threshold": 0.95})
     model = PartialFunctionalLinearModel(
-        linear_opts=dict(alpha=0.1, l1_ratio=0.5),
+        linear_opts={"alpha": 0.1, "l1_ratio": 0.5},
         fpca_configs=cfg,
     )
     model.fit([t1, t2], [y1, y2], scalar, response)
@@ -191,11 +190,11 @@ def test_pflm_per_feature_fpca_config():
     response = rng.standard_normal(n)
 
     cfgs = [
-        FPCAConfig(fit_params=dict(method_pcs="IN")),
-        FPCAConfig(fit_params=dict(method_pcs="CE", fve_threshold=0.95)),
+        FPCAConfig(fit_params={"method_pcs": "IN"}),
+        FPCAConfig(fit_params={"method_pcs": "CE", "fve_threshold": 0.95}),
     ]
     model = PartialFunctionalLinearModel(
-        linear_opts=dict(alpha=0.1, l1_ratio=0.5),
+        linear_opts={"alpha": 0.1, "l1_ratio": 0.5},
         fpca_configs=cfgs,
     )
     model.fit([t1, t2], [y1, y2], scalar, response)
@@ -205,6 +204,7 @@ def test_pflm_per_feature_fpca_config():
 # ---------------------------------------------------------------------------
 # Validation / error tests
 # ---------------------------------------------------------------------------
+
 
 def test_pflm_predict_before_fit_raises():
     """Calling predict before fit should raise NotFittedError."""
@@ -242,7 +242,7 @@ def test_pflm_predict_wrong_num_functional_raises():
     """predict with wrong number of functional features should raise."""
     t_list, y_list, scalar, response = _make_pflm_data(n=60)
     model = PartialFunctionalLinearModel(
-        linear_opts=dict(alpha=0.1, l1_ratio=0.5),
+        linear_opts={"alpha": 0.1, "l1_ratio": 0.5},
     )
     model.fit([t_list], [y_list], scalar, response)
     with pytest.raises(ValueError, match="does not match"):
@@ -253,7 +253,7 @@ def test_pflm_predict_wrong_num_scalar_raises():
     """predict with wrong number of scalar features should raise."""
     t_list, y_list, scalar, response = _make_pflm_data(n=60, n_scalar=3)
     model = PartialFunctionalLinearModel(
-        linear_opts=dict(alpha=0.1, l1_ratio=0.5),
+        linear_opts={"alpha": 0.1, "l1_ratio": 0.5},
     )
     model.fit([t_list], [y_list], scalar, response)
     bad_scalar = np.zeros((60, 5))
@@ -265,11 +265,12 @@ def test_pflm_predict_wrong_num_scalar_raises():
 # fitted_values consistency
 # ---------------------------------------------------------------------------
 
+
 def test_pflm_fitted_values_matches_predict():
     """fitted_values() should match predict() on the training data."""
     t_list, y_list, scalar, response = _make_pflm_data(n=60)
     model = PartialFunctionalLinearModel(
-        linear_opts=dict(alpha=0.1, l1_ratio=0.5),
+        linear_opts={"alpha": 0.1, "l1_ratio": 0.5},
     )
     model.fit([t_list], [y_list], scalar, response)
     fv = model.fitted_values()

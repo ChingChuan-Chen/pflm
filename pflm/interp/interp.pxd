@@ -1,3 +1,7 @@
+
+# Authors: Ching-Chuan Chen
+# SPDX-License-Identifier: MIT
+
 from cython cimport floating
 from libc.stdint cimport uint64_t
 

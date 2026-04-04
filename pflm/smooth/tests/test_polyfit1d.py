@@ -437,19 +437,16 @@ def test_polyfit1d_kernel_type_invalid():
 
 
 def test_polyfit1d_degree_non_positive():
-    x, y, w, x_new = make_test_inputs()
     with pytest.raises(ValueError, match="Degree of polynomial, degree, should be positive"):
         Polyfit1DModel(degree=0)
 
 
 def test_polyfit1d_deriv_negative():
-    x, y, w, x_new = make_test_inputs()
     with pytest.raises(ValueError, match="Order of derivative, deriv, should be positive"):
         Polyfit1DModel(deriv=-1)
 
 
 def test_polyfit1d_degree_less_than_deriv():
-    x, y, w, x_new = make_test_inputs()
     with pytest.raises(ValueError, match="Degree of polynomial, degree, should be greater than or equal to order of derivative, deriv"):
         Polyfit1DModel(degree=1, deriv=2)
 
@@ -536,7 +533,7 @@ def test_polyfit1d_model_predict_2d_input():
 
 
 def test_polyfit1d_model_predict_without_fit():
-    x, y, w, x_new = make_test_inputs()
+    _, _, _, x_new = make_test_inputs()
     model = Polyfit1DModel()
     with pytest.raises(ValueError, match="This .* instance is not fitted yet|Model must be fitted"):
         model.predict(x_new)
@@ -609,7 +606,7 @@ def test_polyfit1d_model_bad_num_points_reg_grid(bad_num):
 
 
 def test_polyfit1d_wrong_interp_kind():
-    x, y, w, x_new = make_test_inputs()
+    _, _, _, _ = make_test_inputs()
     with pytest.raises(ValueError, match="interp_kind must be one of"):
         model = Polyfit1DModel(interp_kind="invalid")
 

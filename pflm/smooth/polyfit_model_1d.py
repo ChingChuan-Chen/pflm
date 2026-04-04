@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 
 import math
-from typing import List, Literal, Optional, Tuple, Union
+from typing import Literal
 
 import numpy as np
 from sklearn.base import BaseEstimator, RegressorMixin
@@ -81,7 +81,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         degree: int = 1,
         deriv: int = 0,
         interp_kind: Literal["linear", "spline"] = "linear",
-        random_seed: Optional[int] = None,
+        random_seed: int | None = None,
     ) -> None:
         """Initialize the 1D polynomial model.
 
@@ -93,8 +93,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         interp_kind : {"linear", "spline"}, default="linear"
         random_seed : int, optional
         """
-        if kernel_type not in KernelType:
-            raise ValueError(f"kernel must be one of {list(KernelType)}.")
+        kernel_type = KernelType.coerce(kernel_type, param_name="kernel")
         if degree is None or not isinstance(degree, int):
             raise TypeError("Degree of polynomial, degree, should be an integer.")
         if deriv is None or not isinstance(deriv, int):
@@ -228,7 +227,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         self,
         num_bw_candidates: int = 21,
         method: Literal["cv", "gcv"] = "gcv",
-        custom_bw_candidates: Optional[np.ndarray] = None,
+        custom_bw_candidates: np.ndarray | None = None,
         cv_folds: int = 5,
     ) -> np.floating:
         """Select bandwidth via CV or GCV.
@@ -285,15 +284,15 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
 
     def fit(
         self,
-        X: Union[np.ndarray, List[float]],
-        y: Union[np.ndarray, List[float]],
-        sample_weight: Optional[Union[np.ndarray, List[float]]] = None,
-        bandwidth: Optional[float] = None,
-        reg_grid: Optional[Union[np.ndarray, List[float]]] = None,
+        X: np.ndarray | list[float],
+        y: np.ndarray | list[float],
+        sample_weight: np.ndarray | list[float] | None = None,
+        bandwidth: float | None = None,
+        reg_grid: np.ndarray | list[float] | None = None,
         num_bw_candidates: int = 21,
         bandwidth_selection_method: Literal["cv", "gcv"] = "gcv",
         num_points_reg_grid: int = 100,
-        custom_bw_candidates: Optional[np.ndarray] = None,
+        custom_bw_candidates: np.ndarray | None = None,
         cv_folds: int = 5,
     ) -> "Polyfit1DModel":
         """Fit the 1D local polynomial model with kernel smoothing.
@@ -345,12 +344,10 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         if num_bw_candidates < 2:
             raise ValueError("Number of bandwidth candidates, num_bw_candidates, should be at least 2.")
 
-        if reg_grid is None:
-            if num_points_reg_grid is None or not isinstance(num_points_reg_grid, int):
-                raise TypeError("Number of points for interpolation grid, num_points_reg_grid, should be an integer.")
-        if bandwidth_selection_method == "cv":
-            if cv_folds is None or not isinstance(cv_folds, int):
-                raise TypeError("Number of cross-validation folds, cv_folds, should be an integer.")
+        if reg_grid is None and (num_points_reg_grid is None or not isinstance(num_points_reg_grid, int)):
+            raise TypeError("Number of points for interpolation grid, num_points_reg_grid, should be an integer.")
+        if bandwidth_selection_method == "cv" and (cv_folds is None or not isinstance(cv_folds, int)):
+            raise TypeError("Number of cross-validation folds, cv_folds, should be an integer.")
 
         xp, *_ = get_namespace_and_device(X, y, sample_weight)
 
@@ -414,7 +411,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
             self.reg_grid_ = np.linspace(x_min, x_max, num_points_reg_grid, dtype=self._input_dtype)
 
         # create obs_grid_
-        self.obs_grid_, self.obs_grid_idx_ = np.unique(self.sorted_X_, return_inverse=True, sorted=True)
+        self.obs_grid_, self.obs_grid_idx_ = np.unique(self.sorted_X_, return_inverse=True)
 
         # Select bandwidth if needed
         if bandwidth is None:
@@ -449,7 +446,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
 
         return self
 
-    def predict(self, X: Union[np.ndarray, List[float]], use_model_interp: bool = True) -> np.ndarray:
+    def predict(self, X: np.ndarray | list[float], use_model_interp: bool = True) -> np.ndarray:
         """Predict responses at new inputs.
 
         Parameters
@@ -516,7 +513,7 @@ class Polyfit1DModel(BaseEstimator, RegressorMixin):
         check_is_fitted(self, ["reg_fitted_values_", "reg_grid_", "bandwidth_"])
         return self.reg_fitted_values_.copy()
 
-    def get_fitted_grids(self) -> Tuple[np.ndarray, np.ndarray]:
+    def get_fitted_grids(self) -> tuple[np.ndarray, np.ndarray]:
         """Return interpolation grid and fitted values.
 
         Returns

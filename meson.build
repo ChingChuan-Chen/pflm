@@ -2,7 +2,11 @@ project(
     'pflm',
     'cpp',
     'cython',
-    version: run_command('pflm/_build_utils/version.py', check: true).stdout().strip(),
+    version: run_command(
+        find_program('python'),
+        'pflm/_build_utils/version.py',
+        check: true,
+    ).stdout().strip(),
     license: 'MIT',
     meson_version: '>= 1.5.0',
     default_options: [

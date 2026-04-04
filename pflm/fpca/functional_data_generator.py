@@ -7,8 +7,8 @@ correlation structure, with FPCA to draw low‑rank samples on a grid.
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 
+from collections.abc import Callable
 from math import sqrt
-from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 from scipy.special import j0
@@ -88,7 +88,7 @@ class FunctionalDataGenerator:
         var_func: Callable[[np.ndarray], np.ndarray],
         corr_func: Callable[[np.ndarray], np.ndarray] = j0,
         variation_prop_thresh: float = 0.999999,
-        num_pcs: Optional[int] = None,
+        num_pcs: int | None = None,
         error_var: float = 1.0,
     ):
         """Initialize the generator and validate basic inputs.
@@ -129,8 +129,8 @@ class FunctionalDataGenerator:
                 raise ValueError("num_pcs must be a positive integer between 1 and length of t.")
         self.variation_prop_thresh: float = variation_prop_thresh
         self.error_var: float = error_var
-        self._num_pcs: Optional[int] = num_pcs
-        self._fpca_phi: Optional[np.ndarray] = None
+        self._num_pcs: int | None = num_pcs
+        self._fpca_phi: np.ndarray | None = None
 
     def __calculate_fpca_phi(self):
         """Compute and cache FPCA eigenfunctions on the provided grid.
@@ -203,7 +203,7 @@ class FunctionalDataGenerator:
             self.__calculate_fpca_phi()
         return self._num_pcs
 
-    def generate(self, n: int, seed: Optional[int] = None) -> np.ndarray:
+    def generate(self, n: int, seed: int | None = None) -> np.ndarray:
         """Generate functional data samples.
 
         Parameters
@@ -247,8 +247,8 @@ class FunctionalDataGenerator:
 
     @staticmethod
     def make_missing(
-        y: List[np.ndarray], t: List[np.ndarray], missing_number: int, seed: Optional[int] = None
-    ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+        y: list[np.ndarray], t: list[np.ndarray], missing_number: int, seed: int | None = None
+    ) -> tuple[list[np.ndarray], list[np.ndarray]]:
         """Introduce missing values into each functional sample.
 
         Parameters

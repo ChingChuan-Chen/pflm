@@ -3,7 +3,7 @@
 # Authors: Ching-Chuan Chen
 # SPDX-License-Identifier: MIT
 from dataclasses import dataclass
-from typing import Dict, Literal, Optional, Union
+from typing import Literal
 
 import numpy as np
 
@@ -101,16 +101,16 @@ class FpcaModelParams:
     """
 
     measurement_error_variance: float
-    eigen_results: Dict[str, np.ndarray]
-    select_num_pcs_criterion: Optional[np.ndarray] = None
-    fpca_lambda: Optional[np.ndarray] = None
-    fpca_phi: Optional[Dict[str, np.ndarray]] = None
-    fitted_covariance: Optional[Dict[str, np.ndarray]] = None
-    rho: Optional[float] = None
-    eigenvalue_fit: Optional[np.ndarray] = None
-    method_select_num_pcs: Optional[Union[int, Literal["FVE", "AIC", "BIC"]]] = None
-    max_num_pcs: Optional[int] = None
-    method_pcs: Optional[Literal["IN", "CE"]] = None
-    method_rho: Optional[Literal["truncated", "ridge", "vanilla"]] = None
-    if_shrinkage: Optional[bool] = None
-    fve_threshold: Optional[float] = None
+    eigen_results: dict[str, np.ndarray]
+    select_num_pcs_criterion: np.ndarray | None = None
+    fpca_lambda: np.ndarray | None = None
+    fpca_phi: dict[str, np.ndarray] | None = None
+    fitted_covariance: dict[str, np.ndarray] | None = None
+    rho: float | None = None
+    eigenvalue_fit: np.ndarray | None = None
+    method_select_num_pcs: int | Literal["FVE", "AIC", "BIC"] | None = None
+    max_num_pcs: int | None = None
+    method_pcs: Literal["IN", "CE"] | None = None
+    method_rho: Literal["truncated", "ridge", "vanilla"] | None = None
+    if_shrinkage: bool | None = None
+    fve_threshold: float | None = None

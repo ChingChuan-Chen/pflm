@@ -1,0 +1,80 @@
+name: "Tests (reusable)"
+
+on:
+  workflow_call:
+    inputs:
+      python-versions:
+        description: "JSON array of Python versions to test, e.g. '[\"3.12\", \"3.13\"]'"
+        required: true
+        type: string
+      os:
+        description: "Operating system to build for, e.g. 'windows-latest', 'ubuntu-latest', etc."
+        required: false
+        type: string
+        default: "ubuntu-latest"
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test:
+    name: "Test on ${{ inputs.os }} Python ${{ matrix.python-version }}"
+    runs-on: ${{ inputs.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ${{ fromJSON(inputs.python-versions) }}
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+
+    - name: Set up MSVC
+      if: ${{ inputs.os == 'windows-latest' }}
+      uses: TheMrMilchmann/setup-msvc-dev@v4
+      with:
+        arch: x64
+
+    - name: Set up Miniconda with Python ${{ matrix.python-version }}
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        activate-environment: pflm-test
+        channels: conda-forge,defaults
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies (Linux)
+      if: ${{ inputs.os == 'ubuntu-latest' }}
+      shell: bash
+      run: |
+        conda run -n pflm-test python -m pip install --upgrade pip
+        conda run -n pflm-test python -m pip install "meson-python>=0.17.1" "meson>=1.3" "ninja" "Cython>=3.0.10" "numpy>=1.22.0" "scipy>=1.14.0"
+        conda run -n pflm-test python -m pip install .[tests]
+        conda run -n pflm-test python -m pip uninstall -y pflm
+        conda run -n pflm-test python -m pip install --verbose --no-build-isolation --editable . \
+          --config-settings editable-verbose=true \
+          --config-settings build-dir=build/gha-conda-${{ runner.os }}-${{ matrix.python-version }}
+
+    - name: Install dependencies (Windows)
+      if: ${{ inputs.os == 'windows-latest' }}
+      shell: pwsh
+      run: |
+        conda run -n pflm-test python -m pip install --upgrade pip
+        conda run -n pflm-test python -m pip install "meson-python>=0.17.1" "meson>=1.3" "ninja" "Cython>=3.0.10" "numpy>=1.22.0" "scipy>=1.14.0"
+        conda run -n pflm-test python -m pip install .[tests]
+        conda run -n pflm-test python -m pip uninstall -y pflm
+        conda run -n pflm-test python -m pip install --verbose --no-build-isolation --editable . `
+          --config-settings editable-verbose=true `
+          --config-settings build-dir=build/gha-conda-${{ runner.os }}-${{ matrix.python-version }}
+
+    - name: Test with pytest (Linux)
+      if: ${{ inputs.os == 'ubuntu-latest' }}
+      shell: bash
+      run: |
+        conda run -n pflm-test python -m pytest . -v
+
+    - name: Test with pytest (Windows)
+      if: ${{ inputs.os == 'windows-latest' }}
+      shell: pwsh
+      run: |
+        conda run -n pflm-test python -m pytest . -v

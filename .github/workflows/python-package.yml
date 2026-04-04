@@ -1,0 +1,148 @@
+name: Python CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "*" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.13"
+
+    - name: Install ruff
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install ruff>=0.11.7
+
+    - name: Ruff check
+      run: |
+        ruff check pflm
+
+  ubuntu-tests:
+    needs: ruff
+    uses: ./.github/workflows/_test.yml
+    with:
+      python-versions: '["3.12", "3.13"]'
+      os: "ubuntu-latest"
+
+  ubuntu-tests-extended:
+    needs: ruff
+    if: startsWith(github.ref, 'refs/tags/')
+    uses: ./.github/workflows/_test.yml
+    with:
+      python-versions: '["3.10", "3.11"]'
+      os: "ubuntu-latest"
+
+  windows-tests:
+    needs: ruff
+    uses: ./.github/workflows/_test.yml
+    with:
+      python-versions: '["3.12", "3.13"]'
+      os: "windows-latest"
+
+  windows-tests-extended:
+    needs: ruff
+    if: startsWith(github.ref, 'refs/tags/')
+    uses: ./.github/workflows/_test.yml
+    with:
+      python-versions: '["3.10", "3.11"]'
+      os: "windows-latest"
+
+  build-linux:
+    needs: [ ubuntu-tests ]
+    uses: ./.github/workflows/_build-wheels.yml
+    with:
+      python-versions: '["3.12", "3.13"]'
+      os: "ubuntu-latest"
+
+  build-linux-extended:
+    needs: [ ubuntu-tests-extended ]
+    if: startsWith(github.ref, 'refs/tags/')
+    uses: ./.github/workflows/_build-wheels.yml
+    with:
+      python-versions: '["3.10", "3.11"]'
+      os: "ubuntu-latest"
+
+  build-windows:
+    needs: [ windows-tests ]
+    uses: ./.github/workflows/_build-wheels.yml
+    with:
+      python-versions: '["3.12", "3.13"]'
+      os: "windows-latest"
+
+  build-windows-extended:
+    needs: [ windows-tests-extended ]
+    if: startsWith(github.ref, 'refs/tags/')
+    uses: ./.github/workflows/_build-wheels.yml
+    with:
+      python-versions: '["3.10", "3.11"]'
+      os: "windows-latest"
+
+  publish-to-pypi:
+    name: "Publish Python distribution to PyPI"
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [ build-linux, build-windows, build-linux-extended, build-windows-extended ]
+    runs-on: ubuntu-latest
+
+    environment:
+      name: pypi
+      url: https://pypi.org/project/pflm/
+
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v8
+      with:
+        pattern: python-package-distributions-*
+        merge-multiple: true
+        path: dist/
+
+    - name: Publish distribution to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        skip-existing: true
+        verbose: true
+        print-hash: true
+
+  publish-to-testpypi:
+    name: "Publish Python distribution to TestPyPI"
+    needs: [ build-linux, build-windows ]
+    runs-on: ubuntu-latest
+
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/pflm/
+
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v8
+      with:
+        pattern: python-package-distributions-*
+        merge-multiple: true
+        path: dist/
+
+    - name: Publish distribution to TestPyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        skip-existing: true
+        repository-url: https://test.pypi.org/legacy/
+        verbose: true
+        print-hash: true

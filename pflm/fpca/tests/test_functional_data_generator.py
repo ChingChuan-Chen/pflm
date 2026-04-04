@@ -117,7 +117,7 @@ def test_fdg_generate_and_lazy_phi():
 def test_fdg_generate_and_lazy_num_pcs():
     fdg = FunctionalDataGenerator(np.linspace(0, 1, 3), lambda x: x, lambda x: np.ones_like(x))
     # call get_num_fpc before generate
-    num_pcs = fdg.get_num_pcs()
+    _ = fdg.get_num_pcs()
     y, t = fdg.generate(2)
     assert len(y) == 2
     assert len(t) == 2
@@ -126,7 +126,7 @@ def test_fdg_generate_and_lazy_num_pcs():
 
 
 def test_fdg_generate_same_seed():
-    y, t = __build_basic_data()
+    _y, t = __build_basic_data()
     fdg = FunctionalDataGenerator(t[0], lambda x: np.sin(0.4 * x), lambda x: 2.0 * np.log(x + 5.5))
     y1, t1 = fdg.generate(2, seed=123)
     y2, t2 = fdg.generate(2, seed=123)
