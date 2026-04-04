@@ -46,6 +46,9 @@ jobs:
         output-dir: dist/
       env:
         CIBW_BUILD: ${{ steps.cibw.outputs.build }}
+        # scipy>=1.14 only ships manylinux_2_28 binaries; using manylinux2014
+        # forces a source build that fails without OpenBLAS in the container.
+        CIBW_MANYLINUX_X86_64_IMAGE: quay.io/pypa/manylinux_2_28_x86_64:latest
 
     - name: Build source distribution (Python 3.13 only)
       if: ${{ matrix.python-version == '3.13' }}
